@@ -108,22 +108,35 @@ class ModelExplainer:
         return contributions
 
     def _fallback_explain(self, raw_features):
-        """Fallback using feature_importances_ when SHAP is unavailable."""
+        """Fallback using feature_importances_ when SHAP is unavailable.
+        Uses population mean comparison to determine direction."""
         importances = self.rf_model.feature_importances_
+
+        # Reasonable population means for Indian salaried investors
+        FEATURE_MEANS = {
+            'age': 35,
+            'annual_income': 800000,
+            'monthly_savings': 15000,
+            'risk_score': 2,
+        }
 
         contributions = []
         for i, feat_name in enumerate(FEATURE_NAMES):
             imp = float(importances[i])
+            raw_val = float(raw_features[0][i])
+            mean_val = FEATURE_MEANS.get(feat_name, 0)
+            direction = 'increased' if raw_val > mean_val else 'decreased'
             contributions.append({
                 'feature': feat_name,
                 'display_name': FEATURE_DISPLAY.get(feat_name, feat_name),
                 'shap_value': round(imp, 4),
-                'direction': 'increased',
+                'direction': direction,
                 'magnitude': abs(round(imp, 4)),
-                'raw_value': float(raw_features[0][i]),
+                'raw_value': raw_val,
             })
 
         return contributions
+
 
 
 def load_explainer():

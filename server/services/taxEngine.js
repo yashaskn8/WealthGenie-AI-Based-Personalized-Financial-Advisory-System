@@ -59,7 +59,7 @@ export function computeTax(annualIncome, regime = 'new') {
 
   // Section 87A rebate
   let rebateApplied = false;
-  if (regime === 'new' && taxableIncome <= 700000) {
+  if (regime === 'new' && taxableIncome <= 1200000) {
     taxBeforeCess = 0;
     rebateApplied = true;
   } else if (regime === 'old' && taxableIncome <= 500000) {

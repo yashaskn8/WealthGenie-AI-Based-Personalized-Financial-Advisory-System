@@ -83,6 +83,7 @@ export function runMonteCarlo({
 
   // finalValues[year_index] = array of terminal values across all simulations
   const allSimResults = yearsArray.map(() => []);
+  const finalValues = []; // terminal balances for goal probability
 
   for (let sim = 0; sim < simulations; sim++) {
     let balance = 0;
@@ -100,13 +101,16 @@ export function runMonteCarlo({
       // Record balance at end of each year
       allSimResults[y].push(Math.max(0, balance));
     }
+
+    // Collect final-year balance for goal probability computation
+    finalValues.push(Math.max(0, balance));
   }
 
-  // Sort each year's results and extract percentiles
+  // Sort each year's results ONCE, then extract all percentiles
   const p10 = [], p25 = [], p50 = [], p75 = [], p90 = [], mean = [];
 
   for (let y = 0; y < years; y++) {
-    const sorted = allSimResults[y].sort((a, b) => a - b);
+    const sorted = [...allSimResults[y]].sort((a, b) => a - b);
     p10.push(Math.round(percentile(sorted, 10)));
     p25.push(Math.round(percentile(sorted, 25)));
     p50.push(Math.round(percentile(sorted, 50)));
@@ -118,6 +122,7 @@ export function runMonteCarlo({
   return {
     years_array: yearsArray,
     p10, p25, p50, p75, p90, mean,
+    finalValues, // expose for goal probability reuse
     simulations_run: simulations,
   };
 }
@@ -137,6 +142,7 @@ export function computeGoalProbability(terminalValues, targetAmount) {
 
 /**
  * Run a full Monte Carlo simulation and also compute goal probability.
+ * Reuses finalValues from the primary simulation — no double-run.
  *
  * @param {Object} params - Same as runMonteCarlo, plus targetAmount
  * @returns {{ ...monteCarloResult, goal_probability, target_amount }}
@@ -145,29 +151,16 @@ export function runMonteCarloWithGoal(params) {
   const { targetAmount, ...mcParams } = params;
   const result = runMonteCarlo(mcParams);
 
-  // Re-run to get terminal (final-year) values for goal probability
-  const simulations = mcParams.simulations || 10000;
-  const years = mcParams.years;
-  const terminalValues = [];
-
-  for (let sim = 0; sim < simulations; sim++) {
-    let balance = 0;
-    for (let y = 0; y < years; y++) {
-      const annualReturn = randomNormal(mcParams.postTaxAnnualReturn, mcParams.annualVolatility);
-      const monthlyReturn = annualReturn / 12;
-      for (let m = 0; m < 12; m++) {
-        balance = (balance + mcParams.monthlyInvestment) * (1 + monthlyReturn);
-      }
-    }
-    terminalValues.push(Math.max(0, balance));
-  }
-
+  // Reuse terminal values from the primary simulation run
   const goalProbability = targetAmount
-    ? computeGoalProbability(terminalValues, targetAmount)
+    ? computeGoalProbability(result.finalValues, targetAmount)
     : null;
 
+  // Remove raw finalValues from response (large array, not needed by frontend)
+  const { finalValues, ...cleanResult } = result;
+
   return {
-    ...result,
+    ...cleanResult,
     goal_probability: goalProbability,
     target_amount: targetAmount || null,
   };
