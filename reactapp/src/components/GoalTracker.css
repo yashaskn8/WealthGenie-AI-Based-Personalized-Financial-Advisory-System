@@ -1,0 +1,131 @@
+/* Goal Tracker Page */
+.goal-tracker-page {
+  padding: 40px 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.page-subtitle {
+  color: #94a3b8;
+  margin-bottom: 32px;
+  font-size: 1rem;
+}
+
+/* Overview Card */
+.goal-overview-card {
+  background: #0B131E;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  padding: 28px 32px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+.goal-overview-stat { text-align: center; }
+.goal-overview-label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
+.goal-overview-value { font-size: 1.6rem; font-weight: 700; }
+.goal-overview-divider { width: 1px; height: 50px; background: rgba(255,255,255,0.08); }
+
+/* Goal Cards Grid */
+.goal-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  gap: 24px;
+}
+
+/* Individual Goal Card */
+.goal-card-item {
+  background: #090B12;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+.goal-card-item:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+}
+
+.goal-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.goal-card-icon { font-size: 1.5rem; }
+.goal-card-title { flex: 1; font-size: 1.15rem; font-weight: 600; }
+
+.goal-status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.status--ontrack { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.status--ahead { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+.status--behind { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+/* Goal Inputs */
+.goal-inputs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.goal-input-group label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; }
+.goal-amount-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #0B131E;
+  border: 1px solid rgba(6,182,212,0.3);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+}
+.goal-amount-input:focus { border-color: #8b5cf6; }
+
+/* Progress */
+.goal-progress-section { margin-bottom: 20px; }
+.goal-progress-labels { display: flex; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px; }
+.goal-progress-track { position: relative; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+.goal-progress-fill { position: absolute; top: 0; left: 0; height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+.goal-progress-fill--projected { background: rgba(139,92,246,0.3); z-index: 1; }
+.goal-progress-fill--current { background: linear-gradient(to right, #8b5cf6, #06b6d4); z-index: 2; }
+.goal-progress-legend { display: flex; gap: 16px; margin-top: 6px; font-size: 0.72rem; color: #94a3b8; }
+.legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+.legend-dot--current { background: #8b5cf6; }
+.legend-dot--projected { background: rgba(139,92,246,0.3); }
+
+/* Footer Metrics */
+.goal-card-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  padding-top: 16px;
+}
+.goal-metric { text-align: center; }
+.goal-metric-label { display: block; font-size: 0.72rem; color: #64748b; margin-bottom: 4px; }
+.goal-metric-value { font-size: 1rem; font-weight: 600; }
+
+@media (max-width: 768px) {
+  .goal-cards-grid { grid-template-columns: 1fr; }
+  .goal-overview-card { flex-direction: column; }
+  .goal-overview-divider { width: 60%; height: 1px; }
+}

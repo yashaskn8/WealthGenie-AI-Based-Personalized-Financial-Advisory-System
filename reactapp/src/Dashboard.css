@@ -1,0 +1,422 @@
+/* ===== WealthGenie Dashboard — Ultra-Modern Redesign ===== */
+/* Design Tokens */
+:root {
+  --dash-bg: #0a0e17;
+  --panel-bg: rgba(16, 22, 36, 0.75);
+  --panel-border: rgba(6, 182, 212, 0.12);
+  --panel-glow: rgba(6, 182, 212, 0.06);
+  --accent-teal: #06b6d4;
+  --accent-emerald: #10b981;
+  --accent-gold: #dfbd69;
+  --accent-red: #f43f5e;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-dim: #64748b;
+  --divider: rgba(255, 255, 255, 0.06);
+}
+
+/* Page Container */
+.dashboard-page {
+  background-color: var(--dash-bg);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(223, 189, 105, 0.04) 0%, transparent 50%);
+  min-height: 100vh;
+  padding: 20px 24px;
+  color: var(--text-primary);
+  font-family: 'Inter', 'Outfit', -apple-system, sans-serif;
+  animation: fadeInDashboard 0.5s ease-out forwards;
+}
+
+@keyframes fadeInDashboard {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Skeleton Loader ===== */
+.skeleton-box {
+  background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(6, 182, 212, 0.08) 50%, rgba(255,255,255,0.02) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.dashboard-container {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* ===== Header ===== */
+.advisor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.advisor-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.advisor-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 20px;
+  background: linear-gradient(to bottom, var(--accent-teal), var(--accent-emerald));
+  border-radius: 2px;
+}
+
+/* ===== KPI Status Ribbon ===== */
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.status-item {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.status-item::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent-teal), transparent);
+  opacity: 0.4;
+}
+
+.status-item:hover {
+  border-color: rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 20px var(--panel-glow);
+}
+
+.status-item span {
+  color: #fff;
+  font-weight: 700;
+  margin-left: 4px;
+  font-size: 0.85rem;
+}
+
+/* ===== Bento Grid — Top Row ===== */
+.top-row-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.2fr) minmax(320px, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* ===== Bento Grid — Bottom Row ===== */
+.bottom-row-grid {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 14px;
+}
+
+/* ===== Glassmorphism Panel Cards ===== */
+.panel-card {
+  background: var(--panel-bg);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle top-edge glow line on every panel */
+.panel-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  width: 80%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent-teal), transparent);
+  opacity: 0.3;
+}
+
+.panel-card:hover {
+  border-color: rgba(6, 182, 212, 0.25);
+  box-shadow:
+    0 8px 32px rgba(6, 182, 212, 0.08),
+    0 0 0 1px rgba(6, 182, 212, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+/* ===== Parameter Controls ===== */
+.param-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.param-input-group {
+  display: flex;
+  align-items: center;
+  background: rgba(6, 182, 212, 0.06);
+  border: 1px solid rgba(6, 182, 212, 0.15);
+  border-radius: 6px;
+  padding: 4px 8px;
+  transition: border-color 0.2s ease;
+}
+
+.param-input-group:focus-within {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.1);
+}
+
+.param-input-group input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  width: 70px;
+  text-align: right;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+/* ===== Custom Range Slider (Teal themed) ===== */
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  background: linear-gradient(to right, var(--accent-teal) var(--value, 0%), rgba(255,255,255,0.08) var(--value, 0%));
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: var(--accent-teal);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 4px rgba(6, 182, 212, 0.3);
+  transition: transform 0.2s ease;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.risk-scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  margin-top: 8px;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+/* ===== Data Table ===== */
+.data-table-wrapper {
+  overflow-x: auto;
+}
+
+.dense-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.dense-table th {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--divider);
+  background: rgba(6, 182, 212, 0.03);
+}
+
+.dense-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--divider);
+  color: var(--text-primary);
+}
+
+.dense-table tr:hover td {
+  background: rgba(6, 182, 212, 0.03);
+}
+
+.toggle-icon {
+  color: var(--text-dim);
+  margin-right: 8px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.toggle-icon:hover {
+  color: var(--accent-teal);
+}
+
+.tax-badge {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* ===== Stats Grid ===== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.mini-stat {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.mini-stat strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #fff;
+  margin-top: 3px;
+  font-weight: 600;
+}
+
+.stat-green { color: var(--accent-emerald) !important; }
+.stat-red { color: var(--accent-red) !important; }
+
+/* ===== Action Buttons ===== */
+.buttons-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-portal {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.btn-portal:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.btn-portal-primary {
+  background: linear-gradient(135deg, var(--accent-teal), #0891b2);
+  color: #fff;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.2);
+}
+
+.btn-portal-primary:hover {
+  background: linear-gradient(135deg, #22d3ee, var(--accent-teal));
+  box-shadow: 0 6px 24px rgba(6, 182, 212, 0.3);
+  transform: translateY(-2px);
+}
+
+/* ===== Micro-interactions ===== */
+.rec-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease !important;
+}
+.rec-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 15px rgba(6, 182, 212, 0.15) !important;
+}
+
+/* ===== Custom Scrollbar ===== */
+.panel-card::-webkit-scrollbar {
+  width: 4px;
+}
+.panel-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel-card::-webkit-scrollbar-thumb {
+  background-color: rgba(6, 182, 212, 0.2);
+  border-radius: 10px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .top-row-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bottom-row-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 16px 12px;
+  }
+  .top-row-grid {
+    grid-template-columns: 1fr;
+  }
+  .status-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
