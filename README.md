@@ -225,6 +225,7 @@ Access the app at: **http://localhost:5173**
 | Live AMFI/Yahoo Market Data Sync   | Real-time Data    | `marketDataService.js` + Cron    |
 | Data Freshness Indicator           | Transparency      | `DataFreshnessBar.jsx`           |
 | FY2025-26 Tax Engine + Surcharge   | Taxation          | `taxEngine.js` (7 slabs + surcharge) |
+| Post-Tax Return Calculator         | Taxation          | `postTaxCalculator.js` (10 instruments) |
 | Tax Regime Comparison API          | Taxation          | `GET /api/tax/compare`           |
 | Gemini AI Advisory Generation      | Generative AI     | `geminiService.js` + SHAP context|
 | Portfolio Rebalancer               | Active Management | `RebalancerScreen.jsx`           |
@@ -232,8 +233,11 @@ Access the app at: **http://localhost:5173**
 | Multi-Instrument Comparison        | Market Analysis   | `ComparisonTableModal.jsx`       |
 | Risk Quiz Modal                    | Onboarding        | `RiskQuizModal.jsx`              |
 | Genie Chat (Gemini Q&A)           | Conversational AI | `GenieChat.jsx`                  |
+| SEBI Regulatory Disclaimer         | Compliance        | `SebiDisclaimer.jsx` + API field |
 | JWT Authentication + bcrypt        | Security          | `authMiddleware.js`              |
+| Rate Limiting + Input Validation   | Security          | `express-rate-limit` + `Joi`     |
 | Redis Caching (TTL-based)          | Performance       | `redis.js` config                |
+
 
 
 ---

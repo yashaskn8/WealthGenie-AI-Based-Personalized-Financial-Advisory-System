@@ -6,21 +6,13 @@ Serves RandomForest predictions with SHAP explainability on port 8000.
 import os
 import numpy as np
 import joblib
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import PredictRequest, PredictResponse, HealthResponse
 from explainer import load_explainer
 
-app = FastAPI(title="WealthGenie ML Service", version="2.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Load models at startup
+# ── Application State ─────────────────────────────────────────────
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
 MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(MODEL_DIR, 'model.pkl'))
 LE_PATH = os.path.join(MODEL_DIR, 'label_encoder.pkl')
@@ -33,8 +25,9 @@ model_accuracy = None
 explainer_instance = None
 
 
-@app.on_event("startup")
-def load_models():
+# ── Lifespan (replaces deprecated @app.on_event) ─────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global model, label_encoder, dt_model, explainer_instance
     try:
         model = joblib.load(MODEL_PATH)
@@ -48,6 +41,8 @@ def load_models():
         print(f"[OK] DecisionTree model loaded from {DT_PATH}")
     except FileNotFoundError:
         pass
+    except Exception as e:
+        print(f"[WARN] DecisionTree load failed: {e}")
 
     # Initialize SHAP explainer
     explainer_instance = load_explainer()
@@ -55,6 +50,20 @@ def load_models():
         print("[OK] SHAP Explainer initialized")
     else:
         print("[WARN] SHAP Explainer not available, predictions will work without explanations")
+
+    yield
+    # Cleanup on shutdown (if needed)
+
+
+app = FastAPI(title="WealthGenie ML Service", version="2.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5000", "http://localhost:5173"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
+
 
 
 RISK_ENCODING = {

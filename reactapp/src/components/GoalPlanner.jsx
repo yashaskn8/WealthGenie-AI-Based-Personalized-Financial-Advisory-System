@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Plus, Trash2, TrendingUp, AlertTriangle, CheckCircle, Calendar, DollarSign } from 'lucide-react';
 import ProjectionBand from './ProjectionBand';
+import SebiDisclaimer from './SebiDisclaimer';
 import api from '../services/api';
 
 const GOAL_PRESETS = [
@@ -330,6 +331,7 @@ const GoalPlanner = ({ profile }) => {
           </div>
         )}
       </div>
+      <SebiDisclaimer />
     </div>
   );
 };

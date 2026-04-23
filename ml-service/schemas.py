@@ -1,12 +1,21 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Dict, List, Optional
 
 
 class PredictRequest(BaseModel):
-    age: int = Field(..., ge=18, le=100, description="User age in years")
-    annual_income: float = Field(..., gt=0, description="Annual income in INR")
+    age: int = Field(..., ge=18, le=80, description="User age in years")
+    annual_income: float = Field(..., gt=0, le=100000000, description="Annual income in INR (max ₹10Cr)")
     monthly_savings: float = Field(..., ge=0, description="Monthly savings in INR")
     risk_category: str = Field(..., description="Risk category: Conservative, Conservative-Moderate, Moderate, Moderate-Aggressive, Aggressive")
+
+    @model_validator(mode='after')
+    def savings_must_be_reasonable(self):
+        if self.monthly_savings > self.annual_income / 12:
+            raise ValueError(
+                f'Monthly savings (₹{self.monthly_savings:,.0f}) cannot exceed '
+                f'monthly income (₹{self.annual_income/12:,.0f})'
+            )
+        return self
 
 
 class FeatureContribution(BaseModel):

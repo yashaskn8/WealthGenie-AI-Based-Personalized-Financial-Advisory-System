@@ -4,6 +4,7 @@ import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap } from
 import { investmentDatabase, RISK_COLORS, CHART_COLORS } from './investmentDatabase';
 import { getEligibleInvestments, getWhy, computePostTaxReturn } from './recommendationEngine';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
+import SebiDisclaimer from './components/SebiDisclaimer';
 import './Dashboard.css';
 
 const CATEGORY_COLORS = {
@@ -840,6 +841,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
           </div>
         )}
 
+        <SebiDisclaimer />
       </div>
     </div>
   );

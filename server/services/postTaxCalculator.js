@@ -1,157 +1,205 @@
 /**
  * WealthGenie Post-Tax Return Calculator
- * Computes real after-tax returns for every instrument type under Indian tax law.
- * FY2025-26 rates.
+ * Applies Indian taxation rules per instrument type for FY2025-26.
+ * All rates sourced from Finance Act 2023 and Budget 2024 amendments.
  */
 
-/**
- * Calculate post-tax return for a specific investment instrument.
- *
- * @param {string} instrument - Instrument type: 'FD', 'ELSS', 'Equity_MF', 'ETF', 'Debt_MF', 'RBI_Bond', 'G_Sec'
- * @param {number} nominalRate - Pre-tax annual return rate (e.g. 7.25 for 7.25%)
- * @param {number} marginalTaxRate - User's marginal tax rate as decimal (e.g. 0.30)
- * @param {number} holdingPeriodYears - Investment holding period in years
- * @param {number} annualInvestment - Annual investment amount in ₹
- * @returns {{ nominalReturn, taxAmount, postTaxReturn, effectiveYield, notes }}
- */
-export function calculatePostTaxReturn(
-  instrument,
-  nominalRate,
-  marginalTaxRate,
-  holdingPeriodYears,
-  annualInvestment
-) {
-  const rate = nominalRate / 100;
-  const annualReturn = annualInvestment * rate;
-  let taxAmount = 0;
-  let notes = '';
+import { computeTax } from './taxEngine.js';
 
-  switch (instrument.toUpperCase()) {
-    // ─── FIXED DEPOSITS ─────────────────────────────────────────────
-    case 'FD':
-    case 'FIXED_DEPOSIT': {
-      // Interest fully taxable at marginal slab rate
-      taxAmount = annualReturn * marginalTaxRate;
+// ── Helper: extract marginal rate from taxable income ─────────────
 
-      // TDS note
-      const tdsThreshold = 40000; // ₹50,000 for senior citizens
-      if (annualReturn > tdsThreshold) {
-        notes = `TDS at 10% applies on FD interest above ₹${tdsThreshold.toLocaleString('en-IN')}/yr. ` +
-                `Claim excess TDS back when filing ITR.`;
-      } else {
-        notes = 'No TDS applicable as interest is below ₹40,000 threshold.';
-      }
-      break;
-    }
-
-    // ─── ELSS MUTUAL FUNDS ──────────────────────────────────────────
-    case 'ELSS': {
-      // 3-year mandatory lock-in
-      // LTCG: 10% on gains above ₹1,00,000/yr (legacy) → updated to 12.5% above ₹1,25,000
-      const totalGain = annualInvestment * Math.pow(1 + rate, Math.max(holdingPeriodYears, 3)) - annualInvestment;
-      const annualizedGain = totalGain / Math.max(holdingPeriodYears, 3);
-      const exemptGain = 125000; // FY2025-26 updated LTCG exemption
-      const taxableGain = Math.max(0, annualizedGain - exemptGain);
-      taxAmount = taxableGain * 0.125; // 12.5% LTCG
-      notes = `ELSS: 3-year lock-in. LTCG at 12.5% on gains above ₹1,25,000/yr. ` +
-              `Section 80C deduction up to ₹1,50,000 available under old regime.`;
-      break;
-    }
-
-    // ─── EQUITY MUTUAL FUNDS & ETFs ─────────────────────────────────
-    case 'EQUITY_MF':
-    case 'ETF': {
-      if (holdingPeriodYears < 1) {
-        // STCG: 20% flat
-        taxAmount = annualReturn * 0.20;
-        notes = `STCG at 20% (holding < 1 year).`;
-      } else {
-        // LTCG: 12.5% on gains above ₹1,25,000
-        const exemptGain = 125000;
-        const taxableGain = Math.max(0, annualReturn - exemptGain);
-        taxAmount = taxableGain * 0.125;
-        notes = `LTCG at 12.5% on gains above ₹1,25,000/yr (FY2025-26). Gains below threshold are tax-free.`;
-      }
-      break;
-    }
-
-    // ─── DEBT MUTUAL FUNDS ──────────────────────────────────────────
-    case 'DEBT_MF': {
-      // Post April 2023: gains taxed at income slab rate (no indexation)
-      taxAmount = annualReturn * marginalTaxRate;
-      notes = `Debt MF gains taxed at income slab rate (${(marginalTaxRate * 100).toFixed(0)}%). ` +
-              `No indexation benefit after April 2023.`;
-      break;
-    }
-
-    // ─── RBI SAVINGS BONDS ──────────────────────────────────────────
-    case 'RBI_BOND':
-    case 'RBI_BONDS': {
-      // Interest fully taxable at slab rate, no TDS
-      taxAmount = annualReturn * marginalTaxRate;
-      notes = `RBI Bond interest fully taxable at slab rate. No TDS deducted — must declare in ITR. ` +
-              `7-year lock-in with sovereign guarantee.`;
-      break;
-    }
-
-    // ─── GOVERNMENT SECURITIES / G-SECS ─────────────────────────────
-    case 'G_SEC':
-    case 'GSEC': {
-      if (holdingPeriodYears < 1) {
-        // STCG at slab rate
-        taxAmount = annualReturn * marginalTaxRate;
-        notes = `G-Sec STCG taxed at slab rate (${(marginalTaxRate * 100).toFixed(0)}%).`;
-      } else {
-        // Interest taxable at slab, capital gains LTCG at 10% without indexation
-        const interestComponent = annualReturn * 0.7; // approximate split
-        const capitalGainComponent = annualReturn * 0.3;
-        taxAmount = (interestComponent * marginalTaxRate) + (capitalGainComponent * 0.10);
-        notes = `G-Sec: Interest taxed at slab rate. Capital gains LTCG at 10% without indexation.`;
-      }
-      break;
-    }
-
-    default: {
-      // Generic: tax at slab rate
-      taxAmount = annualReturn * marginalTaxRate;
-      notes = `Taxed at marginal slab rate (${(marginalTaxRate * 100).toFixed(0)}%).`;
-    }
+function getMarginalRate(taxableIncome, regime) {
+  if (regime === 'new') {
+    if (taxableIncome <= 400000)  return 0;
+    if (taxableIncome <= 800000)  return 0.05;
+    if (taxableIncome <= 1200000) return 0.10;
+    if (taxableIncome <= 1600000) return 0.15;
+    if (taxableIncome <= 2000000) return 0.20;
+    if (taxableIncome <= 2400000) return 0.25;
+    return 0.30;
+  } else {
+    if (taxableIncome <= 250000)  return 0;
+    if (taxableIncome <= 500000)  return 0.05;
+    if (taxableIncome <= 1000000) return 0.20;
+    return 0.30;
   }
-
-  // Add 4% cess on computed tax
-  taxAmount = taxAmount * 1.04;
-
-  const postTaxReturn = annualReturn - taxAmount;
-  const effectiveYield = annualInvestment > 0
-    ? parseFloat(((postTaxReturn / annualInvestment) * 100).toFixed(2))
-    : 0;
-
-  return {
-    instrument,
-    nominalReturn: parseFloat(annualReturn.toFixed(2)),
-    taxAmount: parseFloat(taxAmount.toFixed(2)),
-    postTaxReturn: parseFloat(postTaxReturn.toFixed(2)),
-    effectiveYield,
-    nominalRate,
-    marginalTaxRate,
-    holdingPeriodYears,
-    annualInvestment,
-    notes,
-  };
 }
 
+function round4(n) { return parseFloat(n.toFixed(4)); }
+
 /**
- * Batch calculate post-tax returns for multiple instruments.
+ * Computes the effective post-tax annual return for a given instrument.
  *
- * @param {Array<{name, type, nominalRate}>} instruments
- * @param {number} marginalTaxRate
- * @param {number} holdingPeriodYears
- * @param {number} annualInvestment
- * @returns {Array}
+ * @param {string} instrumentType  - 'FD','ELSS','Equity_MF','ETF','Debt_MF',
+ *                                   'RBI_Bond','G-Sec','PPF','NPS','Gold'
+ * @param {number} nominalRate     - Annual nominal return as decimal (e.g., 0.072)
+ * @param {number} annualIncome    - User's gross annual income (for slab)
+ * @param {number} holdingYears    - Intended holding period in years
+ * @param {string} regime          - 'new' | 'old'
+ * @returns {object}               - { postTaxReturn, effectiveYield,
+ *                                     taxType, taxRate, notes }
  */
-export function batchCalculatePostTaxReturns(instruments, marginalTaxRate, holdingPeriodYears, annualInvestment) {
-  return instruments.map(inst => ({
-    name: inst.name,
-    ...calculatePostTaxReturn(inst.type, inst.nominalRate, marginalTaxRate, holdingPeriodYears, annualInvestment),
-  }));
+export function calculatePostTaxReturn(
+  instrumentType, nominalRate, annualIncome, holdingYears = 3, regime = 'new'
+) {
+  // Derive marginal slab rate for this user
+  const taxResult = computeTax(annualIncome, regime);
+  const marginalRate = getMarginalRate(taxResult.taxableIncome, regime);
+
+  switch (instrumentType) {
+
+    case 'FD': {
+      // FD interest is fully taxable at marginal slab rate.
+      // TDS at 10% if annual interest > ₹40,000 (₹50,000 for senior citizens).
+      // Post-tax return = nominalRate × (1 - marginalRate)
+      const postTax = nominalRate * (1 - marginalRate);
+      return {
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: 'Slab Rate (TDS applicable)',
+        taxRate: marginalRate,
+        notes: `Interest taxed at ${(marginalRate * 100).toFixed(0)}% slab. `
+             + `TDS applies if interest > ₹40,000/year.`
+      };
+    }
+
+    case 'ELSS': {
+      // ELSS is taxed as LTCG (mandatory 3-year lock-in).
+      // LTCG rate: 12.5% on gains above ₹1,25,000/year (post Budget 2024).
+      // 80C deduction up to ₹1,50,000 (old regime only).
+      const ltcgRate = 0.125;
+      const postTax = nominalRate * (1 - ltcgRate);
+      return {
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: 'LTCG (12.5% post ₹1.25L exemption)',
+        taxRate: ltcgRate,
+        notes: 'Lock-in: 3 years. Gains above ₹1.25L taxed at 12.5%. '
+             + '80C benefit of up to ₹1.5L available under old regime.'
+      };
+    }
+
+    case 'Equity_MF':
+    case 'ETF': {
+      if (holdingYears < 1) {
+        // STCG: 20% flat on all gains (Finance Act 2024 amendment)
+        const postTax = nominalRate * (1 - 0.20);
+        return {
+          postTaxReturn: round4(postTax),
+          effectiveYield: round4(postTax * 100),
+          taxType: 'STCG (20% flat)',
+          taxRate: 0.20,
+          notes: 'Held < 1 year. STCG at 20% applies on full gains.'
+        };
+      } else {
+        // LTCG: 12.5% on gains above ₹1,25,000/year (Budget 2024)
+        const ltcgRate = 0.125;
+        const postTax = nominalRate * (1 - ltcgRate);
+        return {
+          postTaxReturn: round4(postTax),
+          effectiveYield: round4(postTax * 100),
+          taxType: 'LTCG (12.5% post ₹1.25L exemption)',
+          taxRate: ltcgRate,
+          notes: 'Held > 1 year. Gains above ₹1.25L/year taxed at 12.5%.'
+        };
+      }
+    }
+
+    case 'Debt_MF': {
+      // Debt MF: all gains taxed at slab rate regardless of holding period.
+      // Indexation benefit removed (Finance Act 2023, effective April 2023).
+      const postTax = nominalRate * (1 - marginalRate);
+      return {
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: 'Slab Rate (no indexation)',
+        taxRate: marginalRate,
+        notes: 'Indexation benefit removed from April 2023. '
+             + `Gains taxed at ${(marginalRate * 100).toFixed(0)}% slab rate.`
+      };
+    }
+
+    case 'RBI_Bond': {
+      // 8% Floating Rate Savings Bond (Taxable), 2020.
+      // Interest paid semi-annually. Fully taxable at slab. No TDS.
+      const postTax = nominalRate * (1 - marginalRate);
+      return {
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: 'Slab Rate (no TDS, declare in ITR)',
+        taxRate: marginalRate,
+        notes: 'No TDS deducted. Interest must be declared in ITR. '
+             + 'Non-tradeable — zero capital gains applicable.'
+      };
+    }
+
+    case 'G-Sec': {
+      // Interest (coupon) taxable at slab rate.
+      // Capital gains if sold before maturity:
+      //   STCG (< 1yr): slab rate
+      //   LTCG (> 1yr): 10% without indexation
+      const couponRate = 0.6;  // assumption: 60% of return is coupon income
+      const gainRate = 0.4;
+      const taxOnCoupon = couponRate * marginalRate;
+      const taxOnGains = holdingYears < 1 ? gainRate * marginalRate : gainRate * 0.10;
+      const blendedTaxRate = taxOnCoupon + taxOnGains;
+      const postTax = nominalRate * (1 - blendedTaxRate);
+      return {
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: 'Blended (coupon at slab, LTCG at 10%)',
+        taxRate: round4(blendedTaxRate),
+        notes: 'Coupon taxed at slab. Capital gains at 10% if held > 1 year.'
+      };
+    }
+
+    case 'PPF': {
+      // EEE instrument: contribution, interest, and maturity — all tax-exempt.
+      // 15-year lock-in. Current rate: 7.1% (notified quarterly by RBI).
+      return {
+        postTaxReturn: nominalRate,   // No tax at any stage
+        effectiveYield: round4(nominalRate * 100),
+        taxType: 'EEE — Fully Exempt',
+        taxRate: 0,
+        notes: 'Exempt-Exempt-Exempt. 15-year lock-in. '
+             + 'Max ₹1.5L/year contribution. 80C eligible (old regime).'
+      };
+    }
+
+    case 'NPS': {
+      // Partial EET: contributions tax-deductible (80C + 80CCD(1B)),
+      // 60% of corpus tax-exempt on maturity, 40% must be annuitised (taxable).
+      const effectiveTaxOnMaturity = 0.40 * marginalRate;
+      const annualisedTaxDrag = Math.pow(1 - effectiveTaxOnMaturity, 1 / holdingYears) - 1;
+      const postTax = nominalRate + annualisedTaxDrag;
+      return {
+        postTaxReturn: round4(Math.max(0, postTax)),
+        effectiveYield: round4(Math.max(0, postTax) * 100),
+        taxType: 'Partial EET (40% annuity taxable at maturity)',
+        taxRate: round4(effectiveTaxOnMaturity),
+        notes: '60% maturity corpus tax-free. 40% must be annuitised. '
+             + 'Exit before 60 triggers higher tax. 80CCD(1B) allows ₹50K extra deduction.'
+      };
+    }
+
+    case 'Gold': {
+      // Gold ETF: same as Equity ETF (LTCG 12.5% if held > 1yr).
+      // SGB: capital gains fully exempt if held to maturity (8 years).
+      // Default to Gold ETF taxation.
+      const ltcgRate = holdingYears >= 1 ? 0.125 : marginalRate;
+      const postTax = nominalRate * (1 - ltcgRate);
+      return {
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: holdingYears >= 1
+          ? 'LTCG (12.5%)' : 'STCG (slab rate)',
+        taxRate: ltcgRate,
+        notes: 'Gold ETF taxation. For Sovereign Gold Bonds held to maturity '
+             + '(8 years), capital gains are fully exempt.'
+      };
+    }
+
+    default:
+      throw new Error(`Unknown instrument type: ${instrumentType}`);
+  }
 }

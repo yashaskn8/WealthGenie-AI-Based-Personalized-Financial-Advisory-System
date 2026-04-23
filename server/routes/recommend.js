@@ -38,11 +38,12 @@ router.post('/', verifyJWT, async (req, res) => {
     const marginalRate = getTaxSlab(profile.annualIncome, profile.taxRegime);
     const picks = [mlResult.primary, mlResult.secondary, mlResult.tertiary];
 
-    // Calculate post-tax returns for each
+    // Calculate post-tax returns for each recommended instrument
     const instruments = picks.map(key => {
       const meta = INSTRUMENT_META[key] || INSTRUMENT_META['FD'];
-      const postTax = calculatePostTaxReturn(meta.type, meta.nominalRate, marginalRate, 5, profile.savings * 12);
-      return { ...meta, nominalReturn: meta.nominalRate, postTaxReturn: postTax.effectiveYield, effectiveYield: postTax.effectiveYield };
+      // nominalRate in INSTRUMENT_META is percentage; convert to decimal for calculator
+      const postTax = calculatePostTaxReturn(meta.type, meta.nominalRate / 100, profile.annualIncome, 5, profile.taxRegime || 'new');
+      return { ...meta, nominalReturn: meta.nominalRate, postTaxReturn: postTax.effectiveYield, effectiveYield: postTax.effectiveYield, taxNotes: postTax.notes };
     });
 
     // Call Gemini for advisory (now with SHAP context)
@@ -76,6 +77,7 @@ router.post('/', verifyJWT, async (req, res) => {
       decision_path: mlResult.decision_path,
       explanation: mlResult.explanation || null,
       ml_fallback: mlResult.fallback || false,
+      disclaimer: 'WealthGenie provides AI-generated investment analysis for educational and informational purposes only. It does not constitute registered investment advice under SEBI (Investment Advisers) Regulations, 2013. Past returns are not indicative of future performance. Please consult a SEBI-registered investment adviser before making investment decisions. Mutual fund investments are subject to market risks.',
     });
   } catch (err) {
     res.status(500).json({ error: 'Recommendation failed: ' + err.message });
