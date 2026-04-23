@@ -25,7 +25,7 @@ class ModelExplainer:
         self.label_encoder = label_encoder
 
         # Extract the RandomForest step from the sklearn Pipeline
-        self.rf_model = pipeline.named_steps['rf']
+        self.rf_model = pipeline.named_steps['clf']
         self.scaler = pipeline.named_steps['scaler']
         self.class_names = label_encoder.classes_
 
@@ -89,9 +89,9 @@ class ModelExplainer:
         import shap
         shap_values = self.explainer.shap_values(scaled_features)
 
-        # shap_values is a list of arrays, one per class
-        # Each array has shape (n_samples, n_features)
-        class_shap = shap_values[pred_class_idx][0]  # shape: (4,)
+        # shap_values is an array of shape (n_samples, n_features, n_classes)
+        # for a single sample, we take index 0 and the specific class index
+        class_shap = shap_values[0, :, pred_class_idx]  # shape: (4,)
 
         contributions = []
         for i, feat_name in enumerate(FEATURE_NAMES):
