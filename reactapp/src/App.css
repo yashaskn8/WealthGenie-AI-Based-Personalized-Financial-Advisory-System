@@ -49,7 +49,7 @@ body {
   object-fit: cover;
   object-position: center 10%;
   transform: translateZ(0); /* Hardware acceleration */
-  filter: contrast(1.15) saturate(1.2) brightness(1.05); /* Artificial clarity enhancement */
+  filter: contrast(1.15) saturate(1.2) brightness(0.85); /* Fine-tuned brightness */
 }
 
 .overlay {

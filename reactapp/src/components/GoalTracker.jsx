@@ -10,6 +10,16 @@ const GOAL_DEFAULTS = {
   'Emergency Fund': { target: 600000, icon: '🛡️' },
 };
 
+// Reasonable caps to prevent overflow
+const MAX_TARGET = 1000000000;  // ₹100 Cr
+const MAX_SAVED  = 500000000;   // ₹50 Cr
+
+function clampValue(val, min = 0, max = MAX_TARGET) {
+  const num = Number(val);
+  if (isNaN(num) || !isFinite(num)) return min;
+  return Math.max(min, Math.min(max, Math.round(num)));
+}
+
 const GoalCard = ({ goal, currentSaved, target, onTargetChange, onCurrentChange, monthlyAllocation, horizon, returnRate }) => {
   const projectedValue = calculateSIPFutureValue(monthlyAllocation, returnRate, horizon) + currentSaved;
   const progressPercent = Math.min((currentSaved / target) * 100, 100);
@@ -37,7 +47,9 @@ const GoalCard = ({ goal, currentSaved, target, onTargetChange, onCurrentChange,
           <input
             type="number"
             value={target}
-            onChange={e => onTargetChange(Number(e.target.value))}
+            min={0}
+            max={MAX_TARGET}
+            onChange={e => onTargetChange(clampValue(e.target.value, 0, MAX_TARGET))}
             className="goal-amount-input"
           />
         </div>
@@ -46,7 +58,9 @@ const GoalCard = ({ goal, currentSaved, target, onTargetChange, onCurrentChange,
           <input
             type="number"
             value={currentSaved}
-            onChange={e => onCurrentChange(Number(e.target.value))}
+            min={0}
+            max={MAX_SAVED}
+            onChange={e => onCurrentChange(clampValue(e.target.value, 0, MAX_SAVED))}
             className="goal-amount-input"
           />
         </div>

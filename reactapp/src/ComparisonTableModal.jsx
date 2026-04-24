@@ -40,11 +40,72 @@ const RISK_LABEL_TO_LEVEL = {
   'Very High': 95
 };
 
-const Sparkline = ({ color }) => (
-  <svg className="sparkline-container" viewBox="0 0 100 20">
-    <path d="M0,18 Q20,2 40,15 T80,5 T100,2" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-  </svg>
-);
+const Sparkline = ({ color, category, riskLevel, rate, invId }) => {
+  // Deterministic pseudo-random based on invId so the graph looks the same on every render
+  const seedStr = invId || 'default';
+  let seed = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    seed = Math.imul(31, seed) + seedStr.charCodeAt(i) | 0;
+  }
+  const random = () => {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const isDebt = category === 'Debt' || category === 'Government';
+  const volMulti = (RISK_LABEL_TO_LEVEL[riskLevel] || 50) / 100;
+  
+  // Map return rate (e.g., 5% to 16%) to final Y position (18 to 2)
+  const clampedRate = Math.max(5, Math.min(16, rate || 8));
+  const finalY = 18 - ((clampedRate - 5) / 11) * 16;
+  
+  const pointsCount = isDebt ? 6 : 14; // Equity has more jagged, frequent points
+  const dx = 100 / (pointsCount - 1);
+  
+  let points = [{ x: 0, y: 18 }];
+  
+  for (let i = 1; i < pointsCount - 1; i++) {
+    const x = i * dx;
+    // Linear interpolation for the upward trend
+    const progress = i / (pointsCount - 1);
+    const trendY = 18 - (18 - finalY) * progress;
+    
+    // Add volatility noise
+    let noise = (random() - 0.5) * 20 * volMulti;
+    if (isDebt) noise *= 0.15; // Make debt extremely smooth with minimal noise
+    
+    points.push({ x, y: Math.max(2, Math.min(18, trendY + noise)) });
+  }
+  
+  points.push({ x: 100, y: finalY });
+  
+  // Construct SVG path
+  let path = `M 0 18`;
+  if (isDebt) {
+    // Smooth Bezier curves for stable investments
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i-1];
+      const curr = points[i];
+      const cpX = (prev.x + curr.x) / 2;
+      path += ` C ${cpX} ${prev.y}, ${cpX} ${curr.y}, ${curr.x} ${curr.y}`;
+    }
+  } else {
+    // Jagged, sharp lines for volatile equity investments
+    for (let i = 1; i < points.length; i++) {
+      path += ` L ${points[i].x} ${points[i].y}`;
+    }
+  }
+
+  return (
+    <svg className="sparkline-container" viewBox="0 0 100 20" style={{ width: '80px', height: '24px', flexShrink: 0, overflow: 'visible', filter: `drop-shadow(0 2px 4px ${color}40)` }}>
+      {/* Subtle background glow for volatile assets */}
+      {!isDebt && <path d={`${path} L 100 20 L 0 20 Z`} fill={`${color}15`} />}
+      <path d={path} fill="none" stroke={color} strokeWidth={isDebt ? "2" : "1.5"} strokeLinecap="round" strokeLinejoin="round" />
+      {/* End point dot */}
+      <circle cx="100" cy={finalY} r="2.5" fill={color} />
+    </svg>
+  );
+};
 
 const RiskLiquidityVisual = ({ risk, liquidity }) => {
   const percent = RISK_LABEL_TO_LEVEL[risk] || 50;
@@ -152,24 +213,51 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
             </div>
           </div>
 
-          <div className="filter-row" style={{ marginTop: 4 }}>
-            <div className="range-group">
-              <span className="range-labels">Risk Filter</span>
-              <div className="range-track">
-                <div style={{ position: 'absolute', top: -4, left: `${riskRange}%`, width: 12, height: 12, background: '#fff', borderRadius: '50%', boxShadow: '0 0 10px #38bdf8', transform: 'translateX(-50%)' }} />
-                <div style={{ height: '100%', width: `${riskRange}%`, background: 'linear-gradient(90deg, #38bdf8, #fbbf24)', borderRadius: 2 }} />
+          <div className="filter-row" style={{ marginTop: 24, gap: 40 }}>
+            <div className="range-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Max Risk Tolerance</span>
+                <span style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.85rem' }}>{riskRange}%</span>
               </div>
-              <input type="range" min="0" max="100" value={riskRange} onChange={e => setRiskRange(e.target.value)} style={{opacity: 0, position: 'absolute', width: '200px', cursor:'pointer'}} />
+              <input 
+                type="range" 
+                min="0" max="100" 
+                value={riskRange} 
+                onChange={e => setRiskRange(e.target.value)} 
+                className="tax-input"
+                style={{
+                  width: '100%',
+                  padding: 0,
+                  height: '6px',
+                  appearance: 'none',
+                  background: `linear-gradient(to right, #fbbf24 0%, #ef4444 ${riskRange}%, rgba(255,255,255,0.1) ${riskRange}%, rgba(255,255,255,0.1) 100%)`,
+                  borderRadius: '3px',
+                  outline: 'none'
+                }}
+              />
             </div>
 
-            <div className="range-group">
-              <span className="range-labels">Max Cap: ₹{Number(minInvRange).toLocaleString()}</span>
-              <div className="range-track">
-                <div style={{ position: 'absolute', top: -4, left: `${(minInvRange/50000)*100}%`, width: 12, height: 12, background: '#fff', borderRadius: '50%', boxShadow: '0 0 10px #38bdf8', transform: 'translateX(-50%)' }} />
-                <div style={{ height: '100%', width: `${(minInvRange/50000)*100}%`, background: 'rgba(56, 189, 248, 0.4)', borderRadius: 2 }} />
+            <div className="range-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Max Minimum Investment</span>
+                <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '0.85rem' }}>₹{Number(minInvRange).toLocaleString()}</span>
               </div>
-              <input type="range" min="100" max="50000" step="500" value={minInvRange} onChange={e => setMinInvRange(e.target.value)} style={{opacity: 0, position: 'absolute', width: '200px', cursor:'pointer'}} />
-              <span className="range-labels" style={{marginLeft: 'auto'}}>Max</span>
+              <input 
+                type="range" 
+                min="100" max="50000" step="500" 
+                value={minInvRange} 
+                onChange={e => setMinInvRange(e.target.value)} 
+                className="tax-input"
+                style={{
+                  width: '100%',
+                  padding: 0,
+                  height: '6px',
+                  appearance: 'none',
+                  background: `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${(minInvRange/50000)*100}%, rgba(255,255,255,0.1) ${(minInvRange/50000)*100}%, rgba(255,255,255,0.1) 100%)`,
+                  borderRadius: '3px',
+                  outline: 'none'
+                }}
+              />
             </div>
           </div>
         </section>
@@ -190,7 +278,7 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
             <tbody>
               {filtered.map(inv => {
                 const cat = inv.cat || inv.category || '';
-                const lockIn = inv.lockIn !== undefined ? inv.lockIn : inv.lock_in_years;
+                const lockIn = inv.lock_in_years !== undefined ? inv.lock_in_years : (inv.lockIn !== undefined ? inv.lockIn : 0);
                 const riskLbl = inv.riskLabel || inv.risk_level || 'Medium';
                 const liquidity = getLiquidityLevel(lockIn);
                 const hasTax = inv.taxType === "eee" || inv.taxType === "elss" || inv.taxType === "nps" || inv.tax_benefit;
@@ -214,9 +302,15 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                       </div>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600 }}>{rate}%</span>
-                        <Sparkline color={CATEGORY_COLORS[cat] || '#888'} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 600, minWidth: '45px' }}>{rate}%</span>
+                        <Sparkline 
+                          color={CATEGORY_COLORS[cat] || '#888'} 
+                          category={cat}
+                          riskLevel={riskLbl}
+                          rate={rate}
+                          invId={invId}
+                        />
                       </div>
                     </td>
                     <td>

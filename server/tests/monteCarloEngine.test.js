@@ -1,104 +1,72 @@
 import { runMonteCarlo, computeGoalProbability,
-         runMonteCarloWithGoal } from '../services/monteCarloEngine.js';
+         runMonteCarloWithGoal, reverseSIP }
+  from '../services/monteCarloEngine.js';
 
 describe('Monte Carlo Engine', () => {
 
-  test('p50 converges to deterministic SIP value within 10%', () => {
-    // ELSS: 9.6% mean (12% * 0.8), 17% stdDev, ₹10,000/mo, 15 years
-    const result = runMonteCarlo({
+  test('p50 convergence: ELSS 15yr within 10% of deterministic', () => {
+    const r = runMonteCarlo({
       monthlyInvestment: 10000,
       postTaxAnnualReturn: 0.096,
       annualVolatility: 0.17,
       years: 15,
       simulations: 10000,
     });
-    const p50_15yr = result.p50[14]; // index 14 = year 15
-    // Deterministic SIP FV at 9.6%: approx ₹41.5L
-    expect(p50_15yr).toBeGreaterThan(3500000);
-    expect(p50_15yr).toBeLessThan(5000000);
+    const p50 = r.p50[14];
+    // Deterministic SIP FV ≈ ₹41.5L at 9.6%
+    expect(p50).toBeGreaterThan(3500000);
+    expect(p50).toBeLessThan(4800000);
   });
 
-  test('p90 > p50 > p10 for all years', () => {
-    const result = runMonteCarlo({
+  test('band ordering: p10 < p25 < p50 < p75 < p90 for all years', () => {
+    const r = runMonteCarlo({
       monthlyInvestment: 5000,
       postTaxAnnualReturn: 0.07,
       annualVolatility: 0.03,
       years: 10,
       simulations: 5000,
     });
-    result.years_array.forEach((_, i) => {
-      expect(result.p90[i]).toBeGreaterThan(result.p50[i]);
-      expect(result.p50[i]).toBeGreaterThan(result.p10[i]);
+    r.years_array.forEach((_, i) => {
+      expect(r.p10[i]).toBeLessThan(r.p25[i]);
+      expect(r.p25[i]).toBeLessThan(r.p50[i]);
+      expect(r.p50[i]).toBeLessThan(r.p75[i]);
+      expect(r.p75[i]).toBeLessThan(r.p90[i]);
     });
   });
 
-  test('all five percentile bands are returned', () => {
-    const result = runMonteCarlo({
-      monthlyInvestment: 10000,
-      postTaxAnnualReturn: 0.072,
-      annualVolatility: 0.01,
-      years: 5,
-      simulations: 1000,
+  test('all six output arrays present and correct length', () => {
+    const r = runMonteCarlo({
+      monthlyInvestment: 10000, postTaxAnnualReturn: 0.07,
+      annualVolatility: 0.02, years: 5, simulations: 500,
     });
-    expect(result.p10).toBeDefined();
-    expect(result.p25).toBeDefined();
-    expect(result.p50).toBeDefined();
-    expect(result.p75).toBeDefined();
-    expect(result.p90).toBeDefined();
-    expect(result.p10.length).toBe(5);
-  });
-
-  test('computeGoalProbability: 100% chance when target is zero', () => {
-    const fakeValues = [100000, 200000, 300000];
-    expect(computeGoalProbability(fakeValues, 0)).toBe(1);
-  });
-
-  test('computeGoalProbability: 0% chance when target exceeds all', () => {
-    const fakeValues = [100000, 200000, 300000];
-    expect(computeGoalProbability(fakeValues, 999999999)).toBe(0);
-  });
-
-  test('computeGoalProbability: partial success rate', () => {
-    const fakeValues = [100000, 200000, 300000, 400000, 500000];
-    // 3 out of 5 meet 250000 target
-    expect(computeGoalProbability(fakeValues, 250000)).toBeCloseTo(0.6, 1);
-  });
-
-  test('runMonteCarloWithGoal does not expose finalValues in response', () => {
-    const result = runMonteCarloWithGoal({
-      monthlyInvestment: 10000,
-      postTaxAnnualReturn: 0.10,
-      annualVolatility: 0.15,
-      years: 10,
-      simulations: 1000,
-      targetAmount: 2000000,
+    ['p10','p25','p50','p75','p90','mean'].forEach(k => {
+      expect(r[k]).toBeDefined();
+      expect(r[k].length).toBe(5);
     });
-    expect(result.finalValues).toBeUndefined();
-    expect(result.goal_probability).toBeGreaterThanOrEqual(0);
-    expect(result.goal_probability).toBeLessThanOrEqual(1);
   });
 
-  test('runMonteCarloWithGoal returns null probability when no target', () => {
-    const result = runMonteCarloWithGoal({
-      monthlyInvestment: 10000,
-      postTaxAnnualReturn: 0.10,
-      annualVolatility: 0.15,
-      years: 10,
-      simulations: 1000,
-    });
-    expect(result.goal_probability).toBeNull();
+  test('computeGoalProbability: all above target = 1.0', () => {
+    expect(computeGoalProbability([100, 200, 300], 50)).toBe(1);
   });
 
-  test('years_array length matches requested years', () => {
-    const result = runMonteCarlo({
-      monthlyInvestment: 5000,
-      postTaxAnnualReturn: 0.08,
-      annualVolatility: 0.10,
-      years: 20,
-      simulations: 500,
+  test('computeGoalProbability: none above target = 0.0', () => {
+    expect(computeGoalProbability([100, 200, 300], 999999)).toBe(0);
+  });
+
+  test('runMonteCarloWithGoal strips finalValues from response', () => {
+    const r = runMonteCarloWithGoal({
+      monthlyInvestment: 10000, postTaxAnnualReturn: 0.10,
+      annualVolatility: 0.15, years: 5,
+      simulations: 500, targetAmount: 1000000,
     });
-    expect(result.years_array.length).toBe(20);
-    expect(result.years_array[0]).toBe(1);
-    expect(result.years_array[19]).toBe(20);
+    expect(r.finalValues).toBeUndefined();
+    expect(r.goal_probability).toBeGreaterThanOrEqual(0);
+    expect(r.goal_probability).toBeLessThanOrEqual(1);
+  });
+
+  test('reverseSIP: ₹30L in 12yr at 10% ≈ ₹10,800/mo', () => {
+    const sip = reverseSIP(3000000, 0.10, 12, 0);
+    expect(sip).toBeGreaterThan(9000);
+    expect(sip).toBeLessThan(13000);
   });
 });

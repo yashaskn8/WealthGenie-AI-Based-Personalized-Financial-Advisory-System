@@ -113,21 +113,21 @@ const AllocationPlanner = ({ profile }) => {
       <div className="ap-main-grid">
         {/* LEFT: Donut */}
         <div className="ap-donut-panel">
-          <div style={{ width: '100%', height: 320, position: 'relative' }}>
+          <div style={{ width: '100%', height: 380, position: 'relative' }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie data={allocation} dataKey="allocationPct" cx="50%" cy="50%"
-                  innerRadius={75} outerRadius={130} paddingAngle={2} stroke="#0a0e17" strokeWidth={2}>
+                  innerRadius={115} outerRadius={165} paddingAngle={3} stroke="rgba(15, 23, 42, 0.8)" strokeWidth={3}>
                   {allocation.map((a, i) => <Cell key={i} fill={a.color} />)}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="ap-donut-center">
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#fff' }}>
+              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
                 ₹{savings.toLocaleString("en-IN")}
               </div>
-              <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>per month</div>
+              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '2px' }}>per month</div>
             </div>
           </div>
         </div>
@@ -208,7 +208,14 @@ const AllocationPlanner = ({ profile }) => {
               value={Math.round(a.allocationPct)}
               onChange={e => handleSliderChange(a.id, Number(e.target.value))}
               className="ap-range"
-              style={{ '--ap-pct': `${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%` }}
+              style={{ 
+                '--ap-pct': `${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%`,
+                appearance: 'none',
+                height: '6px',
+                borderRadius: '3px',
+                background: `linear-gradient(to right, ${a.color || '#0ea5e9'} 0%, ${a.color || '#0ea5e9'} ${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%, rgba(255,255,255,0.1) ${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%, rgba(255,255,255,0.1) 100%)`,
+                outline: 'none'
+              }}
             />
             <div className="ap-slider-values">
               <span>{a.allocationPct.toFixed(0)}%</span>

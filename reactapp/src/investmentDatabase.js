@@ -1,8 +1,21 @@
 /**
- * WealthGenie — Authoritative 16-Instrument Investment Catalogue
+ * WealthGenie — 16-Instrument Investment Display Catalogue
+ * ─────────────────────────────────────────────────────────
+ * ARCHITECTURE NOTE — SOURCE OF TRUTH:
+ *   The authoritative instrument data lives in MongoDB (seeded via
+ *   GET /api/instruments). This static catalogue serves as:
+ *     1. Display-layer defaults for instant UI rendering before API data loads
+ *     2. UI constants (colors, risk labels, concentration caps, tax info labels)
+ *     3. Eligibility rules for the client-side offline fallback engine
+ *
+ *   When the backend API responds, its data OVERRIDES these values.
+ *   See App.jsx DashboardShell.useEffect() for the merge logic.
+ *
+ *   If instrument rates change, update BOTH:
+ *     - MongoDB instruments collection (via admin panel or seed script)
+ *     - This file (to keep the offline fallback accurate)
+ *
  * (15 original + SGB split from Gold ETF)
- * Do NOT alter rates, risk levels, tax types, lock-in periods, or eligibility rules
- * without explicit instruction.
  */
 
 // ─── TAX INFO LOOKUP ──────────────────────────────────────────────
@@ -129,9 +142,11 @@ export const investmentDatabase = [
       maxAge: 40,
       minAnnualIncome: 0,
       minMonthlySavings: 250,
+      requires_daughter_under_10: true,
       hasGirlChild: true,
-      notes: "Only for parents/guardians of a girl child under 10."
+      notes: "Only for parents/guardians of a girl child under 10 years of age."
     },
+    eligibility_note: 'Only for parents/guardians of a girl child under 10 years of age.',
     desc: "EEE tax-free government scheme for girl child education and marriage. 8.2% p.a. — highest guaranteed tax-free return available."
   },
   {
@@ -232,7 +247,9 @@ export const investmentDatabase = [
     rate: 10.5,
     risk: 3,
     riskLabel: "Medium",
-    lockIn: 60,
+    lockIn: 0,
+    maturity_type: 'age_based',
+    maturity_age: 60,
     taxType: "nps",
     color: "#f97316",
     minMonthlyInvestment: 500,

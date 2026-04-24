@@ -48,3 +48,4 @@ class HealthResponse(BaseModel):
     status: str
     model_version: str
     model_accuracy: Optional[float] = None
+    explainer_loaded: Optional[bool] = None

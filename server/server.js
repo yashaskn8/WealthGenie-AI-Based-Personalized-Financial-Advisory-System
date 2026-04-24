@@ -42,6 +42,15 @@ app.use(mongoSanitize());
 // ── Request Logging ──────────────────────────────────────────────
 app.use(morgan('dev'));
 
+// ── Request ID Middleware ────────────────────────────────────────
+import crypto from 'crypto';
+app.use((req, res, next) => {
+  req.headers['x-request-id'] =
+    req.headers['x-request-id'] || crypto.randomUUID();
+  res.setHeader('X-Request-ID', req.headers['x-request-id']);
+  next();
+});
+
 // ── Rate Limiting ────────────────────────────────────────────────
 // Strict limiter for auth endpoints (prevents brute force)
 const authLimiter = rateLimit({

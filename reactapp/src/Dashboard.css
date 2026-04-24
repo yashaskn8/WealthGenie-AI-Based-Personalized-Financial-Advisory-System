@@ -225,6 +225,7 @@
 /* ===== Custom Range Slider (Teal themed) ===== */
 input[type=range] {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   background: transparent;
   height: 4px;
@@ -235,6 +236,7 @@ input[type=range] {
 
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   height: 14px;
   width: 14px;
   border-radius: 50%;
@@ -419,4 +421,47 @@ input[type=range]::-webkit-slider-thumb:hover {
   .status-bar {
     grid-template-columns: 1fr 1fr;
   }
+
+  /* FIX 7: Hide lower-priority columns on tablet */
+  .col-current-yearly,
+  .col-exp-return {
+    display: none;
+  }
+
+  /* FIX 7: Horizontal scroll indicator */
+  .portfolio-table-wrapper::after {
+    content: '← Scroll for more →';
+    display: block;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 8px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .col-risk-level,
+  .col-weight {
+    display: none;
+  }
+}
+
+/* FIX 5: Secondary button style for action hierarchy */
+.btn-portal-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid #334155;
+  font-weight: 500;
+}
+
+.btn-portal-secondary:hover {
+  border-color: var(--accent-teal);
+  background: rgba(14, 165, 233, 0.05);
+  transform: translateY(-1px);
+}
+
+/* FIX 7: Responsive table wrapper */
+.portfolio-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }

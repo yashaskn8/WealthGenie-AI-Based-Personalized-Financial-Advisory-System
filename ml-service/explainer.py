@@ -85,13 +85,22 @@ class ModelExplainer:
         }
 
     def _shap_explain(self, scaled_features, pred_class_idx, raw_features):
-        """Use SHAP TreeExplainer for exact feature contributions."""
-        import shap
-        shap_values = self.explainer.shap_values(scaled_features)
+        """Use SHAP TreeExplainer for exact feature contributions.
 
-        # shap_values is an array of shape (n_samples, n_features, n_classes)
-        # for a single sample, we take index 0 and the specific class index
-        class_shap = shap_values[0, :, pred_class_idx]  # shape: (4,)
+        Version-safe: handles both legacy list format and new 3D array format.
+        - Legacy (SHAP <0.40): shap_values is a list of length n_classes,
+          each element shape (n_samples, n_features).
+        - New (SHAP >=0.40): shap_values is a single ndarray of shape
+          (n_samples, n_features, n_classes).
+        """
+        raw = self.explainer.shap_values(scaled_features)
+
+        if isinstance(raw, list):
+            # Legacy format: list of (n_samples, n_features) arrays
+            class_shap = raw[pred_class_idx][0]   # shape: (n_features,)
+        else:
+            # New format: single (n_samples, n_features, n_classes) array
+            class_shap = raw[0, :, pred_class_idx]  # shape: (n_features,)
 
         contributions = []
         for i, feat_name in enumerate(FEATURE_NAMES):
@@ -150,8 +159,8 @@ def load_explainer():
         label_encoder = joblib.load(le_path)
         return ModelExplainer(pipeline, label_encoder)
     except FileNotFoundError:
-        print("[WARN] Model files not found for explainer")
+        print("[WARN] Model files not found. Run ml-service/model/train.py first.")
         return None
     except Exception as e:
-        print(f"[ERROR] Failed to load explainer: {e}")
+        print(f"[ERROR] Failed to initialise explainer: {e}")
         return None

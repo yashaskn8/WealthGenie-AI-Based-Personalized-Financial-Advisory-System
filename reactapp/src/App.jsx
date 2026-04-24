@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import './App.css';
 import logoImg from './assets/logo.png';
 import genieVideo from './assets/genie.mp4';
@@ -230,9 +230,13 @@ const DashboardShell = ({ userProfile, onRecalculate }) => {
       if (match) {
         return {
           ...lr,
-          rate: match.postTaxReturn,
-          ml_confidence: backendRecs.confidence_scores[match.type] || 0,
-          advisory_text: backendRecs.advisory_text
+          // Fix 5: Use backend post-tax return if available
+          postTaxReturn: match.postTaxReturn || match.effectiveYield || lr.postTaxReturn,
+          nominalReturn: match.nominalReturn || lr.nominalReturn || lr.rate,
+          // Fix 4: Use authoritative ML confidence_scores from the backend
+          ml_confidence: backendRecs?.confidence_scores?.[match.type] ?? lr.ml_confidence,
+          advisory_text: backendRecs.advisory_text,
+          _source: 'backend',
         };
       }
       return lr;
@@ -711,12 +715,22 @@ function AuthPage() {
   );
 }
 
+// Auth guard: redirects to login if no token
+function AuthGuard({ children }) {
+  const token = api.getAuthToken();
+  if (!token) return <Navigate to="/" replace />;
+  return children;
+}
+
+import LandingPage from './LandingPage';
+
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<AuthPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/profile" element={<AuthGuard><ProfilePage /></AuthGuard>} />
       </Routes>
     </Router>
   );

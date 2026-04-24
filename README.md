@@ -96,11 +96,16 @@ cd ../ml-service
 pip install -r requirements.txt
 ```
 
-### 7. Train the ML Model
+### 7. Train the ML Model (Required — model files not in repo)
 
 ```bash
+cd ../ml-service
 python model/train.py
+# Generates model.pkl, decision_tree.pkl, and label_encoder.pkl
+# Expected output: "Accuracy: XX% | Model saved to model/model.pkl"
 ```
+
+> **Note:** Training takes approximately 30 seconds on a standard laptop. The `.pkl` model files are gitignored and must be regenerated locally before starting the ML service.
 
 ### 8. Start All Services
 
@@ -244,7 +249,14 @@ Access the app at: **http://localhost:5173**
 
 ## 📸 Screenshots
 
-*Screenshots to be added after deployment.*
+| Screen | Preview |
+|--------|---------|
+| **Profile Creation** | ![InputForm](docs/screenshots/InputForm.png) |
+| **Recommendation Dashboard** | ![Dashboard](docs/screenshots/Dashboard.png) |
+| **Monte Carlo Projections** | ![MonteCarlo](docs/screenshots/MonteCarlo.png) |
+| **Goal Planner** | ![GoalPlanner](docs/screenshots/GoalPlanner.png) |
+| **Genie AI Chat** | ![GenieChat](docs/screenshots/GenieChat.png) |
+| **SHAP Explainability** | ![ExplainabilityPanel](docs/screenshots/ExplainabilityPanel.png) |
 
 ---
 

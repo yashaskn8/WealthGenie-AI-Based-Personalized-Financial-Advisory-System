@@ -77,25 +77,11 @@ const HealthScoreScreen = ({ profile, recommendations }) => {
         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>Advanced Insights & Controls</p>
       </div>
 
-      {/* Floating Center Pill */}
-      <div className="ai-copilot-badge">
-        <img src={headerLogo} alt="AI" />
-        <div style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
-          <strong style={{ color: '#fff' }}>WealthGenie AI</strong><br/>
-          <span style={{ color: '#94a3b8' }}>Tap to ask specific questions about your grade.</span>
-        </div>
-      </div>
+
 
       <div className="health-grid">
         
-        {/* Decorative Smartphone */}
-        <div className="smartphone-frame">
-          <div className="sparkline">{generatePath('#4ade80')}</div>
-          <div className="sparkline">{generatePath('#ef4444')}</div>
-          <div className="sparkline">{generatePath('#eab308')}</div>
-          <div className="sparkline">{generatePath('#0ea5e9')}</div>
-          <div className="sparkline">{generatePath('#4ade80')}</div>
-        </div>
+
 
         {/* Center Main Card */}
         <div className="glass-panel score-card">

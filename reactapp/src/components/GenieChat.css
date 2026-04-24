@@ -400,3 +400,41 @@
   }
   .genie-fab { bottom: 80px; }
 }
+
+/* ===== Message Content Formatting (FIX 3) ===== */
+.genie-message-content strong {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.genie-message-content em {
+  font-style: italic;
+  color: #94a3b8;
+}
+
+.genie-message-content {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ===== Rate Limit Warning (FIX 5) ===== */
+.rate-limit-badge.rate-limit-warning {
+  color: #f59e0b;
+  font-weight: 600;
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+/* ===== Follow-Up Pill Variant (FIX 4) ===== */
+.quick-chip.follow-up {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.25);
+  color: #7dd3fc;
+}
+.quick-chip.follow-up:hover {
+  background: rgba(14, 165, 233, 0.25);
+  color: #fff;
+  border-color: rgba(14, 165, 233, 0.4);
+}

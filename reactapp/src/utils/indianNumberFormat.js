@@ -8,9 +8,12 @@
 export function formatINR(val) {
   if (val === null || val === undefined || isNaN(val)) return '₹0';
   const num = Number(val);
-  if (num >= 10000000) {
+  // Guard against overflow / absurdly large numbers
+  if (!isFinite(num)) return '₹∞';
+  if (Math.abs(num) >= 1e13) return `₹${num > 0 ? '' : '-'}999+ Cr`;
+  if (Math.abs(num) >= 10000000) {
     return `₹${(num / 10000000).toFixed(2)} Cr`;
-  } else if (num >= 100000) {
+  } else if (Math.abs(num) >= 100000) {
     return `₹${(num / 100000).toFixed(2)} L`;
   }
   return new Intl.NumberFormat('en-IN', {

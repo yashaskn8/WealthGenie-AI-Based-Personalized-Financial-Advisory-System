@@ -27,4 +27,7 @@ const GoalSchema = new mongoose.Schema({
   gemini_advice: { type: String },
 }, { timestamps: true });
 
+GoalSchema.index({ userId: 1, target_date: 1 });
+GoalSchema.index({ userId: 1, status: 1 });
+
 export default mongoose.model('Goal', GoalSchema);

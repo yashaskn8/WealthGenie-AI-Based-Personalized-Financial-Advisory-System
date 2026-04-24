@@ -21,8 +21,7 @@ const recommendationSchema = new mongoose.Schema({
   generatedAt: { type: Date, default: Date.now },
 });
 
-recommendationSchema.index({ userId: 1 });
+recommendationSchema.index({ userId: 1, generatedAt: -1 });
 recommendationSchema.index({ profileId: 1 });
-recommendationSchema.index({ generatedAt: -1 });
 
 export default mongoose.model('Recommendation', recommendationSchema);

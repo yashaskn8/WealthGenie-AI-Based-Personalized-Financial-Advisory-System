@@ -3,6 +3,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap } from 'lucide-react';
 import { investmentDatabase, RISK_COLORS, CHART_COLORS } from './investmentDatabase';
 import { getEligibleInvestments, getWhy, computePostTaxReturn } from './recommendationEngine';
+import { getConfidenceLabel } from './utils/confidenceLabels';
+import { validatePortfolio } from './utils/portfolioValidation';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
 import SebiDisclaimer from './components/SebiDisclaimer';
 import './Dashboard.css';
@@ -36,6 +38,8 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
   const [riskValue, setRiskValue] = useState(userProfile?.risk_appetite === 'High' ? 8 : userProfile?.risk_appetite === 'Medium' ? 6 : 3);
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedWhyCards, setExpandedWhyCards] = useState({});
+  const [sortField, setSortField] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const [riskGroupOpen, setRiskGroupOpen] = useState({
     low: (userProfile?.risk_appetite || 'Medium').toLowerCase() === 'low',
     medium: (userProfile?.risk_appetite || 'Medium').toLowerCase() === 'medium',
@@ -48,7 +52,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
     return getEligibleInvestments(userProfile).length;
   }, [userProfile]);
 
-  const excludedCount = 15 - eligibleCount;
+  const excludedCount = 16 - eligibleCount;
 
   const toggleRow = (id) => {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
@@ -184,22 +188,10 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
   const riskGroups = useMemo(() => {
     if (!recommendations || recommendations.length === 0) return { low: [], medium: [], high: [] };
     
-    const annualIncome = (Number(userProfile?.monthly_income) || 0) * 12;
-    const annualSavings = (Number(userProfile?.monthly_savings) || 0) * 12;
-    
     return {
-      low: recommendations.filter(r => (r.risk || 0) <= 2).map(r => {
-        const { postTaxRate } = computePostTaxReturn(r.rate, r.taxType, annualSavings, annualIncome);
-        return { ...r, postTaxRate };
-      }),
-      medium: recommendations.filter(r => (r.risk || 0) === 3).map(r => {
-        const { postTaxRate } = computePostTaxReturn(r.rate, r.taxType, annualSavings, annualIncome);
-        return { ...r, postTaxRate };
-      }),
-      high: recommendations.filter(r => (r.risk || 0) >= 4).map(r => {
-        const { postTaxRate } = computePostTaxReturn(r.rate, r.taxType, annualSavings, annualIncome);
-        return { ...r, postTaxRate };
-      }),
+      low: recommendations.filter(r => (r.risk || 0) <= 2),
+      medium: recommendations.filter(r => (r.risk || 0) === 3),
+      high: recommendations.filter(r => (r.risk || 0) >= 4),
     };
   }, [recommendations, userProfile]);
 
@@ -242,7 +234,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
 
         <div className="status-bar">
           <div className="status-item">Next Review: <span>15 Oct</span></div>
-          <div className="status-item">Primary Goal: <span>Retirement</span></div>
+          <div className="status-item">Goals: <span>{(userProfile?.investment_goals || ['Retirement']).join(', ')}</span></div>
           <div className="status-item">Plan Status: <span style={{color: '#4ade80'}}>On-Track</span></div>
           <div className="status-item">Monthly Engine Value: <span>₹{currentMonthly.toLocaleString()}</span></div>
         </div>
@@ -354,6 +346,21 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
              <div className="panel-header">
                <span className="panel-title">Wealth Trajectory</span>
             </div>
+            {/* FIX 3: Chart Legend */}
+            <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: '0.72rem', padding: '0 4px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 16, height: 3, background: '#06b6d4', borderRadius: 2, display: 'inline-block' }} />
+                <span style={{ color: '#94a3b8' }}>Best Case</span>
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 16, height: 3, background: '#dfbd69', borderRadius: 2, display: 'inline-block' }} />
+                <span style={{ color: '#94a3b8' }}>Average</span>
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 16, height: 3, background: '#f43f5e', borderRadius: 2, display: 'inline-block', borderTop: '1px dashed #f43f5e' }} />
+                <span style={{ color: '#94a3b8' }}>Conservative</span>
+              </span>
+            </div>
             <div style={{ height: 200, fontSize: '0.7rem' }}>
               {isLoading ? (
                  <div style={{ display: 'flex', gap: 10, height: '100%', alignItems: 'flex-end', paddingBottom: 20 }}>
@@ -381,7 +388,11 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
                     <XAxis dataKey="year" tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => `${val} yrs`} />
-                    <YAxis tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
+                    <YAxis tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => {
+                      if (val >= 10000000) return `₹${(val/10000000).toFixed(1)}Cr`;
+                      if (val >= 100000) return `₹${(val/100000).toFixed(1)}L`;
+                      return `₹${(val/1000).toFixed(0)}K`;
+                    }} />
                     <RechartsTooltip formatter={(val) => `₹${Math.round(val).toLocaleString()}`} contentStyle={{background: 'rgba(10,14,23,0.95)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 10}} />
                     <Area type="monotone" dataKey="best" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorBest)" />
                     <Area type="monotone" dataKey="average" stroke="#dfbd69" strokeWidth={2} fillOpacity={1} fill="url(#colorAvg)" />
@@ -402,43 +413,96 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
             <div className="panel-header" style={{ padding: '16px 16px 0' }}>
                <span className="panel-title">Unified Portfolio Construction</span>
                <div style={{display: 'flex', gap: 8}}>
-                 <div className="param-input-group"><Filter size={14} style={{marginRight: 4, color:'#94a3b8'}}/> <input type="text" placeholder="Filters..." style={{width: 80}} /></div>
-                 <select style={{background: '#11151c', color: '#fff', border: '1px solid #2d3748', borderRadius: 4, padding: '4px 8px', fontSize: '0.8rem'}}>
-                   <option>Sort sortable</option>
+                 {/* FIX 4: Functional filter selector */}
+                 <select
+                   value={filterType}
+                   onChange={e => setFilterType(e.target.value)}
+                   style={{background: '#11151c', color: '#fff', border: '1px solid #2d3748', borderRadius: 4, padding: '4px 8px', fontSize: '0.8rem'}}
+                 >
+                   <option value="all">All Categories</option>
+                   <option value="equity">Equity Only</option>
+                   <option value="government">Government Only</option>
+                   <option value="has-tax-benefit">Tax Benefit Only</option>
+                   <option value="low-risk-only">Low Risk Only</option>
+                 </select>
+                 {/* FIX 4: Functional sort dropdown */}
+                 <select
+                   value={sortField}
+                   onChange={e => setSortField(e.target.value)}
+                   style={{background: '#11151c', color: '#fff', border: '1px solid #2d3748', borderRadius: 4, padding: '4px 8px', fontSize: '0.8rem'}}
+                 >
+                   <option value="">Sort by...</option>
+                   <option value="weight_desc">Weight % (High → Low)</option>
+                   <option value="return_desc">Expected Return (High → Low)</option>
+                   <option value="risk_asc">Risk Level (Low → High)</option>
+                   <option value="projection_desc">Projection (High → Low)</option>
+                   <option value="sip_asc">Monthly SIP (Low → High)</option>
                  </select>
                </div>
             </div>
 
-            <div className="data-table-wrapper" style={{ marginTop: 16 }}>
+            {/* FIX 7: Responsive scrollable wrapper */}
+            <div className="portfolio-table-wrapper" style={{ marginTop: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <table className="dense-table">
                 <thead>
                   <tr>
                     <th>Asset Class</th>
                     <th>Security Name</th>
-                    <th>Weight %</th>
-                    <th>Exp. Return</th>
-                    <th>Risk Level</th>
+                    <th className="col-weight">Weight %</th>
+                    <th className="col-exp-return">Exp. Return</th>
+                    <th className="col-risk-level">Risk Level</th>
                     <th>Monthly SIP</th>
-                    <th>Current/Yearly</th>
+                    <th className="col-current-yearly">Current/Yearly</th>
                     <th>Projections (in {horizon} Yrs)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading ? (
-                    Array(5).fill(0).map((_, i) => (
+                    /* FIX 6: Enhanced skeleton loader */
+                    Array(8).fill(0).map((_, i) => (
                       <tr key={i}>
-                        <td colSpan="8" style={{ padding: '12px' }}><div className="skeleton-box" style={{ height: 24, width: '100%' }} /></td>
+                        <td colSpan="8" style={{ padding: '12px' }}>
+                          <div style={{ display: 'flex', gap: 16 }}>
+                            <div className="skeleton-box" style={{ height: 16, flex: 2 }} />
+                            <div className="skeleton-box" style={{ height: 16, flex: 1 }} />
+                            <div className="skeleton-box" style={{ height: 16, flex: 1 }} />
+                            <div className="skeleton-box" style={{ height: 16, flex: 1 }} />
+                            <div className="skeleton-box" style={{ height: 16, flex: 1 }} />
+                            <div className="skeleton-box" style={{ height: 16, flex: 1 }} />
+                          </div>
+                        </td>
                       </tr>
                     ))
                   ) : tableData.length === 0 ? (
                     <tr>
                        <td colSpan="8" style={{textAlign:'center', padding: 48}}>
                          <Info size={48} color="#94a3b8" style={{opacity: 0.5, margin: '0 auto 16px auto', display: 'block'}} />
-                         <div style={{fontSize: '1rem', color: '#94a3b8'}}>No recommendations matches your criteria.</div>
+                         <div style={{fontSize: '1rem', color: '#94a3b8'}}>No recommendations match your criteria.</div>
                        </td>
                     </tr>
                   ) : (
-                   tableData.map((group) => (
+                   tableData
+                     .filter(group => {
+                       if (filterType === 'all') return true;
+                       if (filterType === 'equity') return group.class.toLowerCase().includes('equity');
+                       if (filterType === 'government') return group.class.toLowerCase().includes('government');
+                       if (filterType === 'has-tax-benefit') return group.hasTax;
+                       if (filterType === 'low-risk-only') return group.children.every(c => ['very low','low'].includes(c.risk?.toLowerCase()));
+                       return true;
+                     })
+                     .map((group) => {
+                       const sortedChildren = [...group.children].sort((a, b) => {
+                         const riskOrder = { 'Very Low': 0, 'Low': 1, 'Medium': 2, 'High': 3, 'Very High': 4 };
+                         switch (sortField) {
+                           case 'weight_desc': return b.weight - a.weight;
+                           case 'return_desc': return parseFloat(b.ret) - parseFloat(a.ret);
+                           case 'risk_asc': return (riskOrder[a.risk] || 2) - (riskOrder[b.risk] || 2);
+                           case 'projection_desc': return parseFloat(b.proj) - parseFloat(a.proj);
+                           case 'sip_asc': return a.alloc - b.alloc;
+                           default: return 0;
+                         }
+                       });
+                       return (
                     <React.Fragment key={group.id}>
                       <tr style={{ background: expandedRows[group.id] ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
                         <td colSpan="8" style={{ padding: 0, borderBottom: 'none' }}>
@@ -448,24 +512,25 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                           </div>
                         </td>
                       </tr>
-                      {expandedRows[group.id] && group.children.map((child, idx) => {
+                      {expandedRows[group.id] && sortedChildren.map((child, idx) => {
                         return (
                           <tr key={`${group.id}-${idx}`}>
                             <td style={{ paddingLeft: 44 }}>
                                {child.taxBadge && <span className="tax-badge">{child.taxLabel || 'Tax'}</span>}
                             </td>
                             <td>{child.fullName || child.name}</td>
-                            <td>{child.weight.toFixed(1)}%</td>
-                            <td>{child.ret}</td>
-                            <td style={{textTransform:'capitalize'}}>{child.risk}</td>
+                            <td className="col-weight">{child.weight.toFixed(1)}%</td>
+                            <td className="col-exp-return">{child.ret}</td>
+                            <td className="col-risk-level" style={{textTransform:'capitalize'}}>{child.risk}</td>
                             <td>₹{child.alloc.toLocaleString()}</td>
-                            <td>₹{child.current}</td>
+                            <td className="col-current-yearly">₹{child.current}</td>
                             <td style={{color: '#4ade80'}}>₹{child.proj}</td>
                           </tr>
                         );
                       })}
                     </React.Fragment>
-                  )))}
+                  );}))
+                  }
                 </tbody>
               </table>
             </div>
@@ -506,7 +571,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
 
             <div className="panel-card">
               <div className="panel-title" style={{marginBottom: 16}}>Benchmarking</div>
-              <div style={{height: 120, marginLeft: -20}}>
+              <div style={{height: 120, marginLeft: -20, minWidth: 0}}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={benchMarkData} layout="vertical" margin={{top: 0, right: 20, left: 20, bottom: 0}}>
                     <XAxis type="number" hide />
@@ -522,10 +587,11 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
               </div>
             </div>
 
+            {/* FIX 5: Standardized action button hierarchy */}
             <div className="buttons-stack">
               <button className="btn-portal btn-portal-primary" onClick={onRebalance}>Rebalance Now</button>
-              <button className="btn-portal" onClick={onExploreAll}>Compare Scenarios</button>
-              <button className="btn-portal" onClick={() => window.print()}>Generate PDF Proposal</button>
+              <button className="btn-portal btn-portal-secondary" onClick={onExploreAll}>Compare Scenarios</button>
+              <button className="btn-portal btn-portal-secondary" onClick={() => window.print()}>↓ Generate PDF Proposal</button>
             </div>
 
           </div>
@@ -571,7 +637,14 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                        Return <strong style={{ color: '#4ade80' }}>{rec.rate}%</strong>
+                        <div>
+                          <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Post-Tax Return</span>
+                          <div><strong style={{ color: '#22c55e', fontSize: '1.05em' }}>{rec.postTaxReturn ?? rec.rate}%</strong></div>
+                        </div>
+                        <div style={{ marginTop: 2 }}>
+                          <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Gross (Nominal) </span>
+                          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{rec.nominalReturn ?? rec.rate}%</span>
+                        </div>
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                         Risk <span style={{
@@ -583,18 +656,53 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                         SIP <strong style={{ color: '#fff' }}>₹{rec.monthly_allocation?.toLocaleString()}</strong>
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                        Lock-in <strong style={{ color: '#fff' }}>{rec.lockIn ? `${rec.lockIn}Y` : 'None'}</strong>
+                        Lock-in <strong style={{ color: '#fff' }}
+                          title={rec.maturity_type === 'age_based'
+                            ? `Matures at age ${rec.maturity_age} (${rec.lock_in_years} years from now)`
+                            : undefined}
+                        >{rec.lock_in_years != null
+                            ? (rec.lock_in_years === 0 ? 'None' : `${rec.lock_in_years}Y`)
+                            : (rec.lockIn ? `${rec.lockIn}Y` : 'None')}
+                        </strong>
                       </div>
                     </div>
 
-                    {/* Score bar */}
-                    <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>ML Confidence</span>
-                      <span style={{ fontSize: '0.7rem', color: rec.color || '#06b6d4' }}>{Math.round((rec.ml_confidence || 0) * 100)}%</span>
-                    </div>
-                    <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, marginBottom: 12 }}>
-                      <div style={{ height: '100%', width: `${Math.min(100, (rec.ml_confidence || 0) * 100)}%`, background: rec.color || '#06b6d4', borderRadius: 2, transition: 'width 0.5s ease' }} />
-                    </div>
+                    {/* Score bar — Fix 4: use actual ML confidence or mark as local */}
+                    {(() => {
+                      const confidence = rec.ml_confidence;
+                      const confLabel = getConfidenceLabel(confidence || 0);
+                      const hasRealConfidence = confidence != null && confidence > 0;
+                      const displayPct = hasRealConfidence ? Math.round(confidence * 100) : null;
+                      return (
+                        <>
+                          <div style={{ marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>ML Confidence</span>
+                            <span style={{ fontSize: '0.7rem', color: hasRealConfidence ? confLabel.colour : '#64748b' }}>
+                              {hasRealConfidence ? `${displayPct}%` : 'Awaiting ML'}
+                            </span>
+                          </div>
+                          <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, marginBottom: 6 }}>
+                            <div style={{
+                              height: '100%',
+                              width: hasRealConfidence ? `${Math.min(100, displayPct)}%` : '0%',
+                              background: hasRealConfidence ? confLabel.colour : '#64748b',
+                              borderRadius: 2,
+                              transition: 'width 0.5s ease'
+                            }} />
+                          </div>
+                          {/* Fix 4: Low confidence badge */}
+                          {hasRealConfidence && confidence < 0.30 && (
+                            <div style={{
+                              fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.08)',
+                              border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 8,
+                              padding: '3px 8px', marginBottom: 8, textAlign: 'center'
+                            }}>
+                              ⚠️ Low model confidence — shown for reference only
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
 
                     {/* Why recommended */}
                     <button
@@ -635,7 +743,16 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
         {explanation && (
           <ExplainabilityPanel
             explanation={explanation}
-            instrumentName={recommendations?.[0]?.name || recommendations?.[0]?.id}
+            instrumentName={(() => {
+              const predClass = explanation.predicted_class?.replace('_', ' ');
+              const match = recommendations.find(r => 
+                r.id === explanation.predicted_class || 
+                r.name.includes(predClass) || 
+                (predClass === 'Equity MF' && r.name.includes('Equity')) ||
+                (predClass === 'Debt MF' && r.name.includes('Debt'))
+              );
+              return match ? match.name : (recommendations?.[0]?.name || 'the primary pick');
+            })()}
           />
         )}
 

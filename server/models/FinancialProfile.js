@@ -16,7 +16,6 @@ const financialProfileSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-financialProfileSchema.index({ userId: 1 });
-financialProfileSchema.index({ createdAt: -1 });
+financialProfileSchema.index({ userId: 1, createdAt: -1 });
 
 export default mongoose.model('FinancialProfile', financialProfileSchema);

@@ -30,6 +30,60 @@ const GenieFAB = ({ onClick }) => (
   </button>
 );
 
+// ── Robust inline Markdown renderer ───────────────────────────────
+/**
+ * Renders inline formatting within a single line of text.
+ * Handles: **bold**, *italic*, and plain text.
+ * Strips any remaining Markdown syntax that slipped through.
+ */
+function renderInline(line) {
+  if (!line) return null;
+
+  // Strip raw Markdown headers (### ## #) — replace with bold
+  const cleanedLine = line
+    .replace(/^#{1,3}\s+/, '')   // Remove leading ### or ## or #
+    .replace(/^[*-]\s+/, '')      // Remove leading * or - bullets
+    .replace(/^>\s+/, '');        // Remove blockquote >
+
+  // Split on **bold** and *italic* markers
+  const parts = cleanedLine.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return <em key={i}>{part.slice(1, -1)}</em>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+// ── Renders message content with robust Markdown handling ─────────
+function MessageContent({ content }) {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+
+  return (
+    <span className="genie-message-content">
+      {lines.map((line, lineIndex) => {
+        const isLast = lineIndex === lines.length - 1;
+
+        // Skip rendering empty lines at the end
+        if (!line.trim() && isLast) return null;
+
+        return (
+          <span key={lineIndex}>
+            {renderInline(line)}
+            {!isLast && <br />}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 // ── Message Bubble ────────────────────────────────────────────────
 const MessageBubble = ({ msg }) => {
   const [copied, setCopied] = useState(false);
@@ -64,24 +118,64 @@ const MessageBubble = ({ msg }) => {
   );
 };
 
-// ── Renders message content with basic markdown ───────────────────
-function MessageContent({ content }) {
-  const formatted = content
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br/>');
-  return <span dangerouslySetInnerHTML={{ __html: formatted }} />;
+// ── Contextual Suggested Pills (FIX 4) ───────────────────────────
+function generateContextualPills(lastQuestion, profile) {
+  if (!lastQuestion) return [];
+
+  const q = lastQuestion.toLowerCase();
+
+  // Tax-related follow-ups
+  if (q.includes('tax')) {
+    return [
+      'Which regime saves me more tax?',
+      'How can I reduce my tax liability?',
+      'What is my post-tax return on an FD?',
+    ];
+  }
+
+  // Investment comparison follow-ups
+  if (q.includes('invest') || q.includes('elss') || q.includes('fd') || q.includes('ppf')) {
+    return [
+      'Show me a 10-year projection for ELSS',
+      'What is the lock-in period for ELSS?',
+      'How does ELSS compare to PPF after tax?',
+    ];
+  }
+
+  // Goal planning follow-ups
+  if (q.includes('retire') || q.includes('goal') || q.includes('corpus') || q.includes('sip')) {
+    return [
+      'How much SIP do I need for retirement?',
+      'Am I on track for my goals?',
+      'What is the 25x rule for retirement?',
+    ];
+  }
+
+  // General financial follow-ups
+  return [
+    'What investment suits my risk profile?',
+    'How much emergency fund should I maintain?',
+  ];
 }
 
-// ── Quick Reply Chips ─────────────────────────────────────────────
-const QuickReplies = ({ chips, onSelect }) => (
-  <div className="quick-replies">
-    {chips.map((chip, i) => (
-      <button key={i} className="quick-chip" onClick={() => onSelect(chip)}>
-        <Sparkles size={12} /> {chip}
-      </button>
-    ))}
-  </div>
-);
+function SuggestedPills({ baseQuestion, profile, onSelect }) {
+  const pills = generateContextualPills(baseQuestion, profile);
+  if (!pills.length) return null;
+
+  return (
+    <div className="quick-replies">
+      {pills.map((pill, i) => (
+        <button
+          key={i}
+          className="quick-chip follow-up"
+          onClick={() => onSelect(pill)}
+        >
+          <Sparkles size={12} /> {pill}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // ── Main Component ────────────────────────────────────────────────
 const GenieChat = ({ profile, recommendations }) => {
@@ -101,6 +195,9 @@ const GenieChat = ({ profile, recommendations }) => {
 
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Track last user message for contextual pills
+  const lastUserMessage = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
 
   // Load history on open
   useEffect(() => {
@@ -185,6 +282,10 @@ const GenieChat = ({ profile, recommendations }) => {
 
   const suggestedQuestions = getSuggestedQuestions(profile);
 
+  // Get last assistant message to check for truncation
+  const lastAssistantMsg = messages.filter(m => m.role === 'assistant').slice(-1)[0];
+  const lastResponseTruncated = lastAssistantMsg?.content?.includes('*Response was truncated');
+
   return (
     <>
       {!isOpen && <GenieFAB onClick={() => setIsOpen(true)} />}
@@ -203,8 +304,14 @@ const GenieChat = ({ profile, recommendations }) => {
               </div>
             </div>
             <div className="genie-header-actions">
-              <span className="rate-limit-badge">
-                {rateLimit.remaining}/{rateLimit.total}
+              {/* FIX 5: Rate limit warning state */}
+              <span className={`rate-limit-badge ${
+                rateLimit.remaining <= 5 ? 'rate-limit-warning' : ''
+              }`}>
+                {rateLimit.remaining <= 0
+                  ? 'Limit reached — resets in 1 hour'
+                  : `${rateLimit.remaining}/${rateLimit.total}`
+                }
               </span>
               <button onClick={clearChat} title="Clear chat"><Trash2 size={16} /></button>
               <button onClick={() => setIsOpen(false)} title="Close"><X size={18} /></button>
@@ -252,13 +359,18 @@ const GenieChat = ({ profile, recommendations }) => {
             <div ref={chatEndRef} />
           </div>
 
-          {/* ── Quick Replies ───────────────────────────── */}
-          {messages.length > 0 && !isLoading && (
-            <QuickReplies
-              chips={['Tell me more', 'How does this affect my taxes?', 'What are the risks?']}
-              onSelect={sendMessage}
-            />
-          )}
+          {/* ── Contextual Follow-Up Pills (FIX 4) ──────── */}
+          {messages.length > 0
+            && !isLoading
+            && !lastResponseTruncated
+            && lastAssistantMsg?.content?.length > 50
+            && (
+              <SuggestedPills
+                baseQuestion={lastUserMessage}
+                profile={profile}
+                onSelect={sendMessage}
+              />
+            )}
 
           {/* ── Input Bar ──────────────────────────────── */}
           <div className="genie-input-bar">

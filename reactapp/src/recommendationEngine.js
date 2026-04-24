@@ -1,3 +1,23 @@
+/**
+ * WealthGenie — Client-Side Recommendation Engine (Offline-First Fallback)
+ * ────────────────────────────────────────────────────────────────────────
+ * ARCHITECTURE NOTE — THIS IS NOT THE AUTHORITATIVE ENGINE:
+ *   The authoritative recommendation pipeline is:
+ *     1. server/routes/recommend.js → ML microservice (FastAPI + RandomForest)
+ *     2. server/services/postTaxCalculator.js → post-tax adjustments
+ *     3. server/services/taxEngine.js → marginal slab computation (FY2025-26)
+ *
+ *   This client-side engine provides:
+ *     - Instant UI rendering BEFORE backend API responds (offline-first UX)
+ *     - Eligibility filtering, scoring, and allocation for immediate display
+ *     - Post-tax estimation consistent with the backend's tax-type logic
+ *
+ *   When backend data arrives, App.jsx merges it over these local results.
+ *   See DashboardShell.useMemo() in App.jsx for the merge logic.
+ *
+ *   DO NOT add new tax computation logic here. If tax rules change,
+ *   update server/services/taxEngine.js and server/services/postTaxCalculator.js.
+ */
 import { investmentDatabase, TAX_INFO, RISK_COLORS, CHART_COLORS, CONCENTRATION_CAPS } from './investmentDatabase';
 
 // Re-export for backward compatibility
@@ -159,7 +179,14 @@ export function getEligibleInvestments(profile) {
     if (annualIncome < elig.minAnnualIncome) return false;
     if (savings < inv.minMonthlyInvestment) return false;
     if (inv.id === "scss" && age < 60) return false;
-    if (inv.id === "sukanya" && (age < 18 || age > 40)) return false;
+    // Fix 3: SSY requires user to have declared a daughter under 10
+    if (inv.id === "sukanya") {
+      if (age < 18 || age > 40) return false;
+      // SSY eligibility requires explicit declaration of having a daughter under 10.
+      // Since the profile does not collect this data, SSY is always excluded
+      // unless the profile explicitly sets has_daughter_under_10 = true.
+      if (!profile.has_daughter_under_10) return false;
+    }
     if (inv.id === "smallcap_mf") {
       if (!(age >= 21 && age <= 45 && horizon >= 10 && risk === "high" && annualIncome >= 800000 && savings >= 8000)) return false;
     }
@@ -203,6 +230,7 @@ function computeScore(inv, profile) {
   const savings = Number(profile.monthly_savings || profile.savings) || 0;
   const risk = (profile.risk_appetite || profile.risk || "Medium").toLowerCase();
   const horizon = Number(profile.investment_horizon || profile.horizon) || 10;
+  const age = Number(profile.age) || 30;
   const goals = profile.investment_goals || [];
   const annualIncome = income * 12;
   const annualSavings = savings * 12;
@@ -218,8 +246,12 @@ function computeScore(inv, profile) {
   else if (risk === "medium" && inv.risk >= 2 && inv.risk <= 4) score += 15;
   else if (risk === "high" && inv.risk >= 3) score += 18;
 
-  if (inv.lockIn <= horizon) score += 15;
-  if (inv.lockIn === 0) score += 5;
+  // Fix 2: Use effective lock-in for age-based instruments (NPS)
+  const effectiveLockIn = (inv.maturity_type === 'age_based' && inv.maturity_age)
+    ? Math.max(0, inv.maturity_age - age)
+    : inv.lockIn;
+  if (effectiveLockIn <= horizon) score += 15;
+  if (effectiveLockIn === 0) score += 5;
 
   if (inv.taxType === "eee") score += 12;
   if (inv.taxType === "elss" && goals.includes("Tax Saving")) score += 10;
@@ -392,20 +424,46 @@ export function generateRecommendations(userProfile) {
   const totalScore = recommended.reduce((sum, inv) => sum + inv.score, 0);
   if (totalScore === 0) return [];
 
-  let allocatedSum = 0;
-  recommended.forEach(inv => {
-    let rawAmount = (inv.score / totalScore) * savings;
-    let amount = Math.round(rawAmount / 100) * 100;
-    if (amount > 0 && amount < inv.minMonthlyInvestment) amount = inv.minMonthlyInvestment;
-    if (inv.maxAnnualInvestment && amount * 12 > inv.maxAnnualInvestment) {
-      amount = Math.floor(inv.maxAnnualInvestment / 12 / 100) * 100;
-    }
-    inv.monthly_allocation = amount;
-    allocatedSum += amount;
+  // ── FIX 1: Compute raw weights, guarantee non-negative, normalize to 100% ──
+  let rawWeights = recommended.map(inv => Math.max(0, inv.score / totalScore));
+  const rawTotal = rawWeights.reduce((s, w) => s + w, 0);
+  if (rawTotal <= 0) {
+    // Fallback: equal weight distribution
+    rawWeights = recommended.map(() => 1 / recommended.length);
+  } else {
+    rawWeights = rawWeights.map(w => w / rawTotal);
+  }
+
+  // Compute monthly SIP from normalized weights
+  let sipAllocations = rawWeights.map(w => {
+    let amount = Math.round(w * savings / 100) * 100;
+    return Math.max(0, amount);
   });
 
+  // Apply instrument caps
+  recommended.forEach((inv, i) => {
+    if (sipAllocations[i] > 0 && sipAllocations[i] < inv.minMonthlyInvestment) {
+      sipAllocations[i] = inv.minMonthlyInvestment;
+    }
+    if (inv.maxAnnualInvestment && sipAllocations[i] * 12 > inv.maxAnnualInvestment) {
+      sipAllocations[i] = Math.floor(inv.maxAnnualInvestment / 12 / 100) * 100;
+    }
+  });
+
+  // Ensure SIP sum equals total savings exactly
+  let allocatedSum = sipAllocations.reduce((s, a) => s + a, 0);
   const diff = savings - allocatedSum;
-  if (diff !== 0 && recommended.length > 0) recommended[0].monthly_allocation += diff;
+  if (diff !== 0 && recommended.length > 0) {
+    sipAllocations[0] = Math.max(0, sipAllocations[0] + diff);
+  }
+
+  // Assign allocations
+  recommended.forEach((inv, i) => {
+    inv.monthly_allocation = sipAllocations[i];
+  });
+
+  const annualIncome = (Number(profile.monthly_income || profile.income) || 0) * 12;
+  const annualSavings = savings * 12;
 
   recommended.forEach(inv => {
     inv.projected_value = calculateSIPValue(inv.monthly_allocation, inv.rate, profile.investment_horizon);
@@ -415,8 +473,15 @@ export function generateRecommendations(userProfile) {
     inv.risk_level = inv.riskLabel;
     inv.tax_benefit = ["eee", "elss", "nps", "sgb"].includes(inv.taxType);
     inv.tax_section = inv.taxType === "eee" ? "80C" : inv.taxType === "elss" ? "80C" : inv.taxType === "nps" ? "80CCD(1B)" : inv.taxType === "sgb" ? "47(viic)" : null;
-    inv.lock_in_years = inv.lockIn;
-    inv.liquidity = inv.lockIn === 0 ? "High" : inv.lockIn <= 5 ? "Medium" : "Low";
+
+    // Fix 2: Dynamic lock-in for age-based instruments (NPS)
+    if (inv.maturity_type === 'age_based' && inv.maturity_age) {
+      inv.lock_in_years = Math.max(0, inv.maturity_age - profile.age);
+    } else {
+      inv.lock_in_years = inv.lockIn;
+    }
+
+    inv.liquidity = inv.lock_in_years === 0 ? "High" : inv.lock_in_years <= 5 ? "Medium" : "Low";
     inv.min_investment_inr = inv.minMonthlyInvestment;
     inv.match_score = inv.score;
     inv.description = inv.desc;
@@ -424,12 +489,23 @@ export function generateRecommendations(userProfile) {
     if (["eee", "elss", "nps"].includes(inv.taxType)) inv.suitable_for_goals.push("Tax Saving");
     if (inv.risk <= 2) inv.suitable_for_goals.push("Emergency Fund");
     if (inv.risk >= 3) inv.suitable_for_goals.push("Wealth Growth");
-    if (inv.lockIn >= 5 || ["nps", "ppf"].includes(inv.id)) inv.suitable_for_goals.push("Retirement");
+    if (inv.lock_in_years >= 5 || ["nps", "ppf"].includes(inv.id)) inv.suitable_for_goals.push("Retirement");
     inv.suitable_risk_profiles = [];
     if (inv.risk <= 2) inv.suitable_risk_profiles.push("Low");
     if (inv.risk >= 2 && inv.risk <= 4) inv.suitable_risk_profiles.push("Medium");
     if (inv.risk >= 3) inv.suitable_risk_profiles.push("High");
     inv.types = [];
+
+    // Fix 5: Compute post-tax return for each instrument
+    const ptResult = computePostTaxReturn(inv, annualSavings, annualIncome, profile);
+    inv.nominalReturn = inv.rate;
+    inv.postTaxReturn = parseFloat(ptResult.postTaxRate.toFixed(1));
+
+    // Fix 4: Do NOT fabricate ML confidence — leave it to be set from
+    // the actual backend ML response. Set a placeholder that clearly
+    // indicates "local engine" so the UI can distinguish.
+    inv.ml_confidence = null; // Will be overridden by backend data in App.jsx merge
+    inv._source = 'local_engine';
   });
 
   // Attach fallback notice

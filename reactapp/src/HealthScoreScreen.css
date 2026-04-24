@@ -29,40 +29,14 @@
   opacity: 0.3;
 }
 
-/* AI Copilot Float */
-.ai-copilot-badge {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(17, 21, 28, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 8px 16px;
-  border-radius: 30px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 30px rgba(234, 179, 8, 0.4);
-  z-index: 10;
-}
-.ai-copilot-badge img {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid #eab308;
-  background: #000;
-  box-shadow: 0 0 20px rgba(234, 179, 8, 0.8);
-  padding: 4px;
-  object-fit: contain;
-}
+
 
 .health-grid {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(280px, 2.8fr) minmax(350px, 3.5fr) minmax(280px, 3fr);
-  gap: 2vw;
-  max-width: 100%;
-  margin: 90px auto 0;
+  grid-template-columns: minmax(320px, 1fr) minmax(400px, 1.5fr) minmax(320px, 1fr);
+  gap: 24px;
+  max-width: 1400px;
+  margin: 100px auto 0;
   align-items: start;
   position: relative;
   z-index: 2;
@@ -70,12 +44,12 @@
 
 /* Glass Panels */
 .glass-panel {
-  background: rgba(18, 24, 38, 0.4);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 24px;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 1px 20px rgba(255,255,255,0.05);
+  background: rgba(13, 17, 28, 0.6);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
   position: relative;
   overflow: hidden;
   z-index: 2;
@@ -95,28 +69,7 @@
   pointer-events: none;
 }
 
-/* Smartphone Decorative Form */
-.smartphone-frame {
-  width: 140px;
-  height: 300px;
-  border: 4px solid #1e293b;
-  border-radius: 24px;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  padding: 16px 8px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  margin-top: 80px;
-}
-.sparkline {
-  height: 2px;
-  width: 100%;
-  position: relative;
-}
-.sparkline svg {
-  overflow: visible;
-}
+
 
 /* Main Score Card */
 .score-card {
@@ -128,17 +81,20 @@
   box-shadow: 0 0 80px rgba(223, 189, 105, 0.1); /* Dynamic glow will overwrite inline */
 }
 .btn-glass {
-  background: rgba(255,255,255,0.05);
+  background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
   border: 1px solid rgba(255,255,255,0.1);
   color: #fff;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
   width: 100%;
+  font-weight: 500;
 }
 .btn-glass:hover {
-  background: rgba(255,255,255,0.1);
+  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
+  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-1px);
 }
 
 /* Middle Breakdown Bars */
@@ -176,10 +132,12 @@
   gap: 16px;
 }
 .insight-widget {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 12px;
-  padding: 16px;
+  background: rgba(13, 17, 28, 0.6);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 .widget-title {
   color: #94a3b8;

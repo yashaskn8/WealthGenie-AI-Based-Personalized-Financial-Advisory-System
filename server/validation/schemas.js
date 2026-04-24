@@ -32,6 +32,7 @@ export const monteCarloSchema = Joi.object({
   years: Joi.number().integer().min(1).max(40).required(),
   target_amount: Joi.number().min(0).optional(),
   post_tax_rate: Joi.number().min(0).max(1).optional(),
+  profileId: Joi.string().hex().length(24).optional(),
 });
 
 export const goalSchema = Joi.object({

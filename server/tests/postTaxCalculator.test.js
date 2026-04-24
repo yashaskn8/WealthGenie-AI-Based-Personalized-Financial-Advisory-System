@@ -14,6 +14,12 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       expect(result.postTaxReturn).toBe(0.072);
       expect(result.taxRate).toBe(0);
     });
+
+    test('FD: post-tax = nominal × (1 - marginalRate)', () => {
+      // ₹8L income new regime: taxableIncome = 7.25L → 5% slab
+      const r = calculatePostTaxReturn('FD', 0.072, 800000, 1, 'new');
+      expect(r.postTaxReturn).toBeCloseTo(0.072 * (1 - 0.05), 3);
+    });
   });
 
   describe('ELSS', () => {
@@ -36,6 +42,18 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       expect(result.taxRate).toBe(0.125);
       expect(result.taxType).toContain('LTCG');
     });
+
+    test('Equity MF held > 1yr: LTCG at 12.5%', () => {
+      const r = calculatePostTaxReturn('Equity_MF', 0.12, 1500000, 3, 'new');
+      expect(r.taxRate).toBe(0.125);
+      expect(r.taxType).toContain('LTCG');
+    });
+
+    test('Equity MF held < 1yr: STCG at 20%', () => {
+      const r = calculatePostTaxReturn('Equity_MF', 0.12, 1500000, 0.5, 'new');
+      expect(r.taxRate).toBe(0.20);
+      expect(r.taxType).toContain('STCG');
+    });
   });
 
   describe('Debt MF', () => {
@@ -43,6 +61,12 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       const result = calculatePostTaxReturn('Debt_MF', 0.07, 1500000, 5, 'new');
       expect(result.taxType).toContain('no indexation');
       expect(result.postTaxReturn).toBeLessThan(0.07);
+    });
+
+    test('Debt MF: taxed at slab regardless of holding', () => {
+      // ₹15L income new regime: taxableIncome = 14.25L → 15% slab
+      const r = calculatePostTaxReturn('Debt_MF', 0.07, 1500000, 5, 'new');
+      expect(r.taxRate).toBe(0.15);
     });
   });
 
@@ -52,6 +76,12 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       expect(result.postTaxReturn).toBe(0.071);
       expect(result.taxRate).toBe(0);
       expect(result.taxType).toContain('Exempt');
+    });
+
+    test('PPF: always zero tax (EEE)', () => {
+      const r = calculatePostTaxReturn('PPF', 0.071, 800000, 15, 'new');
+      expect(r.taxRate).toBe(0);
+      expect(r.postTaxReturn).toBe(0.071);
     });
   });
 

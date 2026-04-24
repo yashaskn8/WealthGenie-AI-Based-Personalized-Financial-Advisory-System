@@ -4,12 +4,18 @@
  * Token is stored in memory (not localStorage) for security.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
 
-let authToken = null;
+// Restore token from localStorage on module load (survives page reload)
+let authToken = localStorage.getItem('wg_token') || null;
 
 export function setAuthToken(token) {
   authToken = token;
+  if (token) {
+    localStorage.setItem('wg_token', token);
+  } else {
+    localStorage.removeItem('wg_token');
+  }
 }
 
 export function getAuthToken() {
@@ -18,6 +24,7 @@ export function getAuthToken() {
 
 export function clearAuthToken() {
   authToken = null;
+  localStorage.removeItem('wg_token');
 }
 
 async function request(method, path, data = null, options = {}) {

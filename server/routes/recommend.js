@@ -6,6 +6,8 @@ import { getMLPrediction } from '../services/mlClient.js';
 import { calculatePostTaxReturn } from '../services/postTaxCalculator.js';
 import { getTaxSlab } from '../services/taxEngine.js';
 import { generateAdvisory } from '../services/geminiService.js';
+import crypto from 'crypto';
+import { getCache, setCache } from '../config/redis.js';
 
 const router = Router();
 
@@ -26,6 +28,22 @@ router.post('/', verifyJWT, async (req, res) => {
 
     const profile = await FinancialProfile.findById(profileId);
     if (!profile) return res.status(404).json({ error: 'Profile not found.' });
+
+    // FIX 6: Check Redis cache to prevent redundant recalculations
+    const profileHash = crypto.createHash('md5').update(JSON.stringify({
+      age: profile.age,
+      income: profile.annualIncome,
+      savings: profile.savings,
+      risk: profile.riskCategory,
+      regime: profile.taxRegime
+    })).digest('hex');
+    const cacheKey = `recommendation:${profileHash}`;
+    
+    const cachedResult = await getCache(cacheKey);
+    if (cachedResult) {
+      console.log('⚡ Recommendation cache hit');
+      return res.json(cachedResult);
+    }
 
     // Call ML microservice
     const mlResult = await getMLPrediction({
@@ -68,7 +86,7 @@ router.post('/', verifyJWT, async (req, res) => {
       mlFallback: mlResult.fallback || false,
     });
 
-    res.json({
+    const result = {
       recommendationId: rec._id,
       instruments,
       ranked: true,
@@ -78,7 +96,12 @@ router.post('/', verifyJWT, async (req, res) => {
       explanation: mlResult.explanation || null,
       ml_fallback: mlResult.fallback || false,
       disclaimer: 'WealthGenie provides AI-generated investment analysis for educational and informational purposes only. It does not constitute registered investment advice under SEBI (Investment Advisers) Regulations, 2013. Past returns are not indicative of future performance. Please consult a SEBI-registered investment adviser before making investment decisions. Mutual fund investments are subject to market risks.',
-    });
+    };
+
+    // Cache the result for 24 hours (86400 seconds)
+    await setCache(cacheKey, result, 86400);
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Recommendation failed: ' + err.message });
   }

@@ -39,7 +39,14 @@ __pycache__
 *.pyo
 .venv
 venv
+.pytest_cache
+
+# ML Model artifacts — regenerate via: python model/train.py
+*.pkl
 ml-service/model/model.pkl
 ml-service/model/label_encoder.pkl
 ml-service/model/decision_tree.pkl
 ml-service/data/investment_profiles.csv
+
+# Development artifacts
+scratch/

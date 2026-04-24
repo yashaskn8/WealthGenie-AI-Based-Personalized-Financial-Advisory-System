@@ -15,7 +15,7 @@ const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 const CHAT_RATE_LIMIT = 30;
 const HISTORY_WINDOW = 20;
-const MAX_OUTPUT_TOKENS = 600;
+const MAX_OUTPUT_TOKENS = 1200;
 const SYSTEM_PROMPT_TTL = 1800;
 
 const rateLimitCounters = new Map();
@@ -88,7 +88,13 @@ export async function processChat({ userId, user, message, sessionId }) {
   const payload = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: recentHistory,
-    generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.7, topP: 0.8, topK: 40 },
+    generationConfig: {
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      temperature: 0.4,
+      topP: 0.8,
+      topK: 40,
+      // No stopSequences — let the model reach a natural end.
+    },
     safetySettings: [
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -112,9 +118,24 @@ export async function processChat({ userId, user, message, sessionId }) {
     throw { status: 400, message: 'The message could not be processed. Please rephrase your question.' };
   }
 
-  const responseText = candidate.content.parts.map(p => p.text).join('');
-  console.log(`[Chat] Response length: ${responseText.length} chars. Text: "${responseText.substring(0, 50)}..."`);
+  let responseText = candidate.content.parts.map(p => p.text).join('');
   const tokensUsed = geminiResponse.data?.usageMetadata?.totalTokenCount || 0;
+
+  // ── Response completeness check ─────────────────────────────────
+  const finishReason = candidate.finishReason;
+  const wasCompleted = finishReason === 'STOP';
+
+  if (!wasCompleted) {
+    console.warn(
+      `[Chat] Response truncated. finishReason: ${finishReason}. `
+      + `Tokens: ${tokensUsed}. UserId: ${userId}`
+    );
+    responseText = responseText.trimEnd()
+      + '\n\n*Response was truncated. Please ask me to continue '
+      + 'or rephrase for a shorter answer.*';
+  }
+
+  console.log(`[Chat] Response length: ${responseText.length} chars. Completed: ${wasCompleted}. Text: "${responseText.substring(0, 50)}..."`);
 
   conversation.messages.push({ role: 'user', content: message, metadata: { grounded_on_profile: true } });
   conversation.messages.push({

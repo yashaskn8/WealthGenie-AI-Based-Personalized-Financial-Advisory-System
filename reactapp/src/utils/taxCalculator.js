@@ -1,150 +1,98 @@
 /**
- * Indian Income Tax Calculator
- * Supports Old and New Regime for FY 2024-25
+ * taxCalculator.js — Display Formatter for Tax API Responses
+ * ──────────────────────────────────────────────────────────
+ * ARCHITECTURE NOTE:
+ * All tax computation is performed EXCLUSIVELY by server/services/taxEngine.js.
+ * This module contains ZERO slab-rate arrays and ZERO tax computation logic.
+ * It only formats backend API responses for the UI and provides display constants.
+ *
+ * If you need to update tax slabs for a new financial year, update ONLY:
+ *   server/services/taxEngine.js
+ * Do NOT add slab computation here.
  */
 
-const OLD_REGIME_SLABS = [
-  { min: 0, max: 250000, rate: 0 },
-  { min: 250000, max: 500000, rate: 5 },
-  { min: 500000, max: 1000000, rate: 20 },
-  { min: 1000000, max: Infinity, rate: 30 },
-];
-
-const NEW_REGIME_SLABS = [
-  { min: 0, max: 300000, rate: 0 },
-  { min: 300000, max: 700000, rate: 5 },
-  { min: 700000, max: 1000000, rate: 10 },
-  { min: 1000000, max: 1200000, rate: 15 },
-  { min: 1200000, max: 1500000, rate: 20 },
-  { min: 1500000, max: Infinity, rate: 30 },
-];
-
+// ─── Display Constants (not computation — safe to keep client-side) ──
 export const SECTION_80C_LIMIT = 150000;
 export const SECTION_80CCD_1B_LIMIT = 50000;
 
-function calculateTaxFromSlabs(taxableIncome, slabs) {
-  let tax = 0;
-  for (const slab of slabs) {
-    if (taxableIncome <= slab.min) break;
-    const taxableInSlab = Math.min(taxableIncome, slab.max) - slab.min;
-    tax += taxableInSlab * (slab.rate / 100);
-  }
-  return tax;
-}
-
 /**
- * Calculates full tax breakdown
- * @param {number} annualIncome - Gross annual income
- * @param {string} regime - "old" or "new"
- * @param {number} existing80C - Already claimed 80C deductions
- * @param {number} existing80CCD - Already claimed 80CCD(1B) deductions
- * @returns {{taxableIncome, taxPayable, remaining80C, remaining80CCD, effectiveRate, slabs}}
+ * Formats a raw tax API response into display-ready strings.
+ * @param {Object} taxApiResponse - Response from /api/tax/compute
  */
-export function calculateTax(annualIncome, regime = 'old', existing80C = 0, existing80CCD = 0) {
-  const slabs = regime === 'old' ? OLD_REGIME_SLABS : NEW_REGIME_SLABS;
-  
-  let deductions = 0;
-  let remaining80C = 0;
-  let remaining80CCD = 0;
-
-  if (regime === 'old') {
-    const used80C = Math.min(existing80C, SECTION_80C_LIMIT);
-    const used80CCD = Math.min(existing80CCD, SECTION_80CCD_1B_LIMIT);
-    remaining80C = SECTION_80C_LIMIT - used80C;
-    remaining80CCD = SECTION_80CCD_1B_LIMIT - used80CCD;
-    deductions = used80C + used80CCD + 50000; // Standard deduction
-  } else {
-    deductions = 75000; // New regime standard deduction FY 24-25
-  }
-
-  const taxableIncome = Math.max(0, annualIncome - deductions);
-  let taxPayable = calculateTaxFromSlabs(taxableIncome, slabs);
-
-  // Section 87A Rebate
-  if (regime === 'new' && taxableIncome <= 700000) {
-    taxPayable = 0;
-  } else if (regime === 'old' && taxableIncome <= 500000) {
-    taxPayable = 0;
-  }
-
-  const cess = taxPayable * 0.04;
-  const totalTax = taxPayable + cess;
-  const effectiveRate = annualIncome > 0 ? ((totalTax / annualIncome) * 100).toFixed(1) : 0;
-
+export function formatTaxBreakdown(taxApiResponse) {
   return {
-    annualIncome,
-    deductions,
-    taxableIncome,
-    taxBeforeCess: taxPayable,
-    cess,
-    totalTax,
-    effectiveRate,
-    remaining80C,
-    remaining80CCD,
-    regime,
-    slabs
+    taxAmount: formatINR(taxApiResponse.taxAmount),
+    effectiveRate: `${taxApiResponse.effectiveRate}%`,
+    rebateNote: taxApiResponse.rebateApplied
+      ? '87A rebate applied — zero tax liability' : null,
+    surchargeNote: taxApiResponse.surchargeApplied
+      ? `Surcharge: ${formatINR(taxApiResponse.surchargeAmount)}` : null,
+    regime: taxApiResponse.regime === 'new'
+      ? 'New Tax Regime (FY2025-26)' : 'Old Tax Regime',
   };
 }
 
 /**
- * Helper to check if an investment qualifies for a given tax section.
- * Supports both old schema (tax_section string) and new schema (taxType field).
+ * Fetch tax computation from backend API.
+ * @param {number} annualIncome
+ * @param {string} regime - 'new' or 'old'
+ * @returns {Promise<Object>} Tax breakdown from server/services/taxEngine.js
  */
-function matchesTaxSection(inv, sectionStr) {
-  // New schema
-  if (inv.taxType) {
-    if (sectionStr === '80C') {
-      return inv.taxType === 'eee' || inv.taxType === 'elss';
-    }
-    if (sectionStr === '80CCD') {
-      return inv.taxType === 'nps';
-    }
-  }
-  // Old schema fallback
-  if (inv.tax_section) {
-    return inv.tax_section.includes(sectionStr);
-  }
-  return false;
+export async function fetchTaxComputation(annualIncome, regime = 'new') {
+  const token = localStorage.getItem('wg_token');
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+  const res = await fetch(`${API_BASE}/tax/compute?income=${annualIncome}&regime=${regime}`, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` }),
+    },
+  });
+  if (!res.ok) throw new Error('Tax computation failed');
+  return res.json();
 }
 
 /**
- * Returns tax-saving investment recommendations to fill the gap
+ * Returns tax-saving investment recommendations to fill deduction gaps.
+ * This is DISPLAY LOGIC — it filters eligible instruments, not computes tax.
  */
+function matchesTaxSection(inv, sectionStr) {
+  if (inv.taxType) {
+    if (sectionStr === '80C') return inv.taxType === 'eee' || inv.taxType === 'elss';
+    if (sectionStr === '80CCD') return inv.taxType === 'nps';
+  }
+  if (inv.tax_section) return inv.tax_section.includes(sectionStr);
+  return false;
+}
+
 export function getTaxSavingRecommendations(remaining80C, remaining80CCD, investments) {
   const recs = [];
-
   if (remaining80C > 0) {
-    const eligible = investments.filter(inv => matchesTaxSection(inv, '80C'));
-    eligible.forEach(inv => {
+    investments.filter(inv => matchesTaxSection(inv, '80C')).forEach(inv => {
       recs.push({
-        ...inv,
-        // Ensure these fields exist for display
-        name: inv.name,
-        id: inv.id,
+        ...inv, name: inv.name, id: inv.id,
         expected_return_min: inv.expected_return_min || (inv.rate ? inv.rate * 0.85 : 0),
         expected_return_max: inv.expected_return_max || inv.rate || 0,
         suggestedAmount: Math.min(remaining80C, 150000),
-        section: '80C',
-        maxDeduction: SECTION_80C_LIMIT
+        section: '80C', maxDeduction: SECTION_80C_LIMIT,
       });
     });
   }
-
   if (remaining80CCD > 0) {
-    const eligible = investments.filter(inv => matchesTaxSection(inv, '80CCD'));
-    eligible.forEach(inv => {
+    investments.filter(inv => matchesTaxSection(inv, '80CCD')).forEach(inv => {
       recs.push({
-        ...inv,
-        name: inv.name,
-        id: inv.id,
+        ...inv, name: inv.name, id: inv.id,
         expected_return_min: inv.expected_return_min || (inv.rate ? inv.rate * 0.85 : 0),
         expected_return_max: inv.expected_return_max || inv.rate || 0,
         suggestedAmount: remaining80CCD,
-        section: '80CCD(1B)',
-        maxDeduction: SECTION_80CCD_1B_LIMIT
+        section: '80CCD(1B)', maxDeduction: SECTION_80CCD_1B_LIMIT,
       });
     });
   }
-
   return recs;
+}
+
+function formatINR(amount) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency', currency: 'INR', maximumFractionDigits: 0,
+  }).format(amount);
 }

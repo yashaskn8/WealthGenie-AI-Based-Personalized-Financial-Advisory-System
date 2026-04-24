@@ -152,6 +152,7 @@ def health():
         status=status,
         model_version="2.0",
         model_accuracy=model_accuracy,
+        explainer_loaded=explainer_instance is not None,
     )
 
 
