@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, PalmTree, Diamond, FileText, Shield } from 'lucide-react';
+import { Target, Palmtree, Diamond, FileText, Shield } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import { calculateSIPFutureValue } from '../utils/sipCalculator';
 import './GoalTracker.css';
 
 const GOAL_DEFAULTS = {
-  'Retirement': { target: 20000000, icon: <PalmTree size={18} color="#06b6d4" /> },
+  'Retirement': { target: 20000000, icon: <Palmtree size={18} color="#06b6d4" /> },
   'Wealth Growth': { target: 10000000, icon: <Diamond size={18} color="#a855f7" /> },
   'Tax Saving': { target: 150000, icon: <FileText size={18} color="#8b5cf6" /> },
   'Emergency Fund': { target: 600000, icon: <Shield size={18} color="#22c55e" /> },
