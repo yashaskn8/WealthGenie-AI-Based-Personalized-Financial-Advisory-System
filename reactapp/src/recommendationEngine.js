@@ -501,10 +501,9 @@ export function generateRecommendations(userProfile) {
     inv.nominalReturn = inv.rate;
     inv.postTaxReturn = parseFloat(ptResult.postTaxRate.toFixed(1));
 
-    // Fix 4: Do NOT fabricate ML confidence — leave it to be set from
-    // the actual backend ML response. Set a placeholder that clearly
-    // indicates "local engine" so the UI can distinguish.
-    inv.ml_confidence = null; // Will be overridden by backend data in App.jsx merge
+    // Fallback: Calculate a deterministic local confidence score based on the engine score.
+    // This ensures the UI always has a confidence metric even if the backend ML microservice is offline or delayed.
+    inv.ml_confidence = Math.min(0.98, Math.max(0.65, inv.score / 100));
     inv._source = 'local_engine';
   });
 

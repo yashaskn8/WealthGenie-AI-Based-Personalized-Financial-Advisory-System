@@ -10,10 +10,14 @@ export function formatINR(val) {
   const num = Number(val);
   // Guard against overflow / absurdly large numbers
   if (!isFinite(num)) return '₹∞';
-  if (Math.abs(num) >= 1e13) return `₹${num > 0 ? '' : '-'}999+ Cr`;
-  if (Math.abs(num) >= 10000000) {
+  const abs = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+  if (abs >= 1e15) return `${sign}₹999+ L Cr`;
+  if (abs >= 1e12) return `${sign}₹${(num / 1e12).toFixed(2)} L Cr`;   // Lakh Crore
+  if (abs >= 1e10) return `${sign}₹${(num / 1e10).toFixed(2)} K Cr`;   // Thousand Crore
+  if (abs >= 10000000) {
     return `₹${(num / 10000000).toFixed(2)} Cr`;
-  } else if (Math.abs(num) >= 100000) {
+  } else if (abs >= 100000) {
     return `₹${(num / 100000).toFixed(2)} L`;
   }
   return new Intl.NumberFormat('en-IN', {
@@ -25,13 +29,18 @@ export function formatINR(val) {
 
 /**
  * Formats a number into compact Indian notation.
- * 150000 -> "1.5L", 25000000 -> "2.5Cr"
+ * 150000 -> "₹1.5L", 25000000 -> "₹2.5Cr"
  */
 export function formatCompactINR(val) {
   if (val === null || val === undefined || isNaN(val)) return '₹0';
   const num = Number(val);
-  if (Math.abs(num) >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`;
-  if (Math.abs(num) >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
-  if (Math.abs(num) >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
-  return `₹${num}`;
+  const abs = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+  if (abs >= 1e15) return `${sign}₹999+ L Cr`;
+  if (abs >= 1e12) return `${sign}₹${(num / 1e12).toFixed(1)} L Cr`;   // Lakh Crore
+  if (abs >= 1e10) return `${sign}₹${(num / 1e10).toFixed(1)} K Cr`;   // Thousand Crore
+  if (abs >= 10000000) return `₹${(num / 10000000).toFixed(1)} Cr`;
+  if (abs >= 100000) return `₹${(num / 100000).toFixed(1)} L`;
+  if (abs >= 1000) return `₹${(num / 1000).toFixed(1)} K`;
+  return `₹${Math.round(num)}`;
 }

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { motion } from 'framer-motion';
+import { Target, PieChart as PieChartIcon } from 'lucide-react';
 import { computeAllocation } from '../recommendationEngine';
 import { getEligibleInvestments } from '../recommendationEngine';
 import { CONCENTRATION_CAPS, RISK_COLORS } from '../investmentDatabase';
@@ -81,9 +83,9 @@ const AllocationPlanner = ({ profile }) => {
       const d = payload[0].payload;
       return (
         <div className="ap-tooltip">
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.name}</div>
-          <div>{d.allocationPct.toFixed(1)}%</div>
-          <div>₹{d.monthlyAmount?.toLocaleString("en-IN")}/mo</div>
+          <div style={{ fontWeight: 800, marginBottom: 6, color: '#fff', fontSize: '1rem' }}>{d.name}</div>
+          <div style={{ color: d.color, fontSize: '1.2rem', fontWeight: 900 }}>{d.allocationPct.toFixed(1)}%</div>
+          <div style={{ color: '#94a3b8', marginTop: 4 }}>₹{d.monthlyAmount?.toLocaleString("en-IN")}/mo</div>
         </div>
       );
     }
@@ -92,56 +94,92 @@ const AllocationPlanner = ({ profile }) => {
 
   if (!allocation || allocation.length === 0) {
     return (
-      <div className="ap-page">
-        <h1 className="page-title">🎯 Portfolio Allocation Planner</h1>
+      <motion.div className="ap-page" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Target size={28} color="#f43f5e" /> Portfolio Allocation Planner
+        </h1>
         <div className="ap-empty">
-          <div style={{ fontSize: '3rem' }}>📊</div>
+          <div style={{ fontSize: '3rem', color: '#0ea5e9' }}><PieChartIcon size={64} /></div>
           <h3>Nothing to show here</h3>
           <p>Adjust your profile settings to unlock investment options.</p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
     <div className="ap-page">
-      <h1 className="page-title">🎯 Portfolio Allocation Planner</h1>
-      <p className="page-subtitle">
+      <motion.h1 
+        className="page-title"
+        style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '2.4rem' }}
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+      >
+        <span style={{ 
+          display: 'inline-flex', 
+          width: 32, height: 32, 
+          background: 'linear-gradient(135deg, #0ea5e9, #3b82f6)', 
+          borderRadius: 8, 
+          boxShadow: '0 0 20px rgba(14, 165, 233, 0.7)' 
+        }}></span> 
+        Portfolio Allocation Planner
+      </motion.h1>
+      <motion.p 
+        className="page-subtitle"
+        style={{ fontSize: '1.1rem', marginBottom: '32px' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+      >
         Suggested split for ₹{savings.toLocaleString("en-IN")}/month across your top-ranked eligible instruments.
-      </p>
+      </motion.p>
 
       <div className="ap-main-grid">
         {/* LEFT: Donut */}
-        <div className="ap-donut-panel">
+        <motion.div 
+          className="ap-donut-panel"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+        >
           <div style={{ width: '100%', height: 380, position: 'relative' }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie data={allocation} dataKey="allocationPct" cx="50%" cy="50%"
                   innerRadius={115} outerRadius={165} paddingAngle={3} stroke="rgba(15, 23, 42, 0.8)" strokeWidth={3}>
-                  {allocation.map((a, i) => <Cell key={i} fill={a.color} />)}
+                  {allocation.map((a, i) => <Cell key={i} fill={a.color} style={{ filter: `drop-shadow(0px 0px 8px ${a.color}80)` }} />)}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="ap-donut-center">
-              <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>
+              <div className="donut-value-text">
                 ₹{savings.toLocaleString("en-IN")}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '2px' }}>per month</div>
+              <div className="donut-sub-text">per month</div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* RIGHT: Allocation Cards */}
         <div className="ap-cards-panel">
-          {allocation.map(a => (
-            <div key={a.id} className="ap-alloc-card" style={{ borderLeftColor: a.color }}>
+          {allocation.map((a, index) => (
+            <motion.div 
+              key={a.id} 
+              className="ap-alloc-card" 
+              style={{ borderLeftColor: a.color, '--hover-color': a.color }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 + (index * 0.1) }}
+            >
               <div className="ap-card-top">
                 <div>
-                  <div className="ap-card-name">{a.abbr || a.name}</div>
+                  <div className="ap-card-name" style={{ textShadow: `0 0 10px ${a.color}40` }}>{a.abbr || a.name}</div>
                   <div className="ap-card-fullname">{a.name}</div>
                 </div>
-                <div className="ap-card-pct">{a.allocationPct.toFixed(1)}%</div>
+                <div className="ap-card-pct" style={{ color: a.color, textShadow: `0 0 15px ${a.color}60` }}>
+                  {a.allocationPct.toFixed(1)}%
+                </div>
               </div>
               <div className="ap-card-details">
                 <span>₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo</span>
@@ -153,17 +191,22 @@ const AllocationPlanner = ({ profile }) => {
               {a.concentrationBadge && (
                 <div className="ap-conc-badge">{a.concentrationBadge}</div>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
 
       {/* Blended Return */}
-      <div className="ap-blended-bar">
+      <motion.div 
+        className="ap-blended-bar"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+      >
         <div className="ap-blended-label">Blended Portfolio Post-Tax Return</div>
         <div className="ap-blended-value">{blendedReturn.toFixed(1)}%</div>
         <div className="ap-blended-sub">Estimated blended post-tax return across your portfolio</div>
-      </div>
+      </motion.div>
 
       {/* KPI Cards */}
       <div className="ap-kpi-row">

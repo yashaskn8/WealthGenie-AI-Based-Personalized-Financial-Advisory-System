@@ -1,67 +1,86 @@
-/* HealthScoreScreen.css */
+/* HealthScoreScreen.css - Advanced UI Upgrade */
 .health-screen-wrapper {
   color: #fff;
   font-family: 'Inter', system-ui, sans-serif;
   position: relative;
-  /* Replicate the futuristic wireframe mesh via layered radial & linear gradients to give extreme depth */
+  /* Deep cosmic holographic background */
   background: 
-    radial-gradient(ellipse at 20% 40%, rgba(26, 68, 148, 0.4) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 30%, rgba(139, 44, 91, 0.3) 0%, transparent 40%),
-    linear-gradient(to bottom, #090b14 0%, #0d1222 50%, #090b14 100%);
+    radial-gradient(circle at 15% 30%, rgba(26, 68, 148, 0.6) 0%, transparent 40%),
+    radial-gradient(circle at 85% 70%, rgba(139, 44, 91, 0.4) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.15) 0%, transparent 60%),
+    linear-gradient(135deg, #05070f 0%, #0a0f1d 50%, #05070f 100%);
   background-attachment: fixed;
   overflow: hidden;
   padding: 40px;
   min-height: calc(100vh - 80px);
+  animation: fadeIn 0.6s ease-out;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Animated 3D Perspective Grid */
 .health-screen-wrapper::after {
   content: '';
   position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
+  top: 0; left: -50%; width: 200%; height: 200%;
   background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  transform: perspective(600px) rotateX(60deg) scale(2.5);
+    linear-gradient(rgba(255, 255, 255, 0.03) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 2px, transparent 2px);
+  background-size: 50px 50px;
+  transform: perspective(800px) rotateX(60deg) translateY(-100px) translateZ(-200px);
   transform-origin: center top;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.3;
+  animation: gridMove 20s linear infinite;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
 }
 
-
+@keyframes gridMove {
+  0% { transform: perspective(800px) rotateX(60deg) translateY(0) translateZ(-200px); }
+  100% { transform: perspective(800px) rotateX(60deg) translateY(50px) translateZ(-200px); }
+}
 
 .health-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(400px, 1.5fr) minmax(320px, 1fr);
-  gap: 24px;
-  max-width: 1400px;
+  grid-template-columns: minmax(320px, 1fr) minmax(500px, 2fr);
+  gap: 40px;
+  max-width: 1300px;
   margin: 100px auto 0;
   align-items: start;
   position: relative;
   z-index: 2;
 }
 
-/* Glass Panels */
+/* Ultra-Premium Glass Panels */
 .glass-panel {
-  background: rgba(13, 17, 28, 0.6);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
+  background: rgba(10, 14, 23, 0.65);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+  border-radius: 24px;
+  box-shadow: 0 30px 60px -15px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.15);
   position: relative;
   overflow: hidden;
-  z-index: 2;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
 }
 
+.glass-panel:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 40px 80px -15px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+/* Iridescent Border Highlight */
 .glass-panel::before {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   border-radius: 24px;
   padding: 1px;
-  background: linear-gradient(145deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.1) 100%);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -69,105 +88,125 @@
   pointer-events: none;
 }
 
-
-
 /* Main Score Card */
 .score-card {
-  padding: 40px 30px;
+  padding: 50px 30px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 0 80px rgba(223, 189, 105, 0.1); /* Dynamic glow will overwrite inline */
-}
-.btn-glass {
-  background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: 100%;
-  font-weight: 500;
-}
-.btn-glass:hover {
-  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
-  border-color: rgba(255,255,255,0.2);
-  transform: translateY(-1px);
+  /* dynamic glow applied via inline style based on score color */
 }
 
-/* Middle Breakdown Bars */
+/* Dynamic Hover Rows for Breakdown */
 .breakdown-row {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
+
+.breakdown-row::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 50%; height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.05), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.7s ease;
+}
+
+.breakdown-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: scale(1.02);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.breakdown-row:hover::after {
+  left: 200%;
+}
+
 .breakdown-row.alert {
   background: rgba(239, 68, 68, 0.05);
   border-color: rgba(239, 68, 68, 0.2);
-  box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.05);
+  box-shadow: inset 0 0 30px rgba(239, 68, 68, 0.1);
 }
 
+.breakdown-row.alert:hover {
+  background: rgba(239, 68, 68, 0.1);
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2), inset 0 0 30px rgba(239, 68, 68, 0.15);
+}
+
+/* Glowing Progress Bars */
 .progress-track {
-  height: 6px;
-  background: #1e293b;
-  border-radius: 3px;
-  margin-top: 12px;
+  height: 8px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+  margin-top: 14px;
   overflow: hidden;
   position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
 }
+
 .progress-fill {
   height: 100%;
-  border-radius: 3px;
-  box-shadow: 0 0 10px currentColor; /* Makes the bar glow its own color */
+  border-radius: 4px;
+  box-shadow: 0 0 15px currentColor, inset 0 0 5px rgba(255,255,255,0.5);
+  position: relative;
 }
 
-/* Right Dashboard Widgets */
-.right-dashboard-col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: shimmer 2s infinite linear;
 }
-.insight-widget {
-  background: rgba(13, 17, 28, 0.6);
-  backdrop-filter: blur(40px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
+
+/* Next-Gen Glass Button */
+.btn-glass {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.btn-glass:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.08) 100%);
+  border-color: rgba(255,255,255,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255,255,255,0.1);
+}
+
+/* Actionable Insights Widget */
 .widget-title {
   color: #94a3b8;
-  font-size: 0.75rem;
-  letter-spacing: 0.5px;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
   text-transform: uppercase;
   margin-bottom: 12px;
-  font-weight: 600;
-}
-.insight-card {
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 8px;
-}
-.insight-card.critical {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.05);
+  font-weight: 700;
 }
 
-@media (max-width: 1200px) {
-  .health-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .smartphone-frame {
-    display: none;
-  }
-}
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .health-grid {
     grid-template-columns: 1fr;
+    max-width: 600px;
   }
 }

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { BarChart3 } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import './RebalancerScreen.css';
 
@@ -18,18 +19,34 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
   });
 
   const handleSliderChange = (id, newPct) => {
-    const oldPct = allocations[id];
+    const oldPct = allocations[id] || 0;
     const diff = newPct - oldPct;
-    const otherIds = Object.keys(allocations).filter(k => Number(k) !== id);
+    const otherIds = Object.keys(allocations).filter(k => k !== String(id));
     const otherTotal = otherIds.reduce((s, k) => s + allocations[k], 0);
 
     const newAllocs = { ...allocations, [id]: newPct };
+    
     if (otherTotal > 0) {
       otherIds.forEach(k => {
         const proportion = allocations[k] / otherTotal;
         newAllocs[k] = Math.max(0, allocations[k] - diff * proportion);
       });
+    } else if (diff < 0 && otherIds.length > 0) {
+      // If otherTotal is 0 but we are decreasing the current slider, distribute evenly
+      const split = Math.abs(diff) / otherIds.length;
+      otherIds.forEach(k => {
+        newAllocs[k] = split;
+      });
     }
+
+    // Normalize strictly to 100% to avoid float drift explosion
+    const total = Object.values(newAllocs).reduce((a, b) => a + b, 0);
+    if (total > 0 && Math.abs(total - 100) > 0.01) {
+      Object.keys(newAllocs).forEach(k => {
+        newAllocs[k] = (newAllocs[k] / total) * 100;
+      });
+    }
+
     setAllocations(newAllocs);
   };
 
@@ -75,7 +92,9 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
 
   return (
     <div className="rebalancer-page">
-      <h1 className="page-title">📊 Portfolio Rebalancer</h1>
+      <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <BarChart3 size={28} color="#0ea5e9" /> Portfolio Rebalancer
+      </h1>
       <p className="page-subtitle">Drag sliders to adjust allocations. Total automatically stays at 100%.</p>
 
       {/* Risk & Return Indicators */}

@@ -288,6 +288,15 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                 const invId = inv.id;
                 const isSelected = selectedIds.includes(invId);
 
+                let defaultTaxText = 'Slab';
+                if (cat === 'Equity') {
+                  defaultTaxText = 'STCG / LTCG';
+                } else if (cat === 'Equity-Debt') {
+                  defaultTaxText = 'Equity Tax / Slab';
+                } else if (cat === 'Commodity') {
+                  defaultTaxText = 'LTCG / Slab';
+                }
+
                 return (
                   <tr key={invId} className={isSelected ? 'selected-row' : ''}>
                     <td>
@@ -326,7 +335,7 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                       {hasTax ? (
                         <span className="tax-benefit-tag" style={taxLabel==='NPS'?{color:'#38bdf8', borderColor:'rgba(56,189,248,0.3)', background:'rgba(56,189,248,0.1)'}:{}}>{taxLabel}</span>
                       ) : (
-                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>Slab</span>
+                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{defaultTaxText}</span>
                       )}
                     </td>
                     <td>
@@ -353,16 +362,55 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
         </div>
 
         <footer className="comparison-footer">
-          <div className="legend">
-            <span className="legend-item"><span style={{color: '#2dd4bf'}}>●</span> Low</span>
-            <span className="legend-item"><span style={{color: '#fbbf24'}}>●</span> Moderate</span>
-            <span className="legend-item"><span style={{color: '#f43f5e'}}>●</span> High</span>
-          </div>
-          <div className="pagination">
-            <span>1-{filtered.length} of {allInvestments.length} investments</span>
-            <button className="page-btn"><X size={12}/></button>
-            <button className="page-btn" style={{background: '#1e293b', borderColor: '#334155'}}>1</button>
-          </div>
+          {selectedIds.length > 0 ? (
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'fadeIn 0.3s ease-out' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', padding: '6px 16px', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', boxShadow: '0 0 15px rgba(56,189,248,0.2)' }}>
+                  {selectedIds.length} Selected
+                </div>
+                <button 
+                  onClick={() => setSelectedIds([])}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}
+                >
+                  Clear Selection
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <button 
+                  onClick={() => alert(`Detailed comparison for ${selectedIds.length} investments coming soon!`)}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', transition: 'all 0.2s' }}
+                  onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                  onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                >
+                  Deep Compare
+                </button>
+                <button 
+                  onClick={() => {
+                    alert(`Successfully added ${selectedIds.length} investments to your Portfolio Simulator!`);
+                    setSelectedIds([]);
+                  }}
+                  style={{ background: 'linear-gradient(135deg, #38bdf8, #2563eb)', border: 'none', color: '#fff', padding: '8px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', boxShadow: '0 4px 15px rgba(56,189,248,0.4)', transition: 'all 0.2s' }}
+                  onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  Add to Portfolio +
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="legend">
+                <span className="legend-item"><span style={{color: '#2dd4bf'}}>●</span> Low</span>
+                <span className="legend-item"><span style={{color: '#fbbf24'}}>●</span> Moderate</span>
+                <span className="legend-item"><span style={{color: '#f43f5e'}}>●</span> High</span>
+              </div>
+              <div className="pagination">
+                <span>1-{filtered.length} of {allInvestments.length} investments</span>
+                <button className="page-btn"><X size={12}/></button>
+                <button className="page-btn" style={{background: '#1e293b', borderColor: '#334155'}}>1</button>
+              </div>
+            </>
+          )}
         </footer>
 
       </div>

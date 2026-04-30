@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap } from 'lucide-react';
+import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap, Trophy, BarChart3, AlertCircle } from 'lucide-react';
 import { investmentDatabase, RISK_COLORS, CHART_COLORS } from './investmentDatabase';
 import { getEligibleInvestments, getWhy, computePostTaxReturn } from './recommendationEngine';
 import { getConfidenceLabel } from './utils/confidenceLabels';
@@ -603,8 +603,8 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
             ═══════════════════════════════════════════════════════════ */}
         {recommendations && recommendations.length > 0 && (
           <div style={{ marginTop: 32 }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: 20, color: '#fff' }}>
-              🏆 AI Top Picks — Ranked Recommendations
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: 20, color: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Trophy size={24} color="#f59e0b" /> AI Top Picks — Ranked Recommendations
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
               {recommendations.map((rec, idx) => {
@@ -706,7 +706,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                               border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 8,
                               padding: '3px 8px', marginBottom: 8, textAlign: 'center'
                             }}>
-                              ⚠️ Low model confidence — shown for reference only
+                            <AlertCircle size={14} style={{ marginRight: 6 }} /> Low model confidence — shown for reference only
                             </div>
                           )}
                         </>
@@ -816,8 +816,8 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
             ═══════════════════════════════════════════════════════════ */}
         {recommendations && recommendations.length > 0 && (
           <div style={{ marginTop: 40, marginBottom: 40 }}>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 20, color: '#fff' }}>
-              📊 Browse by Risk Level
+            <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 20, color: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <BarChart3 size={20} color="#94a3b8" /> Browse by Risk Level
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
               {/* Low Risk Group */}

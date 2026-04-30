@@ -39,34 +39,38 @@
 
 .tax-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-  border-radius: 20px;
-  padding: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  border-radius: 24px;
+  padding: 32px;
   margin-bottom: 32px;
   position: relative;
-  overflow: hidden;
+  background: rgba(11, 19, 30, 0.5);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255,255,255,0.05);
+  overflow: visible;
 }
 
 .tax-controls::before {
   content: '';
   position: absolute;
-  top: -50px;
-  left: -50px;
-  width: 150px;
-  height: 150px;
-  background: rgba(139, 92, 246, 0.2);
-  filter: blur(60px);
-  border-radius: 50%;
+  top: -50%;
+  left: -20%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 60%);
   pointer-events: none;
+  z-index: -1;
 }
 
 .tax-control-group label { 
   display: block; 
   font-size: 0.85rem; 
   color: #cbd5e1; 
-  font-weight: 500;
-  margin-bottom: 8px; 
+  font-weight: 600;
+  margin-bottom: 12px; 
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -79,56 +83,137 @@
   text-shadow: 0 2px 10px rgba(56, 189, 248, 0.2);
 }
 
+.tax-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  outline: none;
+  position: relative;
+}
+
+.tax-slider::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; height: 100%;
+  width: var(--val, 50%);
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  border-radius: 3px;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+  pointer-events: none;
+}
+
+.tax-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #0ea5e9;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.6);
+  margin-top: -7px;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tax-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.9);
+}
+
 .tax-input {
   width: 100%;
-  padding: 12px 16px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 12px;
-  color: #fff;
-  font-size: 1rem;
+  padding: 14px 18px;
+  background: rgba(11, 19, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  font-weight: 500;
   outline: none;
-  font-family: inherit;
-  transition: all 0.3s ease;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  font-family: 'Inter', sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
   box-sizing: border-box;
 }
 
 .tax-input:focus { 
-  border-color: #8b5cf6; 
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2), inset 0 2px 4px rgba(0,0,0,0.1);
+  background: rgba(15, 23, 42, 0.9);
+  border-color: #0ea5e9; 
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15), inset 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* Hide increment arrows on number inputs for a clean look */
+.tax-input::-webkit-outer-spin-button,
+.tax-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .tax-regime-toggle { 
   display: flex; 
-  gap: 8px; 
+  position: relative;
+  gap: 0; 
   border-radius: 12px; 
+  background: rgba(0,0,0,0.4);
+  padding: 4px;
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
 }
 
 .regime-btn {
   flex: 1;
   padding: 12px;
-  background: rgba(30, 41, 59, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: #94a3b8;
+  background: transparent;
+  border: none;
+  color: #64748b;
   cursor: pointer;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   border-radius: 10px;
+  position: relative;
+  z-index: 2;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .regime-btn:hover:not(.regime-btn--active) {
-  background: rgba(30, 41, 59, 0.8);
-  color: #f8fafc;
+  color: #94a3b8;
 }
 
 .regime-btn--active {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #fff;
-  border-color: transparent;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5), inset 0 2px 4px rgba(255,255,255,0.2);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.tax-bracket-box {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(168, 85, 247, 0.15)) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.1), 0 8px 20px rgba(0,0,0,0.2) !important;
+  position: relative;
+  overflow: hidden;
+  padding: 20px !important;
+  border-radius: 16px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.tax-bracket-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, #a855f7, transparent);
+  opacity: 0.8;
 }
 
 .tax-summary-grid {
@@ -172,16 +257,36 @@
 }
 
 .tax-chart-wrapper {
+  background: rgba(11, 19, 30, 0.4);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.05);
   border-radius: 24px;
   padding: 36px 32px;
   margin-bottom: 40px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
 
 .tax-chart-wrapper h3 {
   font-size: 1.4rem;
   margin-bottom: 24px;
-  font-weight: 600;
+  font-weight: 700;
   color: #f8fafc;
+  letter-spacing: 0.5px;
+}
+
+/* Custom glow for Recharts */
+.tax-bar-chart-glow .recharts-bar-rectangle {
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+}
+
+.comparison-table th {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.comparison-table td {
+  font-family: 'Inter', sans-serif;
 }
 
 .tax-limits-row {

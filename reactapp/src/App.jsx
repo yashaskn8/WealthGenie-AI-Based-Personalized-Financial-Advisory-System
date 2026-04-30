@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { Clock, Banknote, Wallet, Scale, Target, Telescope, User } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import './App.css';
 import logoImg from './assets/logo.png';
@@ -24,6 +25,7 @@ import AllocationPlanner from './components/AllocationPlanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import GoalPlanner from './components/GoalPlanner';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
+import { motion } from 'framer-motion';
 import * as api from './services/api';
 
 const ProfilePage = () => {
@@ -308,34 +310,68 @@ const DashboardShell = ({ userProfile, onRecalculate }) => {
       case 'allocation':
         return <ErrorBoundary><AllocationPlanner profile={userProfile} /></ErrorBoundary>;
       case 'profile':
+        const profileData = [
+          { label: 'Age', value: userProfile.age, icon: <Clock size={18} color="#94a3b8" /> },
+          { label: 'Monthly Income', value: `₹${Number(userProfile.monthly_income).toLocaleString('en-IN')}`, icon: <Banknote size={18} color="#22c55e" /> },
+          { label: 'Monthly Savings', value: `₹${Number(userProfile.monthly_savings).toLocaleString('en-IN')}`, icon: <Wallet size={18} color="#0ea5e9" /> },
+          { label: 'Risk Appetite', value: userProfile.risk_appetite, icon: <Scale size={18} color="#f59e0b" /> },
+          { label: 'Investment Goals', value: userProfile.investment_goals.join(', '), icon: <Target size={18} color="#f43f5e" /> },
+          { label: 'Investment Horizon', value: `${userProfile.investment_horizon} years`, icon: <Telescope size={18} color="#8b5cf6" /> },
+        ];
         return (
-          <div style={{ padding: '40px 20px', maxWidth: 600, margin: '0 auto', color: '#fff' }}>
-            <h1 className="page-title">👤 My Profile</h1>
-            <p className="page-subtitle">Your current financial parameters</p>
-            <div style={{ background: '#0B131E', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ display: 'grid', gap: 16 }}>
-                {[
-                  ['Age', userProfile.age],
-                  ['Monthly Income', `₹${Number(userProfile.monthly_income).toLocaleString('en-IN')}`],
-                  ['Monthly Savings', `₹${Number(userProfile.monthly_savings).toLocaleString('en-IN')}`],
-                  ['Risk Appetite', userProfile.risk_appetite],
-                  ['Investment Goals', userProfile.investment_goals.join(', ')],
-                  ['Investment Horizon', `${userProfile.investment_horizon} years`],
-                ].map(([label, value]) => (
-                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: 10 }}>
-                    <span style={{ color: '#94a3b8' }}>{label}</span>
-                    <span style={{ fontWeight: 600 }}>{value}</span>
-                  </div>
+          <div style={{ padding: '40px 20px', maxWidth: 1000, margin: '0 auto', color: '#fff' }}>
+            <motion.h1 
+              className="page-title" 
+              style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '2.5rem', marginBottom: '8px' }}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <User size={48} color="#0ea5e9" style={{ filter: 'drop-shadow(0 0 15px rgba(14, 165, 233, 0.4))' }} /> My Profile
+            </motion.h1>
+            <motion.p 
+              className="page-title-sub" 
+              style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '40px', letterSpacing: '0.5px' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Your financial command center parameters
+            </motion.p>
+            
+            <motion.div 
+              className="hud-profile-card"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3, type: "spring", stiffness: 100 }}
+              style={{ maxWidth: '100%', padding: '40px' }}
+            >
+              <div className="hud-profile-grid">
+                {profileData.map((item, index) => (
+                  <motion.div 
+                    key={item.label} 
+                    className="hud-stat-box"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + (index * 0.1) }}
+                  >
+                    <div className="hud-stat-icon">{item.icon}</div>
+                    <div className="hud-stat-content">
+                      <span className="hud-stat-label">{item.label}</span>
+                      <span className="hud-stat-value">{item.value}</span>
+                    </div>
+                  </motion.div>
                 ))}
               </div>
-              <button
-                className="btn-primary"
-                style={{ marginTop: 24, width: '100%' }}
+              <motion.button
+                className="hud-profile-btn"
                 onClick={onRecalculate}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
               >
-                Edit Profile & Recalculate
-              </button>
-            </div>
+                EDIT PROFILE & RECALCULATE
+              </motion.button>
+            </motion.div>
           </div>
         );
       case 'insights':

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { motion } from 'framer-motion';
 import { formatINR } from '../utils/indianNumberFormat';
 import { fetchTaxComputation, getTaxSavingRecommendations, SECTION_80C_LIMIT, SECTION_80CCD_1B_LIMIT } from '../utils/taxCalculator';
 import { investmentDatabase } from '../investmentDatabase';
@@ -9,8 +10,8 @@ import './TaxScreen.css';
 const TaxScreen = ({ profile }) => {
   const annualIncome = (profile?.monthly_income || 65000) * 12;
   const [regime, setRegime] = useState(profile?.taxRegime || 'new');
-  const [existing80C, setExisting80C] = useState(0);
-  const [existing80CCD, setExisting80CCD] = useState(0);
+  const [existing80C, setExisting80C] = useState('');
+  const [existing80CCD, setExisting80CCD] = useState('');
 
   // Fetch tax from backend API (authoritative source)
   const [baseTax, setBaseTax] = useState(null);
@@ -54,22 +55,42 @@ const TaxScreen = ({ profile }) => {
 
   // Regime comparison chart — always has meaningful data
   const regimeChartData = [
-    { label: 'Old Regime', value: Math.round(oldRegimeTax?.taxAmount || 0), fill: '#f97316' },
-    { label: 'New Regime', value: Math.round(newRegimeTax?.taxAmount || 0), fill: '#3b82f6' },
+    { label: 'Old Regime', value: Math.round(oldRegimeTax?.taxAmount || 0), fill: 'url(#colorOld)' },
+    { label: 'New Regime', value: Math.round(newRegimeTax?.taxAmount || 0), fill: 'url(#colorNew)' },
   ];
 
   const optimizationChartData = [
-    { label: 'Current Tax', value: Math.round(totalTax), fill: '#ef4444' },
-    { label: 'After Optimization', value: Math.round(Math.max(0, totalTax - potentialSaving)), fill: '#22c55e' },
+    { label: 'Current Tax', value: Math.round(totalTax), fill: 'url(#colorCurrent)' },
+    { label: 'After Optimization', value: Math.round(Math.max(0, totalTax - potentialSaving)), fill: 'url(#colorOpt)' },
   ];
 
   return (
     <div className="tax-page">
-      <h1 className="page-title">🧮 Tax Saving Optimizer</h1>
-      <p className="page-subtitle">Maximize your deductions and minimize tax liability under Indian IT laws</p>
+      <motion.header 
+        style={{ marginBottom: 40, textAlign: 'center' }}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+          <span style={{ 
+            display: 'inline-flex', 
+            width: 36, height: 36, 
+            background: 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', 
+            borderRadius: 8, 
+            boxShadow: '0 0 20px rgba(139, 92, 246, 0.7)' 
+          }}></span>
+          Tax Saving Optimizer
+        </h1>
+        <p className="page-subtitle">Maximize your deductions and minimize tax liability under Indian IT laws</p>
+      </motion.header>
 
       {/* Regime Toggle + Inputs */}
-      <div className="tax-controls">
+      <motion.div 
+        className="tax-controls"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
         <div className="tax-control-group">
           <label>Annual Income</label>
           <div className="tax-income-display">{formatINR(annualIncome)}</div>
@@ -90,18 +111,37 @@ const TaxScreen = ({ profile }) => {
           <>
             <div className="tax-control-group">
               <label>Existing 80C Investments (₹)</label>
-              <input type="number" value={existing80C} onChange={e => setExisting80C(Number(e.target.value))} max={SECTION_80C_LIMIT} className="tax-input" />
+              <input 
+                type="number" 
+                value={existing80C} 
+                onChange={e => setExisting80C(e.target.value === '' ? '' : Number(e.target.value))} 
+                max={SECTION_80C_LIMIT} 
+                className="tax-input" 
+                placeholder="0"
+              />
             </div>
             <div className="tax-control-group">
               <label>Existing 80CCD(1B) — NPS (₹)</label>
-              <input type="number" value={existing80CCD} onChange={e => setExisting80CCD(Number(e.target.value))} max={SECTION_80CCD_1B_LIMIT} className="tax-input" />
+              <input 
+                type="number" 
+                value={existing80CCD} 
+                onChange={e => setExisting80CCD(e.target.value === '' ? '' : Number(e.target.value))} 
+                max={SECTION_80CCD_1B_LIMIT} 
+                className="tax-input" 
+                placeholder="0"
+              />
             </div>
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* Tax Summary Cards */}
-      <div className="tax-summary-grid">
+      <motion.div 
+        className="tax-summary-grid"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2 }}
+      >
         <div className="tax-summary-card">
           <span className="tax-sum-label">Taxable Income</span>
           <span className="tax-sum-value">{formatINR(taxableIncome)}</span>
@@ -118,11 +158,16 @@ const TaxScreen = ({ profile }) => {
           <span className="tax-sum-label">Potential Tax Saving</span>
           <span className="tax-sum-value" style={{ color: '#22c55e' }}>{formatINR(potentialSaving)}</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Zero-Tax Celebration */}
       {totalTax === 0 && baseTax && (
-        <div className="tax-zero-banner">
+        <motion.div 
+          className="tax-zero-banner"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        >
           <div className="tax-zero-icon">
             <ShieldCheck size={38} color="#34d399" strokeWidth={2.5} />
           </div>
@@ -134,20 +179,35 @@ const TaxScreen = ({ profile }) => {
                 : 'Your income falls below the taxable threshold.'}
             </p>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Old vs New Regime Comparison Chart — always shows data */}
-      <div className="tax-chart-wrapper">
+      <motion.div 
+        className="tax-chart-wrapper"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
         <h3>Old Regime vs New Regime Comparison</h3>
-        <div style={{ width: '100%', height: 300 }}>
+        <div style={{ width: '100%', height: 300 }} className="tax-bar-chart-glow">
           <ResponsiveContainer>
             <BarChart data={regimeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
+              <defs>
+                <linearGradient id="colorOld" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f97316" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#ea580c" stopOpacity={0.8}/>
+                </linearGradient>
+                <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0ea5e9" stopOpacity={1}/>
+                  <stop offset="100%" stopColor="#0369a1" stopOpacity={0.8}/>
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 13 }} axisLine={false} />
               <YAxis tickFormatter={(v) => formatINR(v)} stroke="#64748b" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} />
-              <Tooltip formatter={(v) => formatINR(v)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '12px', color: '#f8fafc' }} />
-              <Bar dataKey="value" radius={[10, 10, 0, 0]} barSize={80}>
+              <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(14, 165, 233, 0.4)', borderRadius: '12px', color: '#f8fafc', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
+              <Bar dataKey="value" name="Tax Payable" radius={[10, 10, 0, 0]} barSize={80}>
                 {regimeChartData.map((entry, idx) => (
                   <Cell key={idx} fill={entry.fill} />
                 ))}
@@ -160,20 +220,35 @@ const TaxScreen = ({ profile }) => {
             ✅ {betterRegime} Regime saves you {formatINR(betterRegimeSavings)}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Optimization Chart — only when there's actual tax */}
       {totalTax > 0 && regime === 'old' && potentialSaving > 0 && (
-        <div className="tax-chart-wrapper">
+        <motion.div 
+          className="tax-chart-wrapper"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
           <h3>Tax Before vs After Optimization</h3>
-          <div style={{ width: '100%', height: 280 }}>
+          <div style={{ width: '100%', height: 280 }} className="tax-bar-chart-glow">
             <ResponsiveContainer>
               <BarChart data={optimizationChartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
+                <defs>
+                  <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ef4444" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.8}/>
+                  </linearGradient>
+                  <linearGradient id="colorOpt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#15803d" stopOpacity={0.8}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={false} />
                 <YAxis tickFormatter={(v) => formatINR(v)} stroke="#64748b" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} />
-                <Tooltip formatter={(v) => formatINR(v)} contentStyle={{ background: '#0f172a', border: '1px solid rgba(6,182,212,0.3)', borderRadius: '12px', color: '#f8fafc' }} />
-                <Bar dataKey="value" radius={[10, 10, 0, 0]} barSize={80}>
+                <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(14, 165, 233, 0.4)', borderRadius: '12px', color: '#f8fafc', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
+                <Bar dataKey="value" name="Tax Payable" radius={[10, 10, 0, 0]} barSize={80}>
                   {optimizationChartData.map((entry, idx) => (
                     <Cell key={idx} fill={entry.fill} />
                   ))}
@@ -181,7 +256,7 @@ const TaxScreen = ({ profile }) => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Remaining Limits */}
@@ -212,19 +287,31 @@ const TaxScreen = ({ profile }) => {
 
       {/* Recommendations */}
       {regime === 'old' && taxSavingRecs.length > 0 && (
-        <div className="tax-recs-section">
+        <motion.div 
+          className="tax-recs-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
           <h3>Recommended Tax-Saving Investments</h3>
           <div className="tax-recs-grid">
-            {taxSavingRecs.map(rec => (
-              <div key={rec.id + rec.section} className="tax-rec-card">
+            {taxSavingRecs.map((rec, i) => (
+              <motion.div 
+                key={rec.id + rec.section} 
+                className="tax-rec-card"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 + (i * 0.1) }}
+                whileHover={{ y: -6, scale: 1.02, boxShadow: '0 12px 24px rgba(0,0,0,0.4), 0 0 15px rgba(34, 197, 94, 0.2)' }}
+              >
                 <div className="tax-rec-name">{rec.name}</div>
                 <div className="tax-rec-section">Section {rec.section}</div>
                 <div className="tax-rec-amount">Invest up to {formatINR(rec.suggestedAmount)}</div>
                 <div className="tax-rec-return">{Number(rec.expected_return_min).toFixed(2)}% – {Number(rec.expected_return_max).toFixed(2)}% returns</div>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
