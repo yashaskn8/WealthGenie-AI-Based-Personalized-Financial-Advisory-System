@@ -19,7 +19,30 @@ const HealthScoreScreen = ({ profile, recommendations }) => {
     const savingsRatio = (profile?.monthly_savings || 0) / (profile?.monthly_income || 1);
     const savingsScore = Math.min(100, savingsRatio * 500); 
 
-    const emergencyScore = profile?.investment_goals?.includes('Emergency Fund') ? 80 : 20;
+    // FIX 2 Contradiction 2: Emergency Safety Net computed from actual allocations
+    const emergencyGoalDeclared = profile?.investment_goals?.includes('Emergency Fund');
+    const emergencyAllocated = (recommendations || [])
+      .filter(r => (r.suitable_for_goals || []).includes('Emergency Fund'))
+      .reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);
+    const monthlyExpenses = (profile?.monthly_income || 0) - (profile?.monthly_savings || 0);
+    const emergencyTarget = monthlyExpenses * 6;
+    const projectedEmergency = emergencyAllocated * 12; // 1 year of savings
+    const emergencyCoverage = emergencyTarget > 0 ? Math.min(1, projectedEmergency / emergencyTarget) : 0;
+    let emergencyScore;
+    let emergencyExtra;
+    if (!emergencyGoalDeclared) {
+      emergencyScore = 10;
+      emergencyExtra = 'No emergency fund goal set. Consider adding one.';
+    } else if (emergencyAllocated === 0) {
+      emergencyScore = 15;
+      emergencyExtra = 'Alert: Emergency Fund goal declared but no SIP allocated.\nRecommendation: Allocate funds to liquid instruments.';
+    } else if (emergencyCoverage >= 0.8) {
+      emergencyScore = 80 + Math.round(emergencyCoverage * 20);
+      emergencyExtra = 'Safety Net Secure';
+    } else {
+      emergencyScore = Math.round(emergencyCoverage * 80);
+      emergencyExtra = `${Math.round(emergencyCoverage * 100)}% funded. Alert: Target shortfall detected.\nRecommendation: Increase contribution.`;
+    }
 
     const categories = new Set((recommendations || []).map(r => r.category));
     const divScore = (categories.size / 5) * 100 || 50;
@@ -27,9 +50,17 @@ const HealthScoreScreen = ({ profile, recommendations }) => {
     const taxSavingRecs = (recommendations || []).filter(r => r.tax_benefit).length;
     const taxScore = recommendations?.length > 0 ? (taxSavingRecs / recommendations.length) * 100 : 0;
 
-    const coverages = (recommendations || []).flatMap(r => r.suitable_for_goals);
-    const coveredCount = (profile?.investment_goals || []).filter(g => coverages.includes(g)).length;
-    const goalScore = profile?.investment_goals?.length > 0 ? (coveredCount / profile.investment_goals.length) * 100 : 100;
+    // FIX 2 Contradiction 3: Goal Alignment based on actual SIP allocation
+    const declaredGoals = profile?.investment_goals || [];
+    const coveredGoals = declaredGoals.filter(g => {
+      const sipToGoal = (recommendations || [])
+        .filter(r => (r.suitable_for_goals || []).includes(g))
+        .reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);
+      return sipToGoal > 0;
+    });
+    const goalScore = declaredGoals.length > 0
+      ? (coveredGoals.length / declaredGoals.length) * 100
+      : 100;
 
     let riskScore = 100;
     if (profile?.risk_appetite === 'High' && profile?.investment_horizon < 5) riskScore = 20;
@@ -39,7 +70,7 @@ const HealthScoreScreen = ({ profile, recommendations }) => {
     
     let g = 'Poor Fitness', c = '#ef4444';
     if (total >= 40) { g = 'Average Fitness'; c = '#f59e0b'; }
-    if (total >= 60) { g = 'Good Fitness'; c = '#eab308'; } // Matching the golden 76 in image
+    if (total >= 60) { g = 'Good Fitness'; c = '#eab308'; }
     if (total >= 80) { g = 'Excellent Fitness'; c = '#10b981'; }
 
     return { 
@@ -48,10 +79,10 @@ const HealthScoreScreen = ({ profile, recommendations }) => {
       color: c,
       subScores: [
         { label: 'Savings Rate Capacity', val: savingsScore, weight: 25, extra: 'Automatic Transfer Active', alert: false },
-        { label: 'Emergency Safety Net', val: emergencyScore, weight: 20, extra: emergencyScore < 50 ? 'Alert: Target shortfall detected.\nRecommendation: Increase contribution.' : 'Safety Net Secure', alert: emergencyScore < 50 },
+        { label: 'Emergency Safety Net', val: emergencyScore, weight: 20, extra: emergencyExtra, alert: emergencyScore < 50 },
         { label: 'Portfolio Diversification', val: divScore, weight: 20, extra: 'View Allocation Breakdown', alert: false },
         { label: 'Tax Shield Efficiency', val: taxScore, weight: 15, extra: 'Optimizer active', alert: false },
-        { label: 'Goal Alignment', val: goalScore, weight: 10, extra: 'Calender view | Milestone mrkers', alert: false },
+        { label: 'Goal Alignment', val: goalScore, weight: 10, extra: goalScore >= 80 ? 'Calendar view | Milestone markers' : `${coveredGoals.length}/${declaredGoals.length} goals with active SIP`, alert: goalScore < 50 },
         { label: 'Time-Horizon Risk Match', val: riskScore, weight: 10, extra: 'Volatility synchronized', alert: false }
       ]
     };

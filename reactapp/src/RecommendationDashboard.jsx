@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, ReferenceLine } from 'recharts';
 import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap, Trophy, BarChart3, AlertCircle } from 'lucide-react';
 import { investmentDatabase, RISK_COLORS, CHART_COLORS } from './investmentDatabase';
-import { getEligibleInvestments, getWhy, computePostTaxReturn } from './recommendationEngine';
+import { getEligibleInvestments, getWhy, computePostTaxReturn, GOAL_PROFILES } from './recommendationEngine';
 import { getConfidenceLabel } from './utils/confidenceLabels';
 import { validatePortfolio } from './utils/portfolioValidation';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
@@ -46,13 +46,16 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
     high: (userProfile?.risk_appetite || 'Medium').toLowerCase() === 'high',
   });
 
-  // Eligibility stats
+  // Eligibility stats — goal-aware
+  const isEmergencyFundGoal = (userProfile?.investment_goals || [])[0] === 'Emergency Fund';
   const eligibleCount = useMemo(() => {
     if (!userProfile) return 0;
+    if (isEmergencyFundGoal) return recommendations?.length || 3; // Emergency Fund uses dedicated liquid portfolio
     return getEligibleInvestments(userProfile).length;
-  }, [userProfile]);
+  }, [userProfile, isEmergencyFundGoal, recommendations]);
 
-  const excludedCount = 16 - eligibleCount;
+  const totalInstruments = isEmergencyFundGoal ? 15 : 15;
+  const excludedCount = totalInstruments - eligibleCount;
 
   const toggleRow = (id) => {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
@@ -195,11 +198,23 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
     };
   }, [recommendations, userProfile]);
 
-  const benchMarkData = [
-    { name: 'Global 60/40 Portfolio', value: 7.2, fill: '#38b2ac' },
-    { name: 'S&P 500', value: 10.5, fill: '#9f7aea' },
-    { name: 'Nifty 50', value: 12.1, fill: '#ecc94b' }
-  ];
+  const benchMarkData = useMemo(() => {
+    // Compute user's weighted portfolio CAGR from recommendations
+    let weightedReturn = 0;
+    if (recommendations && recommendations.length > 0 && currentMonthly > 0) {
+      recommendations.forEach(r => {
+        const weight = r.monthly_allocation / currentMonthly;
+        const rate = r.rate || r.expected_return_max || 0;
+        weightedReturn += weight * rate;
+      });
+    }
+    return [
+      { name: 'Your Portfolio', value: parseFloat(weightedReturn.toFixed(1)), fill: '#dfbd69' },
+      { name: 'Global 60/40', value: 7.2, fill: '#38b2ac' },
+      { name: 'S&P 500 (15yr CAGR)', value: 10.5, fill: '#9f7aea' },
+      { name: 'Nifty 50 (15yr CAGR)', value: 12.1, fill: '#ecc94b' },
+    ];
+  }, [recommendations, currentMonthly]);
 
   // Scroll to recommendation card
   const scrollToCard = (name) => {
@@ -221,13 +236,23 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
         {excludedCount > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px',
-            background: 'rgba(6, 182, 212, 0.06)', border: '1px solid rgba(6, 182, 212, 0.15)',
+            background: isEmergencyFundGoal ? 'rgba(34, 197, 94, 0.06)' : 'rgba(6, 182, 212, 0.06)',
+            border: isEmergencyFundGoal ? '1px solid rgba(34, 197, 94, 0.15)' : '1px solid rgba(6, 182, 212, 0.15)',
             borderRadius: 12, marginBottom: 16, fontSize: '0.88rem', color: '#94a3b8'
           }}>
-            <Info size={18} color="#06b6d4" style={{ flexShrink: 0 }} />
+            <Info size={18} color={isEmergencyFundGoal ? '#22c55e' : '#06b6d4'} style={{ flexShrink: 0 }} />
             <span>
-              Showing <strong style={{ color: '#fff' }}>{eligibleCount} of 15</strong> instruments.{' '}
-              <strong style={{ color: '#fff' }}>{excludedCount}</strong> option{excludedCount > 1 ? 's' : ''} excluded based on your profile (age, income, savings, and risk tolerance).
+              {isEmergencyFundGoal ? (
+                <>
+                  Showing <strong style={{ color: '#fff' }}>{eligibleCount} liquid instruments</strong> for Emergency Fund.{' '}
+                  <strong style={{ color: '#fff' }}>{excludedCount}</strong> option{excludedCount > 1 ? 's' : ''} excluded due to lock-in periods or liquidity mismatch (ELSS, NPS, PPF, equity funds etc.).
+                </>
+              ) : (
+                <>
+                  Showing <strong style={{ color: '#fff' }}>{eligibleCount} of 15</strong> instruments.{' '}
+                  <strong style={{ color: '#fff' }}>{excludedCount}</strong> option{excludedCount > 1 ? 's' : ''} excluded based on your profile (age, income, savings, and risk tolerance).
+                </>
+              )}
             </span>
           </div>
         )}
@@ -235,8 +260,21 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
         <div className="status-bar">
           <div className="status-item">Next Review: <span>15 Oct</span></div>
           <div className="status-item">Goals: <span>{(userProfile?.investment_goals || ['Retirement']).join(', ')}</span></div>
-          <div className="status-item">Plan Status: <span style={{color: '#4ade80'}}>On-Track</span></div>
-          <div className="status-item">Monthly Engine Value: <span>₹{currentMonthly.toLocaleString()}</span></div>
+          <div className="status-item">Plan Status: {(() => {
+            const goals = userProfile?.investment_goals || [];
+            const allocatedGoals = goals.filter(g => {
+              const sipToGoal = (recommendations || [])
+                .filter(r => (r.suitable_for_goals || []).includes(g))
+                .reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);
+              return sipToGoal > 0;
+            });
+            const alignmentRatio = goals.length > 0 ? allocatedGoals.length / goals.length : 1;
+            const status = alignmentRatio >= 0.7 ? 'On-Track' : alignmentRatio >= 0.4 ? 'At Risk' : 'Off-Track';
+            const statusColor = status === 'On-Track' ? '#4ade80' : status === 'At Risk' ? '#f59e0b' : '#ef4444';
+            return <span style={{color: statusColor}}>{status}</span>;
+          })()}</div>
+          <div className="status-item">Monthly SIP Budget: <span>₹{(userProfile?.monthly_savings || 0).toLocaleString()}</span></div>
+          <div className="status-item">Allocated: <span style={{color: currentMonthly === (userProfile?.monthly_savings || 0) ? '#4ade80' : '#f59e0b'}}>₹{currentMonthly.toLocaleString()}</span></div>
         </div>
 
         {/* Top Grid (3 columns) */}
@@ -341,66 +379,125 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
             </div>
           </div>
 
-          {/* Panel 3: Wealth Trajectory */}
+          {/* Panel 3: Wealth Trajectory / Emergency Fund Timeline */}
           <div className="panel-card">
              <div className="panel-header">
-               <span className="panel-title">Wealth Trajectory</span>
+               <span className="panel-title">
+                 {(userProfile?.investment_goals || [])[0] === 'Emergency Fund'
+                   ? 'Goal Achievement Timeline'
+                   : 'Wealth Trajectory'}
+               </span>
             </div>
-            {/* FIX 3: Chart Legend */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: '0.72rem', padding: '0 4px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 16, height: 3, background: '#06b6d4', borderRadius: 2, display: 'inline-block' }} />
-                <span style={{ color: '#94a3b8' }}>Best Case</span>
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 16, height: 3, background: '#dfbd69', borderRadius: 2, display: 'inline-block' }} />
-                <span style={{ color: '#94a3b8' }}>Average</span>
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 16, height: 3, background: '#f43f5e', borderRadius: 2, display: 'inline-block', borderTop: '1px dashed #f43f5e' }} />
-                <span style={{ color: '#94a3b8' }}>Conservative</span>
-              </span>
-            </div>
-            <div style={{ height: 200, fontSize: '0.7rem' }}>
-              {isLoading ? (
-                 <div style={{ display: 'flex', gap: 10, height: '100%', alignItems: 'flex-end', paddingBottom: 20 }}>
-                    <div className="skeleton-box" style={{ width: '25%', height: '30%' }} />
-                    <div className="skeleton-box" style={{ width: '25%', height: '50%' }} />
-                    <div className="skeleton-box" style={{ width: '25%', height: '70%' }} />
-                    <div className="skeleton-box" style={{ width: '25%', height: '100%' }} />
-                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={performanceData} margin={{top: 10, right: 30, left: -20, bottom: 0}}>
-                    <defs>
-                      <linearGradient id="colorBest" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#dfbd69" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#dfbd69" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorWorst" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
-                    <XAxis dataKey="year" tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => `${val} yrs`} />
-                    <YAxis tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => {
-                      if (val >= 10000000) return `₹${(val/10000000).toFixed(1)}Cr`;
-                      if (val >= 100000) return `₹${(val/100000).toFixed(1)}L`;
-                      return `₹${(val/1000).toFixed(0)}K`;
-                    }} />
-                    <RechartsTooltip formatter={(val) => `₹${Math.round(val).toLocaleString()}`} contentStyle={{background: 'rgba(10,14,23,0.95)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 10}} />
-                    <Area type="monotone" dataKey="best" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorBest)" />
-                    <Area type="monotone" dataKey="average" stroke="#dfbd69" strokeWidth={2} fillOpacity={1} fill="url(#colorAvg)" />
-                    <Area type="monotone" dataKey="worst" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorWorst)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+
+            {(() => {
+              const isEF = (userProfile?.investment_goals || [])[0] === 'Emergency Fund';
+
+              if (isEF) {
+                // Emergency Fund: monthly timeline to target
+                const income = Number(userProfile?.monthly_income) || 0;
+                const savings = Number(userProfile?.monthly_savings) || 0;
+                const monthlyExpenses = income - savings;
+                const emergencyTarget = monthlyExpenses * 6;
+                const avgRate = 0.07 / 12; // 7% annual, monthly
+                const maxMonths = Math.min(24, Math.ceil(emergencyTarget / (savings || 1)) + 6);
+                const efData = [];
+                for (let m = 0; m <= maxMonths; m += Math.max(1, Math.floor(maxMonths / 8))) {
+                  const fv = avgRate > 0
+                    ? savings * ((Math.pow(1 + avgRate, m) - 1) / avgRate) * (1 + avgRate)
+                    : savings * m;
+                  efData.push({ month: m, value: fv, target: emergencyTarget });
+                }
+
+                return (
+                  <>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: 8, padding: '0 4px' }}>
+                      Target: ₹{(emergencyTarget/100000).toFixed(1)}L ({Math.ceil(emergencyTarget / (savings || 1))} months at ₹{savings.toLocaleString()}/mo)
+                    </div>
+                    <div style={{ height: 200, fontSize: '0.7rem' }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={efData} margin={{top: 10, right: 30, left: -20, bottom: 0}}>
+                          <defs>
+                            <linearGradient id="colorEF" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="month" tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}mo`} />
+                          <YAxis tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => {
+                            if (val >= 100000) return `₹${(val/100000).toFixed(1)}L`;
+                            return `₹${(val/1000).toFixed(0)}K`;
+                          }} />
+                          <RechartsTooltip formatter={(val) => `₹${Math.round(val).toLocaleString()}`} contentStyle={{background: 'rgba(10,14,23,0.95)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10}} />
+                          <ReferenceLine y={emergencyTarget} stroke="#f59e0b" strokeDasharray="6 4" label={{ value: `Target ₹${(emergencyTarget/100000).toFixed(1)}L`, fill: '#f59e0b', fontSize: 11, position: 'right' }} />
+                          <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#colorEF)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                );
+              }
+
+              // Default: Wealth Trajectory
+              return (
+                <>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: '0.72rem', padding: '0 4px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 16, height: 3, background: '#06b6d4', borderRadius: 2, display: 'inline-block' }} />
+                      <span style={{ color: '#94a3b8' }}>Best Case</span>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 16, height: 3, background: '#dfbd69', borderRadius: 2, display: 'inline-block' }} />
+                      <span style={{ color: '#94a3b8' }}>Average</span>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 16, height: 3, background: '#f43f5e', borderRadius: 2, display: 'inline-block', borderTop: '1px dashed #f43f5e' }} />
+                      <span style={{ color: '#94a3b8' }}>Conservative</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 200, fontSize: '0.7rem' }}>
+                    {isLoading ? (
+                       <div style={{ display: 'flex', gap: 10, height: '100%', alignItems: 'flex-end', paddingBottom: 20 }}>
+                          <div className="skeleton-box" style={{ width: '25%', height: '30%' }} />
+                          <div className="skeleton-box" style={{ width: '25%', height: '50%' }} />
+                          <div className="skeleton-box" style={{ width: '25%', height: '70%' }} />
+                          <div className="skeleton-box" style={{ width: '25%', height: '100%' }} />
+                       </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={performanceData} margin={{top: 10, right: 30, left: -20, bottom: 0}}>
+                          <defs>
+                            <linearGradient id="colorBest" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#dfbd69" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#dfbd69" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorWorst" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="year" tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => `${val} yrs`} />
+                          <YAxis tick={{fill: '#94a3b8', fontSize: 11}} axisLine={false} tickLine={false} tickFormatter={(val) => {
+                            if (val >= 10000000) return `₹${(val/10000000).toFixed(1)}Cr`;
+                            if (val >= 100000) return `₹${(val/100000).toFixed(1)}L`;
+                            return `₹${(val/1000).toFixed(0)}K`;
+                          }} />
+                          <RechartsTooltip formatter={(val) => `₹${Math.round(val).toLocaleString()}`} contentStyle={{background: 'rgba(10,14,23,0.95)', border: '1px solid rgba(6,182,212,0.2)', borderRadius: 10}} />
+                          <Area type="monotone" dataKey="best" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorBest)" />
+                          <Area type="monotone" dataKey="average" stroke="#dfbd69" strokeWidth={2} fillOpacity={1} fill="url(#colorAvg)" />
+                          <Area type="monotone" dataKey="worst" stroke="#f43f5e" strokeWidth={2} fillOpacity={1} fill="url(#colorWorst)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
         </div>
@@ -513,13 +610,19 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                         </td>
                       </tr>
                       {expandedRows[group.id] && sortedChildren.map((child, idx) => {
+                        const isUnfunded = child.weight < 0.1 || child.alloc === 0;
                         return (
-                          <tr key={`${group.id}-${idx}`}>
+                          <tr key={`${group.id}-${idx}`} style={{ opacity: isUnfunded ? 0.6 : 1 }}>
                             <td style={{ paddingLeft: 44 }}>
                                {child.taxBadge && <span className="tax-badge">{child.taxLabel || 'Tax'}</span>}
                             </td>
                             <td>{child.fullName || child.name}</td>
-                            <td className="col-weight">{child.weight.toFixed(1)}%</td>
+                            <td className="col-weight">
+                              {isUnfunded
+                                ? <span style={{color: '#f59e0b', fontSize: '0.75rem'}}>Not Funded</span>
+                                : `${child.weight.toFixed(1)}%`
+                              }
+                            </td>
                             <td className="col-exp-return">{child.ret}</td>
                             <td className="col-risk-level" style={{textTransform:'capitalize'}}>{child.risk}</td>
                             <td>₹{child.alloc.toLocaleString()}</td>
@@ -570,14 +673,14 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
             </div>
 
             <div className="panel-card">
-              <div className="panel-title" style={{marginBottom: 16}}>Benchmarking</div>
-              <div style={{height: 120, marginLeft: -20, minWidth: 0}}>
+              <div className="panel-title" style={{marginBottom: 16}}>Benchmarking — Your Portfolio vs. Market</div>
+              <div style={{height: 160, marginLeft: -20, minWidth: 0}}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={benchMarkData} layout="vertical" margin={{top: 0, right: 20, left: 20, bottom: 0}}>
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#e2e8f0', fontSize: 11}} width={100} />
-                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{background:'#11151c', border:'1px solid #333'}}/>
-                    <Bar dataKey="value" barSize={8} radius={[0,4,4,0]}>
+                  <BarChart data={benchMarkData} layout="vertical" margin={{top: 0, right: 30, left: 10, bottom: 0}}>
+                    <XAxis type="number" tick={{fill: '#94a3b8', fontSize: 10}} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#e2e8f0', fontSize: 11}} width={120} />
+                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} formatter={(val) => `${val}% CAGR`} contentStyle={{background:'#11151c', border:'1px solid #333', borderRadius: 8}}/>
+                    <Bar dataKey="value" barSize={10} radius={[0,4,4,0]} label={{ position: 'right', fill: '#94a3b8', fontSize: 11, formatter: (v) => `${v}%` }}>
                       {benchMarkData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
@@ -639,11 +742,11 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                         <div>
                           <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Post-Tax Return</span>
-                          <div><strong style={{ color: '#22c55e', fontSize: '1.05em' }}>{rec.postTaxReturn ?? rec.rate}%</strong></div>
+                          <div><strong style={{ color: '#22c55e', fontSize: '1.05em' }}>{typeof rec.postTaxReturn === 'number' ? rec.postTaxReturn.toFixed(1) : (rec.rate || 0).toFixed(1)}%</strong></div>
                         </div>
                         <div style={{ marginTop: 2 }}>
                           <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Gross (Nominal) </span>
-                          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{rec.nominalReturn ?? rec.rate}%</span>
+                          <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{(rec.nominalReturn ?? rec.rate).toFixed(1)}%</span>
                         </div>
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
@@ -812,9 +915,80 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
         )}
 
         {/* ═══════════════════════════════════════════════════════════
-            SECTION 9: BROWSE BY RISK LEVEL — Collapsible groups
+            SECTION 9: BROWSE BY INSTRUMENT TYPE / RISK LEVEL
             ═══════════════════════════════════════════════════════════ */}
-        {recommendations && recommendations.length > 0 && (
+        {recommendations && recommendations.length > 0 && (() => {
+          const isEmergencyFund = (userProfile?.investment_goals || [])[0] === 'Emergency Fund';
+
+          if (isEmergencyFund) {
+            // FIX 6: Emergency Fund — Browse by Liquidity
+            const liquidGroup = recommendations.filter(r => ['liquid_mf'].includes(r.id));
+            const nearLiquidGroup = recommendations.filter(r => ['fd'].includes(r.id));
+            const shortTermGroup = recommendations.filter(r => ['debt_mf', 'hybrid_mf'].includes(r.id));
+            const groups = [
+              { key: 'liquid', label: 'Liquid (T+1 Redemption)', items: liquidGroup, color: '#14b8a6', icon: <Shield size={18} color="#14b8a6" /> },
+              { key: 'near_liquid', label: 'Near-Liquid (1–7 days)', items: nearLiquidGroup, color: '#06b6d4', icon: <TrendingUp size={18} color="#06b6d4" /> },
+              { key: 'short_term', label: 'Short-Term (< 1 year)', items: shortTermGroup, color: '#f59e0b', icon: <BarChart3 size={18} color="#f59e0b" /> },
+            ];
+
+            return (
+              <div style={{ marginTop: 40, marginBottom: 40 }}>
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 8, color: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <BarChart3 size={20} color="#94a3b8" /> Browse by Liquidity
+                </h2>
+                <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 20 }}>
+                  ⚡ Emergency funds require instant access. All instruments below have zero lock-in.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+                  {groups.map(grp => (
+                    <div key={grp.key} style={{
+                      background: '#0d141e', border: `1px solid ${grp.color}30`,
+                      borderRadius: 16, overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        width: '100%', padding: '14px 18px',
+                        color: '#fff', display: 'flex', alignItems: 'center', gap: 10,
+                        fontSize: '0.95rem', fontWeight: 600
+                      }}>
+                        {grp.icon}
+                        {grp.label}
+                        <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: '#94a3b8' }}>
+                          {grp.items.length} instrument{grp.items.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div style={{ padding: '0 18px 16px' }}>
+                        {grp.items.length === 0 ? (
+                          <div style={{ color: '#94a3b8', fontSize: '0.85rem', padding: '8px 0' }}>None in this category.</div>
+                        ) : grp.items.map(inv => (
+                          <div key={inv.id} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.03)'
+                          }}>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e2e8f0' }}>{inv.abbr || inv.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                Post-tax: {(inv.postTaxReturn || inv.rate || 0).toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => scrollToCard(inv.id)}
+                              style={{
+                                background: `${grp.color}15`, border: `1px solid ${grp.color}30`,
+                                color: grp.color, borderRadius: 8, padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer'
+                              }}
+                            >View Details</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
+          // Default: Browse by Risk Level
+          return (
           <div style={{ marginTop: 40, marginBottom: 40 }}>
             <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 20, color: '#fff', display: 'flex', alignItems: 'center', gap: 12 }}>
               <BarChart3 size={20} color="#94a3b8" /> Browse by Risk Level
@@ -852,7 +1026,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                         <div>
                           <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e2e8f0' }}>{inv.abbr || inv.name}</div>
                           <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                            Post-tax: {inv.postTaxRate?.toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
+                            Post-tax: {(inv.postTaxReturn || inv.rate || 0).toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
                           </div>
                         </div>
                         <button
@@ -900,7 +1074,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                         <div>
                           <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e2e8f0' }}>{inv.abbr || inv.name}</div>
                           <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                            Post-tax: {inv.postTaxRate?.toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
+                            Post-tax: {(inv.postTaxReturn || inv.rate || 0).toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
                           </div>
                         </div>
                         <button
@@ -948,7 +1122,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                         <div>
                           <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e2e8f0' }}>{inv.abbr || inv.name}</div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                            Post-tax: {inv.postTaxRate?.toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
+                            Post-tax: {(inv.postTaxReturn || inv.rate || 0).toFixed(1)}% · <span style={{ color: RISK_COLORS[inv.riskLabel] }}>{inv.riskLabel}</span>
                           </div>
                         </div>
                         <button
@@ -965,7 +1139,8 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         <SebiDisclaimer />
       </div>

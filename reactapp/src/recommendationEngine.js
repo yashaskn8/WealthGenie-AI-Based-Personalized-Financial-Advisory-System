@@ -23,6 +23,134 @@ import { investmentDatabase, TAX_INFO, RISK_COLORS, CHART_COLORS, CONCENTRATION_
 // Re-export for backward compatibility
 export { TAX_INFO, RISK_COLORS, CHART_COLORS, CONCENTRATION_CAPS };
 
+// ─── FIX 1: GOAL PROFILES — Liquidity & lock-in rules per goal ───
+export const GOAL_PROFILES = {
+  'Emergency Fund': {
+    liquidity_required: 'high',
+    max_lock_in_years: 0,
+    preferred_categories: ['Debt', 'Government', 'Commodity'],
+    excluded_ids: ['elss', 'nps', 'ppf', 'scss', 'rbi_bonds', 'sgb', 'sukanya',
+                   'smallcap_mf', 'midcap_mf', 'direct_equity', 'index_mf',
+                   'nifty_etf', 'gold_etf'],
+    target_formula: 'monthly_expenses * 6',
+    recommended_horizon_months: 18,
+    note: 'Emergency funds must be instantly accessible. Only liquid instruments.',
+  },
+  'Retirement': {
+    liquidity_required: 'low',
+    max_lock_in_years: 30,
+    preferred_categories: ['Equity', 'Government', 'Equity-Debt'],
+    excluded_ids: [],
+    recommended_horizon_months: null,
+  },
+  'Wealth Growth': {
+    liquidity_required: 'low',
+    max_lock_in_years: 10,
+    preferred_categories: ['Equity', 'Equity-Debt', 'Commodity'],
+    excluded_ids: [],
+    recommended_horizon_months: null,
+  },
+  'Tax Saving': {
+    liquidity_required: 'low',
+    max_lock_in_years: 3,
+    preferred_categories: ['Equity', 'Government'],
+    prioritised_ids: ['elss', 'nps', 'ppf'],
+    max_80c_limit: 150000,
+    excluded_ids: [],
+    recommended_horizon_months: null,
+  },
+};
+
+// ─── FIX 1: Filter instruments based on goal requirements ─────────
+export function filterInstrumentsForGoal(instruments, goalType) {
+  const profile = GOAL_PROFILES[goalType];
+  if (!profile) return instruments;
+
+  return instruments.filter(inst => {
+    // Exclude instruments by ID
+    if (profile.excluded_ids?.includes(inst.id)) return false;
+    // Exclude instruments that violate liquidity requirements
+    if (profile.max_lock_in_years === 0 && (inst.lockIn > 0 || inst.lock_in_years > 0)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+// ─── FIX 1: Emergency Fund — dedicated liquid portfolio ───────────
+export function buildEmergencyFundPortfolio(userProfile) {
+  const income = Number(userProfile.monthly_income || userProfile.income) || 0;
+  const savings = Number(userProfile.monthly_savings || userProfile.savings) || 0;
+  const monthlyExpenses = income - savings;
+  const emergencyTarget = monthlyExpenses * 6;
+  const monthsToAchieve = Math.ceil(emergencyTarget / (savings || 1));
+
+  // Liquid instruments only — all have lockIn=0
+  const liquidPortfolio = [
+    {
+      id: 'liquid_mf', name: 'Liquid Mutual Fund', abbr: 'Liquid MF',
+      cat: 'Debt', rate: 7.0, risk: 1, riskLabel: 'Very Low', lockIn: 0,
+      taxType: 'slab', color: '#14b8a6', minMonthlyInvestment: 500,
+      maxAnnualInvestment: null, desc: 'T+1 redemption. Ideal core emergency holding.',
+      eligibility: { minAge: 18, maxAge: null, minAnnualIncome: 0, minMonthlySavings: 500 },
+    },
+    {
+      ...investmentDatabase.find(i => i.id === 'fd'),
+    },
+    {
+      ...investmentDatabase.find(i => i.id === 'debt_mf'),
+    },
+  ].filter(Boolean);
+
+  // Weights: 50% Liquid MF, 35% FD, 15% Debt MF
+  const weights = [0.50, 0.35, 0.15];
+  const sipAllocations = weights.map(w => Math.round(w * savings / 100) * 100);
+
+  // Fix rounding residual
+  const allocated = sipAllocations.reduce((s, a) => s + a, 0);
+  const diff = savings - allocated;
+  if (diff !== 0) sipAllocations[0] += diff;
+
+  const annualIncome = income * 12;
+  const annualSavings = savings * 12;
+
+  liquidPortfolio.forEach((inv, i) => {
+    inv.monthly_allocation = sipAllocations[i];
+    inv.projected_value = calculateSIPValue(inv.monthly_allocation, inv.rate, Math.ceil(monthsToAchieve / 12) || 1);
+    inv.category = inv.cat;
+    inv.expected_return_min = Math.max(inv.rate - 1, inv.rate * 0.9);
+    inv.expected_return_max = inv.rate;
+    inv.risk_level = inv.riskLabel;
+    inv.tax_benefit = false;
+    inv.tax_section = null;
+    inv.lock_in_years = 0;
+    inv.liquidity = 'High';
+    inv.min_investment_inr = inv.minMonthlyInvestment;
+    inv.match_score = 90 - i * 5;
+    inv.score = 90 - i * 5;
+    inv.description = inv.desc;
+    inv.suitable_for_goals = ['Emergency Fund'];
+    inv.suitable_risk_profiles = ['Low', 'Medium', 'High'];
+    inv.types = [];
+    inv.nominalReturn = inv.rate;
+    const ptResult = computePostTaxReturn(inv, annualSavings, annualIncome, userProfile);
+    inv.postTaxReturn = parseFloat(ptResult.postTaxRate.toFixed(1));
+    inv.ml_confidence = 0.92;
+    inv._source = 'local_engine';
+    inv._goalType = 'Emergency Fund';
+  });
+
+  // Attach metadata
+  liquidPortfolio._emergencyMeta = {
+    target_amount: emergencyTarget,
+    monthly_sip: savings,
+    months_to_achieve: monthsToAchieve,
+    message: `At ₹${savings.toLocaleString('en-IN')}/month, you can build a ₹${(emergencyTarget/100000).toFixed(1)}L emergency fund in ${monthsToAchieve} months.`,
+  };
+
+  return liquidPortfolio;
+}
+
 // ─── SIP FUTURE VALUE ─────────────────────────────────────────────
 function calculateSIPValue(monthlyDeposit, annualRate, years) {
   if (!years || years <= 0 || !monthlyDeposit || monthlyDeposit <= 0) return 0;
@@ -56,72 +184,93 @@ export function getMarginalRate(annualIncome, regime = 'new') {
   return 0;
 }
 
-// ─── FIX 2.1/2.4/2.5: POST-TAX COMPUTATION ──────────────────────
+// ─── POST-TAX COMPUTATION (FIXED: post-tax NEVER exceeds nominal) ─
+// Tax savings (80C, 80CCD) are reported separately and NEVER added
+// to the postTaxRate. The taxEquivalentYield is provided separately
+// for comparison purposes only — it must NEVER populate postTaxReturn.
 export function computePostTaxReturn(inv, annualSavings, annualIncome, profile) {
   const mr = getMarginalRate(annualIncome, profile?.taxRegime || 'new');
   const rate = typeof inv === 'number' ? inv : inv.rate;
   const taxType = typeof inv === 'object' ? inv.taxType : 'slab';
   const invId = typeof inv === 'object' ? inv.id : null;
   const age = Number(profile?.age) || 30;
-  let taxSaving = 0;
-  let taxPaid = 0;
 
   switch (taxType) {
-    case "eee":
-      taxSaving = Math.min(150000, annualSavings) * mr;
-      taxPaid = 0;
-      break;
+    case "eee": {
+      // EEE instruments: NO tax at any stage. Post-tax = nominal EXACTLY.
+      const taxSaving = Math.min(150000, annualSavings) * mr;
+      return {
+        postTaxRate: rate, // NEVER exceeds nominal
+        taxSaving,
+        taxPaid: 0,
+        marginalRate: mr,
+        // Tax-equivalent yield is for COMPARISON ONLY — never display as post-tax return
+        taxEquivalentYield: mr > 0 ? parseFloat((rate / (1 - mr)).toFixed(2)) : rate,
+      };
+    }
 
     case "slab": {
-      taxSaving = 0;
-      const interest = annualSavings * rate / 100;
-      taxPaid = interest * mr;
+      // Interest fully taxed at marginal slab rate
+      const postTaxRate = rate * (1 - mr);
 
-      // FIX 2.4 — FD TDS awareness
       if (invId === "fd") {
+        const interest = annualSavings * rate / 100;
         const tdsThreshold = age >= 60 ? 50000 : 40000;
         const tdsApplies = interest > tdsThreshold;
-        const postTaxRate = annualSavings > 0
-          ? ((interest - taxPaid + taxSaving) / annualSavings) * 100 : rate;
         return {
-          postTaxRate: Math.max(0, postTaxRate),
-          taxSaving,
-          taxPaid,
+          postTaxRate: parseFloat(postTaxRate.toFixed(2)),
+          taxSaving: 0,
+          taxPaid: Math.round(interest * mr),
           marginalRate: mr,
           tdsNote: tdsApplies
             ? `TDS at 10% applies on FD interest above ₹${tdsThreshold.toLocaleString("en-IN")}/yr. Claim it back when filing ITR if your total tax is lower.`
             : null,
         };
       }
-      break;
+
+      return {
+        postTaxRate: parseFloat(postTaxRate.toFixed(2)),
+        taxSaving: 0,
+        taxPaid: Math.round(annualSavings * rate / 100 * mr),
+        marginalRate: mr,
+      };
     }
 
     case "ltcg": {
-      taxSaving = 0;
-      const annualGain = annualSavings * rate / 100;
-      const taxableGain = Math.max(0, annualGain - 125000);
-      taxPaid = taxableGain * 0.125;
-      break;
+      // Equity LTCG: 12.5% on gains (simplified)
+      const ltcgRate = 0.125;
+      const postTaxRate = rate * (1 - ltcgRate);
+      return {
+        postTaxRate: parseFloat(postTaxRate.toFixed(2)),
+        taxSaving: 0,
+        taxPaid: Math.round(annualSavings * rate / 100 * ltcgRate),
+        marginalRate: mr,
+      };
     }
 
     case "elss": {
-      taxSaving = Math.min(150000, annualSavings) * mr;
-      const elssGain = annualSavings * rate / 100;
-      const elssGainTaxable = Math.max(0, elssGain - 125000);
-      taxPaid = elssGainTaxable * 0.125;
-      break;
+      // ELSS: LTCG 12.5% on gains; 80C deduction reported separately
+      const ltcgRate = 0.125;
+      const postTaxRate = rate * (1 - ltcgRate);
+      const taxSaving = Math.min(150000, annualSavings) * mr;
+      return {
+        postTaxRate: parseFloat(postTaxRate.toFixed(2)),
+        taxSaving,
+        taxPaid: Math.round(annualSavings * rate / 100 * ltcgRate),
+        marginalRate: mr,
+      };
     }
 
-    // FIX 2.5 — NPS: Distinguish 80CCD(1) from 80CCD(1B)
     case "nps": {
+      // NPS: Partial EET — 40% annuity taxed at slab
+      // Tax saving from 80CCD(1B) is reported SEPARATELY
+      const annuityFraction = 0.40;
+      const blendedTaxDrag = annuityFraction * mr;
+      const postTaxRate = rate * (1 - blendedTaxDrag);
       const ccd1bDeduction = Math.min(50000, annualSavings);
-      taxSaving = ccd1bDeduction * mr;
-      taxPaid = 0; // deferred to retirement
-      const grossReturn = annualSavings * rate / 100;
-      const postTaxRate = annualSavings > 0
-        ? ((grossReturn + taxSaving) / annualSavings) * 100 : rate;
+      const taxSaving = ccd1bDeduction * mr;
       return {
-        postTaxRate: Math.max(0, postTaxRate),
+        postTaxRate: parseFloat(postTaxRate.toFixed(2)),
         taxSaving: Math.round(taxSaving),
         taxPaid: 0,
         marginalRate: mr,
@@ -129,37 +278,30 @@ export function computePostTaxReturn(inv, annualSavings, annualIncome, profile) 
       };
     }
 
-    // FIX 2.1 — SGB tax case
     case "sgb": {
-      const interestIncome = annualSavings * 0.025;
-      const priceGainRate = 0.085;
-      const priceGain = annualSavings * priceGainRate;
-      taxPaid = interestIncome * mr;
-      taxSaving = 0;
-      const netInterest = interestIncome - taxPaid;
-      const totalNet = priceGain + netInterest;
-      const postTaxRate = annualSavings > 0 ? (totalNet / annualSavings) * 100 : rate;
+      // SGB: 2.5% interest taxed at slab; capital gains exempt at maturity
+      const interestComponent = 0.025;
+      const taxOnInterest = interestComponent * mr;
+      const postTaxRate = rate - taxOnInterest;
       return {
-        postTaxRate: parseFloat(postTaxRate.toFixed(2)),
+        postTaxRate: parseFloat(Math.max(0, postTaxRate).toFixed(2)),
         taxSaving: 0,
-        taxPaid: Math.round(taxPaid),
+        taxPaid: Math.round(annualSavings * interestComponent * mr),
         marginalRate: mr,
       };
     }
 
-    default:
-      taxPaid = annualSavings * rate / 100 * mr;
+    default: {
+      // Default: slab-taxed
+      const postTaxRate = rate * (1 - mr);
+      return {
+        postTaxRate: parseFloat(Math.max(0, postTaxRate).toFixed(2)),
+        taxSaving: 0,
+        taxPaid: Math.round(annualSavings * rate / 100 * mr),
+        marginalRate: mr,
+      };
+    }
   }
-
-  const effectiveGain = (annualSavings * rate / 100) - taxPaid + taxSaving;
-  const postTaxRate = annualSavings > 0 ? (effectiveGain / annualSavings) * 100 : rate;
-
-  return {
-    postTaxRate: Math.max(0, postTaxRate),
-    taxSaving,
-    taxPaid,
-    marginalRate: mr,
-  };
 }
 
 // ─── STEP 3: SMART ELIGIBILITY FILTER (13 rules) ─────────────────
@@ -391,6 +533,12 @@ export function getWhy(inv, profile) {
 export function generateRecommendations(userProfile) {
   const { age, monthly_income, monthly_savings, risk_appetite, investment_goals, investment_horizon } = userProfile;
   const savings = Number(monthly_savings) || 0;
+  const primaryGoal = (investment_goals || [])[0] || null;
+
+  // FIX 1: Emergency Fund uses dedicated liquid portfolio
+  if (primaryGoal === 'Emergency Fund') {
+    return buildEmergencyFundPortfolio(userProfile);
+  }
 
   const profile = {
     age: Number(age) || 25,
@@ -406,8 +554,19 @@ export function generateRecommendations(userProfile) {
     taxRegime: userProfile.taxRegime || "new",
   };
 
-  const eligible = getEligibleInvestments(profile);
+  let eligible = getEligibleInvestments(profile);
   if (eligible.length === 0) return [];
+
+  // FIX 1: Apply goal-aware filtering
+  if (primaryGoal) {
+    eligible = filterInstrumentsForGoal(eligible, primaryGoal);
+    // Ensure we still have instruments after goal filtering
+    if (eligible.length === 0) {
+      const fd = investmentDatabase.find(i => i.id === 'fd');
+      const debtMf = investmentDatabase.find(i => i.id === 'debt_mf');
+      eligible = [fd, debtMf].filter(Boolean);
+    }
+  }
 
   // Store fallback notice if present
   const fallbackNotice = eligible._fallbackNotice || null;
@@ -415,7 +574,7 @@ export function generateRecommendations(userProfile) {
   let scored = eligible.map(inv => computeScore(inv, profile));
   scored.sort((a, b) => b.score - a.score);
 
-  // FIX 2.6: Apply concentration limits
+  // Apply concentration limits
   scored = enforceConcentrationLimits(scored);
 
   const maxPicks = Math.min(8, scored.length);
@@ -424,11 +583,10 @@ export function generateRecommendations(userProfile) {
   const totalScore = recommended.reduce((sum, inv) => sum + inv.score, 0);
   if (totalScore === 0) return [];
 
-  // ── FIX 1: Compute raw weights, guarantee non-negative, normalize to 100% ──
+  // Compute raw weights, guarantee non-negative, normalize to 100%
   let rawWeights = recommended.map(inv => Math.max(0, inv.score / totalScore));
   const rawTotal = rawWeights.reduce((s, w) => s + w, 0);
   if (rawTotal <= 0) {
-    // Fallback: equal weight distribution
     rawWeights = recommended.map(() => 1 / recommended.length);
   } else {
     rawWeights = rawWeights.map(w => w / rawTotal);
@@ -474,7 +632,7 @@ export function generateRecommendations(userProfile) {
     inv.tax_benefit = ["eee", "elss", "nps", "sgb"].includes(inv.taxType);
     inv.tax_section = inv.taxType === "eee" ? "80C" : inv.taxType === "elss" ? "80C" : inv.taxType === "nps" ? "80CCD(1B)" : inv.taxType === "sgb" ? "47(viic)" : null;
 
-    // Fix 2: Dynamic lock-in for age-based instruments (NPS)
+    // Dynamic lock-in for age-based instruments (NPS)
     if (inv.maturity_type === 'age_based' && inv.maturity_age) {
       inv.lock_in_years = Math.max(0, inv.maturity_age - profile.age);
     } else {
@@ -496,13 +654,20 @@ export function generateRecommendations(userProfile) {
     if (inv.risk >= 3) inv.suitable_risk_profiles.push("High");
     inv.types = [];
 
-    // Fix 5: Compute post-tax return for each instrument
+    // FIX 5: Compute post-tax return — with Hybrid MF blended tax correction
     const ptResult = computePostTaxReturn(inv, annualSavings, annualIncome, profile);
     inv.nominalReturn = inv.rate;
-    inv.postTaxReturn = parseFloat(ptResult.postTaxRate.toFixed(1));
+    // Hybrid MF special: blended equity(65%) + debt(35%) tax drag
+    if (inv.id === 'hybrid_mf') {
+      // Balanced fund: 65% equity (LTCG 12.5%) + 35% debt (slab rate)
+      const marginal = getMarginalRate(annualIncome, profile.taxRegime || 'new');
+      const blendedTaxDrag = (0.65 * 0.125) + (0.35 * marginal);
+      // For ₹7.8L new regime (5%): 0.08125 + 0.0175 = 0.09875 → 11% × 0.90125 = 9.9%
+      inv.postTaxReturn = parseFloat((inv.rate * (1 - blendedTaxDrag)).toFixed(1));
+    } else {
+      inv.postTaxReturn = parseFloat(ptResult.postTaxRate.toFixed(1));
+    }
 
-    // Fallback: Calculate a deterministic local confidence score based on the engine score.
-    // This ensures the UI always has a confidence metric even if the backend ML microservice is offline or delayed.
     inv.ml_confidence = Math.min(0.98, Math.max(0.65, inv.score / 100));
     inv._source = 'local_engine';
   });

@@ -6,10 +6,10 @@ import { calculateSIPFutureValue } from '../utils/sipCalculator';
 import './GoalTracker.css';
 
 const GOAL_DEFAULTS = {
-  'Retirement': { target: 20000000, icon: <Palmtree size={18} color="#06b6d4" /> },
-  'Wealth Growth': { target: 10000000, icon: <Diamond size={18} color="#a855f7" /> },
-  'Tax Saving': { target: 150000, icon: <FileText size={18} color="#8b5cf6" /> },
-  'Emergency Fund': { target: 600000, icon: <Shield size={18} color="#22c55e" /> },
+  'Retirement': { target: 20000000, icon: <Palmtree size={18} color="#06b6d4" />, returnRate: 12 },
+  'Wealth Growth': { target: 10000000, icon: <Diamond size={18} color="#a855f7" />, returnRate: 11 },
+  'Tax Saving': { target: 150000, icon: <FileText size={18} color="#8b5cf6" />, returnRate: 10 },
+  'Emergency Fund': { target: 600000, icon: <Shield size={18} color="#22c55e" />, returnRate: 7 },
 };
 
 // Reasonable caps to prevent overflow
@@ -110,6 +110,20 @@ const GoalCard = ({ goal, currentSaved, target, onTargetChange, onCurrentChange,
           </span>
         </div>
       </div>
+
+      {/* FIX 3: Emergency Fund timeline note */}
+      {goal === 'Emergency Fund' && monthlyAllocation > 0 && (
+        <div style={{
+          padding: '10px 14px', marginTop: 8, borderRadius: 10,
+          background: 'rgba(34, 197, 94, 0.06)', border: '1px solid rgba(34, 197, 94, 0.15)',
+          fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5
+        }}>
+          ⚡ Emergency funds should be built within 12–18 months.
+          At ₹{monthlyAllocation.toLocaleString('en-IN')}/month, your target
+          of {formatINR(actualTarget)} is achievable
+          in <strong style={{color: '#4ade80'}}>{Math.ceil(actualTarget / (monthlyAllocation || 1))} months</strong>.
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -120,7 +134,17 @@ const GoalTracker = ({ profile, recommendations }) => {
 
   const [targets, setTargets] = useState(() => {
     const t = {};
-    goals.forEach(g => { t[g] = GOAL_DEFAULTS[g]?.target || 1000000; });
+    const income = Number(profile?.monthly_income) || 0;
+    const savings = Number(profile?.monthly_savings) || 0;
+    goals.forEach(g => {
+      if (g === 'Emergency Fund') {
+        // Dynamic target: 6× monthly expenses
+        const monthlyExpenses = income - savings;
+        t[g] = Math.max(monthlyExpenses * 6, GOAL_DEFAULTS[g]?.target || 600000);
+      } else {
+        t[g] = GOAL_DEFAULTS[g]?.target || 1000000;
+      }
+    });
     return t;
   });
 
@@ -207,8 +231,8 @@ const GoalTracker = ({ profile, recommendations }) => {
               onTargetChange={(val) => setTargets(prev => ({ ...prev, [g]: val }))}
               onCurrentChange={(val) => setCurrentSaved(prev => ({ ...prev, [g]: val }))}
               monthlyAllocation={goalAllocations[g] || 0}
-              horizon={horizon}
-              returnRate={10}
+              horizon={g === 'Emergency Fund' ? Math.min(2, horizon) : horizon}
+              returnRate={GOAL_DEFAULTS[g]?.returnRate || 10}
             />
           ))}
         </AnimatePresence>
