@@ -125,6 +125,29 @@ export const investmentDatabase = [
     desc: "Highest-return government scheme for senior citizens. 8.2% p.a. with quarterly payouts and sovereign guarantee."
   },
   {
+    id: "pmvvy",
+    name: "PM Vaya Vandana Yojana (PMVVY)",
+    abbr: "PMVVY",
+    cat: "Government",
+    rate: 7.4,
+    risk: 1,
+    riskLabel: "Very Low",
+    lockIn: 10,
+    taxType: "slab",
+    color: "#0d9488",
+    minMonthlyInvestment: 1000,
+    maxAnnualInvestment: 1500000,
+    eligibility: {
+      minAge: 60,
+      maxAge: null,
+      minAnnualIncome: 0,
+      minMonthlySavings: 1000,
+      notes: "Government-guaranteed pension for senior citizens aged 60+. Maximum ₹15L investment. Monthly/quarterly/annual pension payouts."
+    },
+    eligibility_note: 'Only for senior citizens aged 60 and above.',
+    desc: "Government-guaranteed pension scheme for senior citizens. Fixed 7.4% p.a. with choice of monthly, quarterly, half-yearly, or annual pension. Premature exit allowed with penalty after 3 years."
+  },
+  {
     id: "sukanya",
     name: "Sukanya Samriddhi Yojana (SSY)",
     abbr: "SSY",

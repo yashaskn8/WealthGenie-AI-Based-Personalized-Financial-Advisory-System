@@ -159,6 +159,23 @@ export function calculatePostTaxReturn(
       }
     }
 
+    case 'Liquid_MF':
+    case 'Arbitrage_MF': {
+      // Debt-category taxation post Finance Act 2023.
+      // All gains taxed at marginal slab rate.
+      // No distinction for holding period.
+      const postTax = nominalRate * (1 - marginalRate);
+      return validatePostTaxResult({
+        postTaxReturn: round4(postTax),
+        effectiveYield: round4(postTax * 100),
+        taxType: `Slab Rate (${(marginalRate*100).toFixed(0)}%, debt category)`,
+        taxRate: marginalRate,
+        notes: 'Gains taxed at marginal slab rate. '
+             + 'T+1 redemption. No exit load after 7 days. '
+             + 'Ideal for emergency fund core holding.',
+      }, nominalRate, 'Liquid_MF');
+    }
+
     case 'Debt_MF': {
       // Debt MF: all gains taxed at slab rate regardless of holding period.
       // Indexation benefit removed (Finance Act 2023, effective April 2023).

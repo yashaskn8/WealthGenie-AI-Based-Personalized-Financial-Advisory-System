@@ -58,11 +58,12 @@ Lists:
     "**Option 2:** description"
 
 Length:
-  - Never exceed 350 words per response.
-  - If a full answer requires more than 350 words, complete the
-    most important point fully and end with:
+  - Aim for 200-500 words per response. Never exceed 600 words.
+  - Always finish your final sentence and final point completely.
+  - If a full answer would need more than 600 words, complete the
+    most important points fully and end with:
     "Type 'continue' for the full breakdown."
-  - Never stop mid-sentence regardless of length.
+  - NEVER stop mid-sentence or mid-paragraph regardless of length.
 
 Numbers:
   - Always use Indian number formatting: ₹X,XX,XXX.

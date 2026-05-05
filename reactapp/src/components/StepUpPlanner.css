@@ -1,53 +1,116 @@
 .stepup-page {
   padding: 40px 20px;
-  max-width: 1150px;
+  max-width: 1400px;
   margin: 0 auto;
   color: #fff;
-  font-family: 'Outfit', sans-serif;
-  animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes fadeSlideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(30px); filter: blur(5px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* Ambient Background Orbs */
+.sup-bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(120px);
+}
+.sup-bg-orb--1 {
+  width: 500px;
+  height: 500px;
+  top: -100px;
+  right: -150px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
+  animation: orbFloat 15s ease-in-out infinite;
+}
+.sup-bg-orb--2 {
+  width: 450px;
+  height: 450px;
+  bottom: 100px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%);
+  animation: orbFloat 20s ease-in-out infinite reverse;
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -50px) scale(1.1); }
 }
 
 .sup-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  background: rgba(11, 19, 30, 0.6);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(6, 182, 212, 0.2);
-  border-radius: 20px;
-  padding: 32px;
   margin-bottom: 32px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.sup-control-card {
+  background: linear-gradient(160deg, rgba(20, 30, 50, 0.7) 0%, rgba(10, 15, 30, 0.85) 100%);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
   position: relative;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 
+    0 20px 40px -10px rgba(0, 0, 0, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06);
   overflow: hidden;
 }
 
-.sup-controls::before {
+.sup-control-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, #06b6d4, #8b5cf6, transparent);
-  opacity: 0.8;
+  top: 0; left: 0; right: 0;
+  height: 100px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.025), transparent 70%);
+  pointer-events: none;
 }
 
-.sup-control-group {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+.sup-control-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 
+    0 30px 60px -15px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(56, 189, 248, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.sup-control-card:nth-child(2):hover, .sup-control-card:nth-child(4):hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 
+    0 30px 60px -15px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(139, 92, 246, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .sup-control-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
+  align-items: center;
+  margin-bottom: 24px;
   flex-grow: 1;
+}
+
+.sup-control-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .sup-control-header label {
@@ -56,25 +119,23 @@
   font-size: 0.85rem; 
   color: #94a3b8; 
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   font-weight: 600;
+  flex-grow: 1;
 }
 
 .sup-val-box {
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(3, 7, 18, 0.8);
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
   box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
   min-width: 80px;
   text-align: center;
-}
-
-.sup-control-group:nth-child(even) .sup-val-box {
-  border-color: rgba(139, 92, 246, 0.3);
+  margin-left: 12px;
 }
 
 .sup-slider {
@@ -84,21 +145,21 @@
   height: 6px;
   border-radius: 3px;
   outline: none;
-  margin-top: 10px;
+  margin-top: auto;
 }
 
 .sup-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
   border-radius: 50%;
   background: #fff;
-  border: 3px solid #0ea5e9;
+  border: 4px solid #0ea5e9;
   cursor: pointer;
   box-shadow: 0 0 15px rgba(14, 165, 233, 0.6);
-  margin-top: -7px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 }
 
 .sup-slider::-webkit-slider-thumb:hover {
@@ -123,61 +184,62 @@
 }
 
 .sup-metric-card {
-  background: rgba(11, 19, 30, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(3, 7, 18, 0.45);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 2px solid #38bdf8;
   border-radius: 20px;
-  padding: 28px 24px;
+  padding: 32px 24px;
   text-align: center;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.3);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .sup-metric-card::after {
   content: '';
   position: absolute;
-  top: 0; left: -100%; width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
-  transform: skewX(-20deg);
-  transition: left 0.6s ease;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
 }
 
-.sup-metric-card:hover::after {
-  left: 200%;
+.sup-metric-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .sup-metric-card:hover {
-  transform: translateY(-6px);
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(6, 182, 212, 0.15);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
 }
 
 .sup-metric-card--highlight { 
-  border-color: rgba(139, 92, 246, 0.4); 
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%); 
+  border-top: 2px solid #a78bfa;
 }
 
-.sup-metric-card--highlight:hover {
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 25px rgba(139, 92, 246, 0.25);
-}
-
-.sup-metric-card:last-child:hover {
-  border-color: rgba(34, 197, 94, 0.4);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 25px rgba(34, 197, 94, 0.15);
+.sup-metric-card--success { 
+  border-top: 2px solid #34d399;
 }
 
 .sup-metric-label { 
   display: block; 
-  font-size: 0.9rem; 
-  color: #cbd5e1; 
+  font-size: 0.85rem; 
+  color: #94a3b8; 
   margin-bottom: 12px; 
   text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 .sup-metric-value { 
@@ -197,13 +259,14 @@
 }
 
 .sup-chart-wrapper {
-  background: rgba(11, 19, 30, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(3, 7, 18, 0.45);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 24px;
-  padding: 36px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  padding: 36px 32px;
+  margin-bottom: 40px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
 
 .sup-chart-wrapper h3 {

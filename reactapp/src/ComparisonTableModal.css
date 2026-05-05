@@ -507,12 +507,12 @@ input:checked + .slider:before {
 }
 .comparison-embedded-container {
   width: 100%;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(6, 9, 19, 0.8));
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(160deg, rgba(20, 30, 50, 0.7), rgba(10, 15, 30, 0.85));
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 24px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.06);
 }

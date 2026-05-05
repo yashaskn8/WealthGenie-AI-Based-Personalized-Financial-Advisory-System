@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion } from 'framer-motion';
+import { TrendingUp, Rocket, PiggyBank, ArrowUpRight, Wallet, Calendar, Target } from 'lucide-react';
 import { formatINR, formatCompactINR } from '../utils/indianNumberFormat';
 import { calculateSIPFutureValue, calculateStepUpSIPValue, getStepUpProjectionData } from '../utils/sipCalculator';
 import './StepUpPlanner.css';
@@ -48,7 +49,11 @@ const StepUpPlanner = ({ profile }) => {
   };
 
   return (
-    <div className="stepup-page">
+    <div className="stepup-page" style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* Floating Ambient Orbs */}
+      <div className="sup-bg-orb sup-bg-orb--1"></div>
+      <div className="sup-bg-orb sup-bg-orb--2"></div>
+
       <motion.h1 
         className="page-title" 
         style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '2.4rem' }}
@@ -81,8 +86,9 @@ const StepUpPlanner = ({ profile }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <div className="sup-control-group">
+        <div className="sup-control-card">
           <div className="sup-control-header">
+            <div className="sup-control-icon" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}><Wallet size={18} /></div>
             <label>Base Monthly SIP</label>
             <div className="sup-val-box">₹{baseSIP.toLocaleString('en-IN')}</div>
           </div>
@@ -92,8 +98,9 @@ const StepUpPlanner = ({ profile }) => {
             style={{ background: `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${((baseSIP - 1000) / 99000) * 100}%, rgba(255,255,255,0.08) ${((baseSIP - 1000) / 99000) * 100}%, rgba(255,255,255,0.08) 100%)` }}
           />
         </div>
-        <div className="sup-control-group">
+        <div className="sup-control-card">
           <div className="sup-control-header">
+            <div className="sup-control-icon" style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa' }}><TrendingUp size={18} /></div>
             <label>Annual Step-Up</label>
             <div className="sup-val-box">{stepUpPercent}%</div>
           </div>
@@ -103,8 +110,9 @@ const StepUpPlanner = ({ profile }) => {
             style={{ background: `linear-gradient(to right, #a78bfa 0%, #a78bfa ${(stepUpPercent / 50) * 100}%, rgba(255,255,255,0.08) ${(stepUpPercent / 50) * 100}%, rgba(255,255,255,0.08) 100%)` }}
           />
         </div>
-        <div className="sup-control-group">
+        <div className="sup-control-card">
           <div className="sup-control-header">
+            <div className="sup-control-icon" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}><Calendar size={18} /></div>
             <label>Investment Horizon</label>
             <div className="sup-val-box">{years} Years</div>
           </div>
@@ -114,8 +122,9 @@ const StepUpPlanner = ({ profile }) => {
             style={{ background: `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${((years - 1) / 39) * 100}%, rgba(255,255,255,0.08) ${((years - 1) / 39) * 100}%, rgba(255,255,255,0.08) 100%)` }}
           />
         </div>
-        <div className="sup-control-group">
+        <div className="sup-control-card">
           <div className="sup-control-header">
+            <div className="sup-control-icon" style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa' }}><Target size={18} /></div>
             <label>Expected Return</label>
             <div className="sup-val-box">{returnRate}%</div>
           </div>
@@ -130,18 +139,21 @@ const StepUpPlanner = ({ profile }) => {
       {/* Key Metrics */}
       <div className="sup-metrics">
         <motion.div className="sup-metric-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <div className="sup-metric-icon" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}><PiggyBank size={24} /></div>
           <span className="sup-metric-label">Flat SIP Corpus</span>
           <span className="sup-metric-value">{formatCompactINR(flatFinal)}</span>
           <span className="sup-metric-sub">Invested: {formatCompactINR(flatInvested)}</span>
         </motion.div>
         
         <motion.div className="sup-metric-card sup-metric-card--highlight" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <div className="sup-metric-icon" style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa' }}><Rocket size={24} /></div>
           <span className="sup-metric-label">Step-Up SIP Corpus</span>
           <span className="sup-metric-value" style={{ color: '#a78bfa', textShadow: '0 0 15px rgba(139,92,246,0.6)' }}>{formatCompactINR(stepUpFinal)}</span>
           <span className="sup-metric-sub">Invested: {formatCompactINR(stepUpInvested)}</span>
         </motion.div>
         
-        <motion.div className="sup-metric-card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+        <motion.div className="sup-metric-card sup-metric-card--success" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+          <div className="sup-metric-icon" style={{ background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80' }}><ArrowUpRight size={24} /></div>
           <span className="sup-metric-label">Additional Corpus Gained</span>
           <span className="sup-metric-value" style={{ color: '#4ade80', textShadow: '0 0 15px rgba(74,222,128,0.5)' }}>+ {formatCompactINR(additionalCorpus)}</span>
           <span className="sup-metric-sub" style={{ color: '#22c55e', fontWeight: 600 }}>{additionalPercent}% more wealth</span>

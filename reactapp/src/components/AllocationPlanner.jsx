@@ -1,12 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
-import { Target, PieChart as PieChartIcon } from 'lucide-react';
+import { Target, PieChart as PieChartIcon, TrendingUp, Landmark, Briefcase, Wallet } from 'lucide-react';
 import { computeAllocation } from '../recommendationEngine';
 import { getEligibleInvestments } from '../recommendationEngine';
 import { CONCENTRATION_CAPS, RISK_COLORS } from '../investmentDatabase';
 import { formatINR } from '../utils/indianNumberFormat';
 import './AllocationPlanner.css';
+
+const getCategoryIcon = (cat) => {
+  if (!cat) return <Wallet size={20} />;
+  if (cat.includes('Equity') || cat.includes('MF') || cat.includes('ETF')) return <TrendingUp size={20} />;
+  if (cat.includes('Debt') || cat.includes('Govt') || cat.includes('Bond') || cat.includes('NPS')) return <Landmark size={20} />;
+  if (cat.includes('Gold') || cat.includes('Commodity')) return <Briefcase size={20} />;
+  return <Wallet size={20} />;
+};
 
 const AllocationPlanner = ({ profile }) => {
   const savings = Number(profile?.monthly_savings) || 12000;
@@ -78,19 +86,7 @@ const AllocationPlanner = ({ profile }) => {
 
   const resetOverrides = () => { setOverrides(null); setWarning(null); };
 
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload;
-      return (
-        <div className="ap-tooltip">
-          <div style={{ fontWeight: 800, marginBottom: 6, color: '#fff', fontSize: '1rem' }}>{d.name}</div>
-          <div style={{ color: d.color, fontSize: '1.2rem', fontWeight: 900 }}>{d.allocationPct.toFixed(1)}%</div>
-          <div style={{ color: '#94a3b8', marginTop: 4 }}>₹{d.monthlyAmount?.toLocaleString("en-IN")}/mo</div>
-        </div>
-      );
-    }
-    return null;
-  };
+  const [hoveredSlice, setHoveredSlice] = useState(null);
 
   if (!allocation || allocation.length === 0) {
     return (
@@ -145,18 +141,42 @@ const AllocationPlanner = ({ profile }) => {
           <div style={{ width: '100%', height: 380, position: 'relative' }}>
             <ResponsiveContainer>
               <PieChart>
-                <Pie data={allocation} dataKey="allocationPct" cx="50%" cy="50%"
-                  innerRadius={115} outerRadius={165} paddingAngle={3} stroke="rgba(15, 23, 42, 0.8)" strokeWidth={3}>
-                  {allocation.map((a, i) => <Cell key={i} fill={a.color} style={{ filter: `drop-shadow(0px 0px 8px ${a.color}80)` }} />)}
+                <Pie 
+                  data={allocation} 
+                  dataKey="allocationPct" 
+                  cx="50%" cy="50%"
+                  innerRadius={115} outerRadius={165} 
+                  paddingAngle={3} 
+                  stroke="rgba(15, 23, 42, 0.8)" 
+                  strokeWidth={3}
+                  onMouseEnter={(_, index) => setHoveredSlice(allocation[index])}
+                  onMouseLeave={() => setHoveredSlice(null)}
+                >
+                  {allocation.map((a, i) => <Cell key={i} fill={a.color} style={{ filter: `drop-shadow(0px 0px 8px ${a.color}80)`, cursor: 'pointer', transition: 'all 0.3s ease' }} />)}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="ap-donut-center">
-              <div className="donut-value-text">
-                ₹{savings.toLocaleString("en-IN")}
-              </div>
-              <div className="donut-sub-text">per month</div>
+            <div className="ap-donut-center" style={{ pointerEvents: 'none' }}>
+              {hoveredSlice ? (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }}>
+                  <div style={{ fontWeight: 800, marginBottom: 4, color: '#fff', fontSize: '1.1rem', textAlign: 'center' }}>
+                    {hoveredSlice.name}
+                  </div>
+                  <div style={{ color: hoveredSlice.color, fontSize: '1.8rem', fontWeight: 900, textAlign: 'center', textShadow: `0 0 15px ${hoveredSlice.color}80` }}>
+                    {hoveredSlice.allocationPct.toFixed(1)}%
+                  </div>
+                  <div style={{ color: '#94a3b8', marginTop: 4, textAlign: 'center', fontWeight: 600 }}>
+                    ₹{hoveredSlice.monthlyAmount?.toLocaleString("en-IN")}/mo
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                  <div className="donut-value-text">
+                    ₹{savings.toLocaleString("en-IN")}
+                  </div>
+                  <div className="donut-sub-text">PER MONTH</div>
+                </motion.div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -173,9 +193,20 @@ const AllocationPlanner = ({ profile }) => {
               transition={{ delay: 0.2 + (index * 0.1) }}
             >
               <div className="ap-card-top">
-                <div>
-                  <div className="ap-card-name" style={{ textShadow: `0 0 10px ${a.color}40` }}>{a.abbr || a.name}</div>
-                  <div className="ap-card-fullname">{a.name}</div>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <div style={{ 
+                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `linear-gradient(135deg, ${a.color}20, ${a.color}05)`,
+                    color: a.color, border: `1px solid ${a.color}30`,
+                    boxShadow: `inset 0 0 10px ${a.color}10`
+                  }}>
+                    {getCategoryIcon(a.cat || a.name)}
+                  </div>
+                  <div>
+                    <div className="ap-card-name" style={{ textShadow: `0 0 10px ${a.color}40` }}>{a.abbr || a.name}</div>
+                    <div className="ap-card-fullname">{a.name}</div>
+                  </div>
                 </div>
                 <div className="ap-card-pct" style={{ color: a.color, textShadow: `0 0 15px ${a.color}60` }}>
                   {a.allocationPct.toFixed(1)}%
@@ -237,35 +268,49 @@ const AllocationPlanner = ({ profile }) => {
           <div className="ap-warning">{warning}</div>
         )}
 
-        {allocation.map(a => (
-          <div key={a.id} className="ap-slider-row">
-            <div className="ap-slider-label">
-              <span style={{ color: a.color, fontWeight: 700 }}>●</span>
-              <span>{a.abbr || a.name}</span>
+        {allocation.map(a => {
+          const rawPct = ((a.allocationPct - 5) / ((a.maxPct || 40) - 5));
+          const pctDecimal = Math.max(0, Math.min(1, rawPct));
+          const pctVal = pctDecimal * 100;
+          return (
+            <div key={a.id} className="ap-slider-row">
+              <div className="ap-slider-label">
+                <div style={{ 
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `linear-gradient(135deg, ${a.color}20, ${a.color}05)`,
+                    color: a.color, border: `1px solid ${a.color}30`,
+                    boxShadow: `inset 0 0 10px ${a.color}10`
+                  }}>
+                    {getCategoryIcon(a.cat || a.name)}
+                </div>
+                <span style={{ textShadow: `0 0 10px ${a.color}40`, fontWeight: 800 }}>{a.abbr || a.name}</span>
+              </div>
+              <input
+                type="range"
+                min="5"
+                max={a.maxPct || 40}
+                step="1"
+                value={Math.round(a.allocationPct)}
+                onChange={e => handleSliderChange(a.id, Number(e.target.value))}
+                className="ap-range"
+                style={{ 
+                  '--ap-pct': `${pctVal}%`,
+                  '--ap-pct-decimal': pctDecimal,
+                  '--ap-track-color': a.color || '#0ea5e9'
+                }}
+              />
+              <div className="ap-slider-values">
+                <div className="ap-slider-badge-pct" style={{ backgroundColor: `${a.color}20`, color: a.color, border: `1px solid ${a.color}40` }}>
+                  {a.allocationPct.toFixed(0)}%
+                </div>
+                <div className="ap-slider-badge-amt">
+                  ₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo
+                </div>
+              </div>
             </div>
-            <input
-              type="range"
-              min="5"
-              max={a.maxPct || 40}
-              step="1"
-              value={Math.round(a.allocationPct)}
-              onChange={e => handleSliderChange(a.id, Number(e.target.value))}
-              className="ap-range"
-              style={{ 
-                '--ap-pct': `${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%`,
-                appearance: 'none',
-                height: '6px',
-                borderRadius: '3px',
-                background: `linear-gradient(to right, ${a.color || '#0ea5e9'} 0%, ${a.color || '#0ea5e9'} ${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%, rgba(255,255,255,0.1) ${((a.allocationPct - 5) / ((a.maxPct || 40) - 5)) * 100}%, rgba(255,255,255,0.1) 100%)`,
-                outline: 'none'
-              }}
-            />
-            <div className="ap-slider-values">
-              <span>{a.allocationPct.toFixed(0)}%</span>
-              <span style={{ color: '#0ea5e9' }}>₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

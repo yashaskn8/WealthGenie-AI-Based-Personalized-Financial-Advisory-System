@@ -98,46 +98,50 @@ const GoalPlanner = ({ profile }) => {
 
   return (
     <motion.div 
-      style={{ padding: '0 0 40px 0' }}
+      className="dashboard-page"
+      style={{ padding: '32px 40px', boxSizing: 'border-box', maxWidth: 1600, margin: '0 auto', width: '100%', overflowX: 'hidden' }}
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-        <div>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ 
-              display: 'inline-flex', width: 38, height: 38, 
-              background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)', 
-              borderRadius: 10, alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(6, 182, 212, 0.4)' 
-            }}>
-              <Target size={22} color="#fff" />
-            </span>
-            Goal-Based Planner
-          </h2>
-          <p style={{ fontSize: '0.95rem', color: '#94a3b8', marginTop: 8 }}>
-            Set financial goals and see your probability of reaching them
-          </p>
+      <div className="dashboard-header" style={{ marginBottom: 40, flexWrap: 'wrap', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <div style={{ 
+            display: 'flex', width: 64, height: 64, flexShrink: 0,
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(139, 92, 246, 0.15))', 
+            border: '1px solid rgba(6, 182, 212, 0.4)',
+            borderRadius: 18, alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 10px 30px rgba(6, 182, 212, 0.2), inset 0 1px 1px rgba(255,255,255,0.3)'
+          }}>
+            <Target size={32} color="#38bdf8" />
+          </div>
+          <div className="dashboard-title-group">
+            <span className="dashboard-subtitle">Financial Planning Engine</span>
+            <h1 className="dashboard-title">Goal-Based Planner</h1>
+            <p style={{ fontSize: '1.05rem', color: '#94a3b8', marginTop: 8, fontWeight: 500 }}>
+              Set precision targets and visualize your probability of success through Monte Carlo simulations.
+            </p>
+          </div>
         </div>
         <motion.button
           onClick={() => setShowForm(!showForm)}
-          whileHover={{ scale: 1.05, boxShadow: '0 0 20px rgba(6, 182, 212, 0.5)' }}
+          whileHover={{ scale: 1.05, boxShadow: '0 8px 25px rgba(6, 182, 212, 0.4)' }}
           whileTap={{ scale: 0.95 }}
           style={{
-            background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)', border: 'none',
-            borderRadius: 12, padding: '12px 24px', color: '#fff', fontWeight: 600,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-            fontSize: '0.95rem', boxShadow: '0 4px 15px rgba(6, 182, 212, 0.3)',
+            background: 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', border: 'none',
+            borderRadius: 14, padding: '14px 28px', color: '#fff', fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+            fontSize: '1rem', boxShadow: '0 4px 15px rgba(6, 182, 212, 0.3), inset 0 1px 1px rgba(255,255,255,0.3)',
+            alignSelf: 'center', flexShrink: 0
           }}
         >
-          <Plus size={18} /> New Goal
+          <Plus size={20} /> New Target
         </motion.button>
       </div>
 
       {/* Two-panel layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: showForm || selectedGoal ? '1fr 1fr' : '1fr', gap: 24, transition: 'all 0.4s ease' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showForm || selectedGoal ? '1fr 1fr' : '1fr', gap: 32, transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         {/* Left Panel — Goal List + Form */}
         <div>
           {/* Form */}
@@ -147,17 +151,20 @@ const GoalPlanner = ({ profile }) => {
                 initial={{ opacity: 0, height: 0, scale: 0.95 }}
                 animate={{ opacity: 1, height: 'auto', scale: 1 }}
                 exit={{ opacity: 0, height: 0, scale: 0.95 }}
-                transition={{ duration: 0.3, type: 'spring', bounce: 0.2 }}
+                transition={{ duration: 0.4, type: 'spring', bounce: 0.2 }}
                 onSubmit={handleSubmit} 
                 style={{
-                  background: 'rgba(11, 19, 30, 0.5)', backdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(6, 182, 212, 0.2)',
+                  background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9))', backdropFilter: 'blur(24px)',
+                  border: '1px solid rgba(6, 182, 212, 0.3)', borderTop: '1px solid rgba(255, 255, 255, 0.1)',
                   borderRadius: 24, padding: 32, marginBottom: 24,
-                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05), 0 10px 30px rgba(0,0,0,0.5)',
-                  overflow: 'hidden'
+                  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.5)',
+                  overflow: 'hidden', position: 'relative'
                 }}
               >
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff', marginBottom: 20 }}>Create New Goal</h3>
+                <div style={{ position: 'absolute', top: 0, left: '20%', width: '60%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.8), transparent)' }} />
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f8fafc', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Rocket size={20} color="#38bdf8" /> Configure New Target
+                </h3>
 
                 {/* Goal presets */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
@@ -297,60 +304,71 @@ const GoalPlanner = ({ profile }) => {
                   whileHover={{ scale: 1.02, y: -2 }}
                   onClick={() => setSelectedGoal(goal)}
                   style={{
-                    background: selectedGoal?._id === goal._id ? 'rgba(6, 182, 212, 0.08)' : 'rgba(15, 23, 42, 0.6)',
-                    border: `1px solid ${selectedGoal?._id === goal._id ? 'rgba(6, 182, 212, 0.4)' : 'rgba(255,255,255,0.06)'}`,
+                    background: selectedGoal?._id === goal._id 
+                      ? 'linear-gradient(145deg, rgba(6, 182, 212, 0.15), rgba(15, 23, 42, 0.8))' 
+                      : 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.7))',
+                    backdropFilter: 'blur(16px)',
+                    border: `1px solid ${selectedGoal?._id === goal._id ? 'rgba(6, 182, 212, 0.6)' : 'rgba(255, 255, 255, 0.08)'}`,
+                    borderTop: `1px solid ${selectedGoal?._id === goal._id ? 'rgba(6, 182, 212, 0.8)' : 'rgba(255, 255, 255, 0.12)'}`,
                     borderRadius: 20, padding: 24, marginBottom: 16, cursor: 'pointer',
-                    boxShadow: selectedGoal?._id === goal._id ? '0 10px 30px rgba(6, 182, 212, 0.15)' : '0 4px 20px rgba(0,0,0,0.2)',
-                    position: 'relative', overflow: 'hidden'
+                    boxShadow: selectedGoal?._id === goal._id 
+                      ? '0 10px 40px rgba(6, 182, 212, 0.2), inset 0 1px 1px rgba(255,255,255,0.1)' 
+                      : '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255,255,255,0.05)',
+                    position: 'relative', overflow: 'hidden',
+                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
                   }}
                 >
                   {selectedGoal?._id === goal._id && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: '#06b6d4', boxShadow: '0 0 10px #06b6d4' }} />
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: '#06b6d4', boxShadow: '0 0 15px #06b6d4' }} />
                   )}
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '0.5px' }}>{goal.goal_name}</h4>
-                      <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 6, fontWeight: 500 }}>
-                        Target: {formatINR(goal.target_amount)} • SIP: {formatINR(goal.recommended_sip)}/mo
+                      <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '0.2px' }}>{goal.goal_name}</h4>
+                      <p style={{ fontSize: '0.88rem', color: '#94a3b8', marginTop: 6, fontWeight: 500, display: 'flex', gap: 12 }}>
+                        <span><Target size={12} style={{marginRight:4, verticalAlign:'-2px', color:'#06b6d4'}}/>{formatINR(goal.target_amount)}</span>
+                        <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                        <span><TrendingUp size={12} style={{marginRight:4, verticalAlign:'-2px', color:'#10b981'}}/>{formatINR(goal.recommended_sip)}/mo</span>
                       </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{
                         background: cfg.bg, color: cfg.color, fontSize: '0.75rem',
-                        padding: '6px 12px', borderRadius: 12, fontWeight: 700,
-                        display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${cfg.color}30`
+                        padding: '6px 14px', borderRadius: 12, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${cfg.color}40`,
+                        boxShadow: `inset 0 1px 2px rgba(255,255,255,0.05)`
                       }}>
                         <StatusIcon size={14} /> {cfg.label}
                       </span>
                       <motion.button 
-                        whileHover={{ scale: 1.1, color: '#ef4444' }}
+                        whileHover={{ scale: 1.1, color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
                         whileTap={{ scale: 0.9 }}
                         onClick={(e) => { e.stopPropagation(); handleDelete(goal._id || goal.goalId); }} style={{
-                        background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 4,
+                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: '#64748b', cursor: 'pointer', 
+                        padding: 6, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
                       }}>
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </motion.button>
                     </div>
                   </div>
 
                   {/* Probability bar */}
-                  <div style={{ marginTop: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Success Probability</span>
-                      <span style={{ fontSize: '0.8rem', color: cfg.color, fontWeight: 800 }}>
+                  <div style={{ marginTop: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Success Probability</span>
+                      <span style={{ fontSize: '0.85rem', color: cfg.color, fontWeight: 800, textShadow: `0 0 10px ${cfg.color}60` }}>
                         {Math.round((goal.probability_of_success || 0) * 100)}%
                       </span>
                     </div>
-                    <div style={{ height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: 8, background: 'rgba(15, 23, 42, 0.8)', borderRadius: 4, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.5)' }}>
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.min(100, (goal.probability_of_success || 0) * 100)}%` }}
                         transition={{ duration: 1, ease: 'easeOut' }}
                         style={{
                         height: '100%',
-                        background: `linear-gradient(90deg, ${cfg.color}80, ${cfg.color})`, borderRadius: 3,
-                        boxShadow: `0 0 10px ${cfg.color}80`
+                        background: `linear-gradient(90deg, ${cfg.color}40, ${cfg.color})`, borderRadius: 4,
+                        boxShadow: `0 0 15px ${cfg.color}80, inset 0 1px 1px rgba(255,255,255,0.4)`
                       }} />
                     </div>
                   </div>
@@ -372,14 +390,15 @@ const GoalPlanner = ({ profile }) => {
             >
               {/* Goal Summary Card */}
               <div style={{
-                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.4))', backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(6, 182, 212, 0.2)', boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.9))', backdropFilter: 'blur(24px)',
+                border: '1px solid rgba(6, 182, 212, 0.3)', borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 15px 50px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05)',
                 borderRadius: 24, padding: 32, marginBottom: 24, position: 'relative', overflow: 'hidden'
               }}>
-                <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '50%', height: '50%', background: 'radial-gradient(ellipse at center, rgba(139, 92, 246, 0.15), transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '60%', height: '60%', background: 'radial-gradient(ellipse at center, rgba(139, 92, 246, 0.15), transparent 70%)', pointerEvents: 'none' }} />
 
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Target size={24} color="#06b6d4" />
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Target size={24} color="#38bdf8" />
                   {selectedGoal.goal_name} Overview
                 </h3>
 
@@ -395,12 +414,13 @@ const GoalPlanner = ({ profile }) => {
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                     style={{
-                    marginTop: 20, padding: '16px 20px', borderRadius: 16,
+                    marginTop: 24, padding: '16px 20px', borderRadius: 16,
                     background: 'linear-gradient(90deg, rgba(244, 63, 94, 0.1), rgba(244, 63, 94, 0.05))', border: '1px solid rgba(244, 63, 94, 0.2)',
-                    fontSize: '0.9rem', color: '#fda4af', display: 'flex', alignItems: 'center', gap: 12
+                    fontSize: '0.9rem', color: '#fda4af', display: 'flex', alignItems: 'center', gap: 12,
+                    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05)'
                   }}>
                     <AlertTriangle size={20} color="#f43f5e" />
-                    <div>
+                    <div style={{ lineHeight: 1.5 }}>
                       You need <strong style={{ color: '#fff' }}>{formatINR(selectedGoal.gap_amount)}</strong> more per month. Consider increasing your SIP.
                     </div>
                   </motion.div>
@@ -411,12 +431,15 @@ const GoalPlanner = ({ profile }) => {
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                     style={{
-                    marginTop: 20, padding: '16px 20px', borderRadius: 16,
-                    background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.05))', border: '1px solid rgba(6, 182, 212, 0.2)',
-                    fontSize: '0.9rem', color: '#e2e8f0', lineHeight: 1.6, fontStyle: 'italic',
+                    marginTop: 20, padding: '20px', borderRadius: 16,
+                    background: 'linear-gradient(145deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.05))', border: '1px solid rgba(6, 182, 212, 0.2)',
+                    fontSize: '0.92rem', color: '#e2e8f0', lineHeight: 1.6, fontStyle: 'italic',
+                    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05)'
                   }}>
-                    <span style={{ fontSize: '1.2rem', marginRight: 8, verticalAlign: 'middle' }}>💡</span> 
-                    {selectedGoal.gemini_advice}
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '1.4rem', textShadow: '0 0 10px rgba(255,255,255,0.5)' }}>✨</span> 
+                      <div>{selectedGoal.gemini_advice}</div>
+                    </div>
                   </motion.div>
                 )}
               </div>
@@ -445,14 +468,15 @@ const GoalPlanner = ({ profile }) => {
 // Small metric card sub-component
 const MetricCard = ({ label, value, icon }) => (
   <div style={{
-    background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px',
-    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'linear-gradient(145deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.7))', borderRadius: 16, padding: '16px',
+    border: '1px solid rgba(255,255,255,0.06)', borderTop: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.2)'
   }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-      <span style={{ color: '#06b6d4' }}>{icon}</span>
-      <span style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+      <span style={{ color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: 6, borderRadius: 8, display: 'flex' }}>{icon}</span>
+      <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{label}</span>
     </div>
-    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#e2e8f0' }}>{value}</div>
+    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>{value}</div>
   </div>
 );
 

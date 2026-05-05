@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { formatINR } from '../utils/indianNumberFormat';
 import { fetchTaxComputation, getTaxSavingRecommendations, SECTION_80C_LIMIT, SECTION_80CCD_1B_LIMIT } from '../utils/taxCalculator';
 import { investmentDatabase } from '../investmentDatabase';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Calculator, Wallet, Receipt, Percent, PiggyBank, TrendingDown, Info, Sparkles, IndianRupee } from 'lucide-react';
 import './TaxScreen.css';
 
 const TaxScreen = ({ profile }) => {
@@ -72,13 +72,19 @@ const TaxScreen = ({ profile }) => {
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-          <span style={{ 
-            display: 'inline-flex', 
-            width: 36, height: 36, 
-            background: 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', 
-            borderRadius: 8, 
-            boxShadow: '0 0 20px rgba(139, 92, 246, 0.7)' 
-          }}></span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 48,
+            height: 48,
+            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(139, 92, 246, 0.1))',
+            border: '1px solid rgba(56, 189, 248, 0.2)',
+            borderRadius: '14px',
+            boxShadow: '0 0 20px rgba(139, 92, 246, 0.3), inset 0 0 10px rgba(56, 189, 248, 0.1)'
+          }}>
+            <Calculator size={28} color="#38bdf8" />
+          </div>
           Tax Saving Optimizer
         </h1>
         <p className="page-subtitle">Maximize your deductions and minimize tax liability under Indian IT laws</p>
@@ -91,26 +97,46 @@ const TaxScreen = ({ profile }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <div className="tax-control-group">
-          <label>Annual Income</label>
+        <div className="tax-control-card">
+          <div className="tax-control-card-header">
+            <div className="tax-control-card-icon" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
+              <Wallet size={20} />
+            </div>
+            <label>Annual Income</label>
+          </div>
           <div className="tax-income-display">{formatINR(annualIncome)}</div>
+          <div className="tax-income-sub">
+            <span>Monthly: {formatINR(Math.round(annualIncome / 12))}</span>
+            <span className="tax-income-badge">FY 2025-26</span>
+          </div>
         </div>
-        <div className="tax-control-group">
-          <label>Tax Regime</label>
+        <div className="tax-control-card">
+          <div className="tax-control-card-header">
+            <div className="tax-control-card-icon" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa' }}>
+              <Calculator size={20} />
+            </div>
+            <label>Tax Regime</label>
+          </div>
           <div className="tax-regime-toggle">
             <button className={`regime-btn ${regime === 'old' ? 'regime-btn--active' : ''}`} onClick={() => setRegime('old')}>Old Regime</button>
             <button className={`regime-btn ${regime === 'new' ? 'regime-btn--active' : ''}`} onClick={() => setRegime('new')}>New Regime</button>
           </div>
           {betterRegime !== 'Either' && (
-            <div style={{ marginTop: '12px', fontSize: '0.8rem', color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '6px 12px', borderRadius: '6px', display: 'inline-block', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <strong>Better for you:</strong> {betterRegime} Regime (Saves {formatINR(betterRegimeSavings)})
+            <div className="tax-better-badge">
+              <ShieldCheck size={14} />
+              <span><strong>Better for you:</strong> {betterRegime} Regime (Saves {formatINR(betterRegimeSavings)})</span>
             </div>
           )}
         </div>
         {regime === 'old' && (
           <>
-            <div className="tax-control-group">
-              <label>Existing 80C Investments (₹)</label>
+            <div className="tax-control-card">
+              <div className="tax-control-card-header">
+                <div className="tax-control-card-icon" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}>
+                  <PiggyBank size={20} />
+                </div>
+                <label>Existing 80C Investments (₹)</label>
+              </div>
               <input 
                 type="number" 
                 value={existing80C} 
@@ -119,9 +145,15 @@ const TaxScreen = ({ profile }) => {
                 className="tax-input" 
                 placeholder="0"
               />
+              <div className="tax-input-hint">Limit: {formatINR(SECTION_80C_LIMIT)}</div>
             </div>
-            <div className="tax-control-group">
-              <label>Existing 80CCD(1B) — NPS (₹)</label>
+            <div className="tax-control-card">
+              <div className="tax-control-card-header">
+                <div className="tax-control-card-icon" style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }}>
+                  <TrendingDown size={20} />
+                </div>
+                <label>Existing 80CCD(1B) — NPS (₹)</label>
+              </div>
               <input 
                 type="number" 
                 value={existing80CCD} 
@@ -130,12 +162,13 @@ const TaxScreen = ({ profile }) => {
                 className="tax-input" 
                 placeholder="0"
               />
+              <div className="tax-input-hint">Limit: {formatINR(SECTION_80CCD_1B_LIMIT)}</div>
             </div>
           </>
         )}
       </motion.div>
 
-      {/* Tax Summary Cards */}
+      {/* Tax Summary Cards with Icons */}
       <motion.div 
         className="tax-summary-grid"
         initial={{ opacity: 0, scale: 0.95 }}
@@ -143,20 +176,24 @@ const TaxScreen = ({ profile }) => {
         transition={{ delay: 0.2 }}
       >
         <div className="tax-summary-card">
+          <div className="tax-sum-icon"><Wallet size={22} /></div>
           <span className="tax-sum-label">Taxable Income</span>
           <span className="tax-sum-value">{formatINR(taxableIncome)}</span>
         </div>
         <div className="tax-summary-card">
+          <div className="tax-sum-icon"><Receipt size={22} /></div>
           <span className="tax-sum-label">Total Tax Payable</span>
-          <span className="tax-sum-value" style={{ color: '#ef4444' }}>{formatINR(totalTax)}</span>
+          <span className="tax-sum-value">{formatINR(totalTax)}</span>
         </div>
         <div className="tax-summary-card">
+          <div className="tax-sum-icon"><Percent size={22} /></div>
           <span className="tax-sum-label">Effective Tax Rate</span>
           <span className="tax-sum-value">{effectiveRate}%</span>
         </div>
         <div className="tax-summary-card">
+          <div className="tax-sum-icon"><PiggyBank size={22} /></div>
           <span className="tax-sum-label">Potential Tax Saving</span>
-          <span className="tax-sum-value" style={{ color: '#22c55e' }}>{formatINR(potentialSaving)}</span>
+          <span className="tax-sum-value">{formatINR(potentialSaving)}</span>
         </div>
       </motion.div>
 
@@ -182,45 +219,96 @@ const TaxScreen = ({ profile }) => {
         </motion.div>
       )}
 
-      {/* Old vs New Regime Comparison Chart — always shows data */}
-      <motion.div 
-        className="tax-chart-wrapper"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h3>Old Regime vs New Regime Comparison</h3>
-        <div style={{ width: '100%', height: 300 }} className="tax-bar-chart-glow">
-          <ResponsiveContainer>
-            <BarChart data={regimeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
-              <defs>
-                <linearGradient id="colorOld" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f97316" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#ea580c" stopOpacity={0.8}/>
-                </linearGradient>
-                <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#0ea5e9" stopOpacity={1}/>
-                  <stop offset="100%" stopColor="#0369a1" stopOpacity={0.8}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 13 }} axisLine={false} />
-              <YAxis tickFormatter={(v) => formatINR(v)} stroke="#64748b" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} />
-              <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(14, 165, 233, 0.4)', borderRadius: '12px', color: '#f8fafc', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
-              <Bar dataKey="value" name="Tax Payable" radius={[10, 10, 0, 0]} barSize={80}>
-                {regimeChartData.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        {betterRegime !== 'Either' && (
-          <div style={{ textAlign: 'center', marginTop: 12, fontSize: '0.95rem', color: '#10b981', fontWeight: 600 }}>
-            ✅ {betterRegime} Regime saves you {formatINR(betterRegimeSavings)}
+      {/* Two-Column Layout: Chart + Insights */}
+      <div className="tax-two-col">
+        {/* Old vs New Regime Comparison Chart */}
+        <motion.div 
+          className="tax-chart-wrapper"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <h3>Old Regime vs New Regime Comparison</h3>
+          <div style={{ width: '100%', height: 300 }} className="tax-bar-chart-glow">
+            <ResponsiveContainer>
+              <BarChart data={regimeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
+                <defs>
+                  <linearGradient id="colorOld" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f97316" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#ea580c" stopOpacity={0.8}/>
+                  </linearGradient>
+                  <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#0369a1" stopOpacity={0.8}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="label" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 13 }} axisLine={false} />
+                <YAxis tickFormatter={(v) => formatINR(v)} stroke="#64748b" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} />
+                <Tooltip formatter={(v) => formatINR(v)} cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: 'rgba(15,23,42,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(14, 165, 233, 0.4)', borderRadius: '12px', color: '#f8fafc', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
+                <Bar dataKey="value" name="Tax Payable" radius={[10, 10, 0, 0]} barSize={80}>
+                  {regimeChartData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        )}
-      </motion.div>
+          {betterRegime !== 'Either' && (
+            <div style={{ textAlign: 'center', marginTop: 12, fontSize: '0.95rem', color: '#10b981', fontWeight: 600 }}>
+              ✅ {betterRegime} Regime saves you {formatINR(betterRegimeSavings)}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Smart Insights Panel — Always Visible */}
+        <motion.div
+          className="tax-insights-panel"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <h3><Sparkles size={18} style={{ marginRight: 8, color: '#fbbf24' }} />Smart Tax Insights</h3>
+          <div className="tax-insight-items">
+            <div className="tax-insight-item">
+              <div className="tax-insight-icon" style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}><IndianRupee size={18} /></div>
+              <div>
+                <div className="tax-insight-title">Monthly Tax Impact</div>
+                <div className="tax-insight-desc">{formatINR(Math.round(totalTax / 12))}/month from your salary</div>
+              </div>
+            </div>
+            <div className="tax-insight-item">
+              <div className="tax-insight-icon" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa' }}><TrendingDown size={18} /></div>
+              <div>
+                <div className="tax-insight-title">Take-Home Pay</div>
+                <div className="tax-insight-desc">{formatINR(Math.round((annualIncome - totalTax) / 12))}/month after tax</div>
+              </div>
+            </div>
+            <div className="tax-insight-item">
+              <div className="tax-insight-icon" style={{ background: 'rgba(16,185,129,0.1)', color: '#34d399' }}><Info size={18} /></div>
+              <div>
+                <div className="tax-insight-title">Regime Advice</div>
+                <div className="tax-insight-desc">
+                  {betterRegime === 'New' 
+                    ? 'New Regime is optimal — no deductions needed for maximum savings.' 
+                    : betterRegime === 'Old'
+                    ? 'Old Regime benefits you more if you maximize your 80C & 80CCD(1B) deductions.'
+                    : 'Both regimes yield similar tax. Choose based on your investment flexibility.'}
+                </div>
+              </div>
+            </div>
+            {regime === 'new' && (
+              <div className="tax-insight-item">
+                <div className="tax-insight-icon" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}><Sparkles size={18} /></div>
+                <div>
+                  <div className="tax-insight-title">New Regime Benefits</div>
+                  <div className="tax-insight-desc">Standard deduction of ₹75,000 + simplified lower slabs. No need to track deductions.</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
 
       {/* Optimization Chart — only when there's actual tax */}
       {totalTax > 0 && regime === 'old' && potentialSaving > 0 && (
@@ -313,6 +401,10 @@ const TaxScreen = ({ profile }) => {
           </div>
         </motion.div>
       )}
+
+      {/* Ambient background orbs */}
+      <div className="tax-bg-orb tax-bg-orb--1" />
+      <div className="tax-bg-orb tax-bg-orb--2" />
     </div>
   );
 };

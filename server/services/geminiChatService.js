@@ -1,5 +1,5 @@
 /**
- * Genie Chat Service — Gemini 1.5 Flash integration
+ * Genie Chat Service — Dual-provider (Gemini + Groq fallback)
  * Rate limiting, context assembly, API calls, conversation persistence.
  */
 import axios from 'axios';
@@ -12,10 +12,12 @@ import Goal from '../models/Goal.js';
 import User from '../models/User.js';
 
 const GEMINI_API_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const CHAT_RATE_LIMIT = 30;
 const HISTORY_WINDOW = 20;
-const MAX_OUTPUT_TOKENS = 1200;
+const MAX_OUTPUT_TOKENS = 4096;
 const SYSTEM_PROMPT_TTL = 1800;
 
 const rateLimitCounters = new Map();
@@ -42,6 +44,72 @@ async function checkRateLimit(userId) {
     return { allowed: false, count: entry.count, ttl: Math.ceil((entry.start + 3600000 - now) / 1000) };
   }
   return { allowed: true, count: entry.count };
+}
+
+/**
+ * Call Gemini API. Returns { text, tokensUsed, wasCompleted } or null on failure.
+ */
+async function callGemini(payload) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await axios.post(`${GEMINI_API_URL}?key=${apiKey}`, payload, { timeout: 30000 });
+    const candidate = res.data?.candidates?.[0];
+    if (!candidate || candidate.finishReason === 'SAFETY') return null;
+
+    const text = candidate.content.parts.map(p => p.text).join('');
+    const tokensUsed = res.data?.usageMetadata?.totalTokenCount || 0;
+    const wasCompleted = candidate.finishReason === 'STOP';
+    return { text, tokensUsed, wasCompleted, provider: 'gemini' };
+  } catch (err) {
+    console.error('[Chat] Gemini API error:', err.response?.data?.error?.message || err.message);
+    return null;
+  }
+}
+
+/**
+ * Call Groq API as fallback. Converts Gemini-style payload to OpenAI format.
+ * Returns { text, tokensUsed, wasCompleted } or null on failure.
+ */
+async function callGroq(systemPrompt, recentHistory) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    // Convert Gemini history format → OpenAI messages format
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...recentHistory.map(m => ({
+        role: m.role === 'model' ? 'assistant' : m.role,
+        content: m.parts.map(p => p.text).join(''),
+      })),
+    ];
+
+    const res = await axios.post(GROQ_API_URL, {
+      model: GROQ_MODEL,
+      messages,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      temperature: 0.4,
+      top_p: 0.8,
+    }, {
+      timeout: 30000,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const text = res.data?.choices?.[0]?.message?.content;
+    if (!text) return null;
+
+    const tokensUsed = res.data?.usage?.total_tokens || 0;
+    const wasCompleted = res.data?.choices?.[0]?.finish_reason === 'stop';
+    return { text, tokensUsed, wasCompleted, provider: 'groq' };
+  } catch (err) {
+    console.error('[Chat] Groq API error:', err.response?.data || err.message);
+    return null;
+  }
 }
 
 export async function processChat({ userId, user, message, sessionId }) {
@@ -93,7 +161,6 @@ export async function processChat({ userId, user, message, sessionId }) {
       temperature: 0.4,
       topP: 0.8,
       topK: 40,
-      // No stopSequences — let the model reach a natural end.
     },
     safetySettings: [
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -102,45 +169,41 @@ export async function processChat({ userId, user, message, sessionId }) {
   };
 
   const startTime = Date.now();
-  let geminiResponse;
-  try {
-    geminiResponse = await axios.post(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, payload, { timeout: 20000 });
-  } catch (apiErr) {
-    console.error('[Chat] Gemini API error:', apiErr.response?.data || apiErr.message);
+
+  // ── Try Gemini first, then fall back to Groq ──
+  let result = await callGemini(payload);
+  if (!result) {
+    console.log('[Chat] Gemini failed or quota exhausted, falling back to Groq...');
+    result = await callGroq(systemPrompt, recentHistory);
+  }
+
+  if (!result) {
+    // Both providers failed
     conversation.messages.push({ role: 'user', content: message, metadata: { grounded_on_profile: true } });
     await conversation.save();
     throw { status: 502, message: 'Genie is temporarily unavailable. Please try again in a moment.' };
   }
 
   const latencyMs = Date.now() - startTime;
-  const candidate = geminiResponse.data?.candidates?.[0];
-  if (!candidate || candidate.finishReason === 'SAFETY') {
-    throw { status: 400, message: 'The message could not be processed. Please rephrase your question.' };
-  }
-
-  let responseText = candidate.content.parts.map(p => p.text).join('');
-  const tokensUsed = geminiResponse.data?.usageMetadata?.totalTokenCount || 0;
+  let responseText = result.text;
+  const tokensUsed = result.tokensUsed;
 
   // ── Response completeness check ─────────────────────────────────
-  const finishReason = candidate.finishReason;
-  const wasCompleted = finishReason === 'STOP';
-
-  if (!wasCompleted) {
+  if (!result.wasCompleted) {
     console.warn(
-      `[Chat] Response truncated. finishReason: ${finishReason}. `
-      + `Tokens: ${tokensUsed}. UserId: ${userId}`
+      `[Chat] Response truncated (${result.provider}). Tokens: ${tokensUsed}. UserId: ${userId}`
     );
     responseText = responseText.trimEnd()
       + '\n\n*Response was truncated. Please ask me to continue '
       + 'or rephrase for a shorter answer.*';
   }
 
-  console.log(`[Chat] Response length: ${responseText.length} chars. Completed: ${wasCompleted}. Text: "${responseText.substring(0, 50)}..."`);
+  console.log(`[Chat] [${result.provider}] Response: ${responseText.length} chars. Completed: ${result.wasCompleted}. "${responseText.substring(0, 50)}..."`);
 
   conversation.messages.push({ role: 'user', content: message, metadata: { grounded_on_profile: true } });
   conversation.messages.push({
     role: 'model', content: responseText,
-    metadata: { tokens_used: tokensUsed, latency_ms: latencyMs, grounded_on_profile: true, disclaimer_appended: responseText.includes('SEBI') },
+    metadata: { tokens_used: tokensUsed, latency_ms: latencyMs, grounded_on_profile: true, disclaimer_appended: responseText.includes('SEBI'), provider: result.provider },
   });
   await conversation.save();
 

@@ -124,15 +124,100 @@ router.post('/create', verifyJWT, async (req, res) => {
 });
 
 /**
+ * Detect stale/error advice that should be regenerated.
+ */
+const STALE_ADVICE_PATTERNS = [
+  'temporarily unavailable',
+  'could not process',
+  'API key not configured',
+];
+
+function isStaleAdvice(advice) {
+  if (!advice) return true;
+  return STALE_ADVICE_PATTERNS.some(p => advice.toLowerCase().includes(p));
+}
+
+async function regenerateAdvice(goal) {
+  const profile = await FinancialProfile.findById(goal.profileId).lean();
+  const profileContext = {
+    age: profile?.age || 30,
+    annualIncome: profile?.annualIncome || 600000,
+    riskCategory: profile?.riskCategory || 'Moderate',
+  };
+
+  const now = new Date();
+  const yearsRemaining = Math.max(1, Math.round((new Date(goal.target_date) - now) / (365.25 * 24 * 60 * 60 * 1000)));
+  const userMonthlySavings = profile?.savings || 10000;
+
+  const newAdvice = await chatWithGemini(
+    `User is ${goal.status.replace('_', ' ')} for goal "${goal.goal_name}" worth ₹${goal.target_amount.toLocaleString('en-IN')} in ${yearsRemaining} years. Required SIP: ₹${goal.recommended_sip.toLocaleString('en-IN')}/month. Their current savings capacity: ₹${userMonthlySavings.toLocaleString('en-IN')}/month. Suggest one specific actionable financial adjustment in 2 sentences.`,
+    profileContext
+  );
+
+  if (!isStaleAdvice(newAdvice)) {
+    await Goal.findByIdAndUpdate(goal._id, { gemini_advice: newAdvice });
+    return newAdvice;
+  }
+  return goal.gemini_advice;
+}
+
+/**
  * GET /api/goals [Protected]
  * List all goals for the current user.
+ * Automatically regenerates AI advice if it contains stale/error text.
  */
 router.get('/', verifyJWT, async (req, res) => {
   try {
     const goals = await Goal.find({ userId: req.user.userId }).sort({ target_date: 1 });
-    res.json({ goals });
+
+    // Regenerate stale advice in the background (non-blocking for fast response)
+    const goalsArr = goals.map(g => g.toObject());
+    const staleGoals = goals.filter(g => isStaleAdvice(g.gemini_advice));
+
+    if (staleGoals.length > 0) {
+      // Fire-and-forget: regenerate advice for stale goals
+      Promise.allSettled(staleGoals.map(async (g) => {
+        try {
+          const newAdvice = await regenerateAdvice(g);
+          const idx = goalsArr.findIndex(go => go._id.toString() === g._id.toString());
+          if (idx !== -1) goalsArr[idx].gemini_advice = newAdvice;
+        } catch (e) {
+          console.warn('[Goals] Advice regeneration failed for', g.goal_name, e.message);
+        }
+      }));
+
+      // Wait briefly for regeneration (up to 8s) so user sees fresh advice
+      await Promise.race([
+        Promise.allSettled(staleGoals.map(g => regenerateAdvice(g))),
+        new Promise(resolve => setTimeout(resolve, 8000)),
+      ]);
+
+      // Re-fetch updated goals from DB
+      const refreshed = await Goal.find({ userId: req.user.userId }).sort({ target_date: 1 });
+      return res.json({ goals: refreshed });
+    }
+
+    res.json({ goals: goalsArr });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch goals: ' + err.message });
+  }
+});
+
+/**
+ * PATCH /api/goals/:goalId/refresh-advice [Protected]
+ * Manually refresh AI advice for a specific goal.
+ */
+router.patch('/:goalId/refresh-advice', verifyJWT, async (req, res) => {
+  try {
+    const goal = await Goal.findOne({ _id: req.params.goalId, userId: req.user.userId });
+    if (!goal) return res.status(404).json({ error: 'Goal not found.' });
+
+    const newAdvice = await regenerateAdvice(goal);
+    goal.gemini_advice = newAdvice;
+    await goal.save();
+    res.json({ goalId: goal._id, gemini_advice: newAdvice });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to refresh advice: ' + err.message });
   }
 });
 

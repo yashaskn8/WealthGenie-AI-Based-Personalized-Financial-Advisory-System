@@ -168,19 +168,25 @@ export function formatINR(val) {
 }
 
 // ─── MARGINAL RATE (New Regime default) ───────────────────────────
+// Must apply standard deduction BEFORE slab lookup to match backend.
+// FY2025-26: New regime ₹75K deduction, Old regime ₹50K deduction.
 export function getMarginalRate(annualIncome, regime = 'new') {
+  const standardDeduction = regime === 'new' ? 75000 : 50000;
+  const taxableIncome = Math.max(0, annualIncome - standardDeduction);
+
   if (regime === 'old') {
-    if (annualIncome > 1000000) return 0.30;
-    if (annualIncome > 500000) return 0.20;
-    if (annualIncome > 250000) return 0.05;
+    if (taxableIncome > 1000000) return 0.30;
+    if (taxableIncome > 500000)  return 0.20;
+    if (taxableIncome > 250000)  return 0.05;
     return 0;
   }
-  // New regime
-  if (annualIncome > 1500000) return 0.30;
-  if (annualIncome > 1200000) return 0.20;
-  if (annualIncome > 900000) return 0.15;
-  if (annualIncome > 600000) return 0.10;
-  if (annualIncome > 300000) return 0.05;
+  // New regime FY2025-26 slabs (on taxable income after ₹75K deduction)
+  if (taxableIncome > 2400000) return 0.30;
+  if (taxableIncome > 2000000) return 0.25;
+  if (taxableIncome > 1600000) return 0.20;
+  if (taxableIncome > 1200000) return 0.15;
+  if (taxableIncome > 800000)  return 0.10;
+  if (taxableIncome > 400000)  return 0.05;
   return 0;
 }
 
@@ -321,12 +327,13 @@ export function getEligibleInvestments(profile) {
     if (annualIncome < elig.minAnnualIncome) return false;
     if (savings < inv.minMonthlyInvestment) return false;
     if (inv.id === "scss" && age < 60) return false;
+    // PMVVY: only for age 60+
+    if (inv.id === "pmvvy" && age < 60) return false;
+    // NPS: exclude for age 60+ (PFRDA standard exit age)
+    if (inv.id === "nps" && age >= 60) return false;
     // Fix 3: SSY requires user to have declared a daughter under 10
     if (inv.id === "sukanya") {
       if (age < 18 || age > 40) return false;
-      // SSY eligibility requires explicit declaration of having a daughter under 10.
-      // Since the profile does not collect this data, SSY is always excluded
-      // unless the profile explicitly sets has_daughter_under_10 = true.
       if (!profile.has_daughter_under_10) return false;
     }
     if (inv.id === "smallcap_mf") {
@@ -401,12 +408,14 @@ function computeScore(inv, profile) {
   if (inv.taxType === "sgb") score += 6;
 
   if (goals.includes("Tax Saving") && ["eee", "elss", "nps"].includes(inv.taxType)) score += 8;
-  if (goals.includes("Retirement") && ["nps", "ppf", "scss"].includes(inv.id)) score += 10;
+  if (goals.includes("Retirement") && ["nps", "ppf", "scss", "pmvvy"].includes(inv.id)) score += 10;
   if (goals.includes("Wealth Growth") && inv.risk >= 3) score += 5;
 
+  // Age-appropriate scoring: boost senior-specific instruments
   if (inv.id === "nps" && horizon >= 15) score += 8;
   if (inv.id === "sukanya") score += 12;
   if (inv.id === "scss") score += 15;
+  if (inv.id === "pmvvy") score += 14; // High score for senior pension
 
   return { ...inv, score, postTaxRate };
 }
@@ -449,6 +458,11 @@ export function getWhy(inv, profile) {
       `At age ${age}, SCSS is the most efficient guaranteed-income instrument available to you — 8.2% with quarterly payouts and sovereign backing.`,
       `No other government scheme offers this rate with a 5-year lock-in for your age group.`,
       `TDS applies if annual interest exceeds ₹50,000. This should be one of your top-3 instruments.`,
+    ],
+    pmvvy: [
+      `PMVVY is a government-guaranteed pension scheme designed exclusively for senior citizens aged 60+. The 7.4% p.a. rate is fixed for the entire 10-year term.`,
+      `Unlike other instruments, PMVVY pays a regular pension — you can choose monthly, quarterly, half-yearly, or annual payouts. Maximum investment of ₹15 lakhs.`,
+      `For your retirement income needs at age ${age}, this provides guaranteed, inflation-beating income with zero credit risk and sovereign backing.`,
     ],
     sukanya: [
       `SSY offers the highest guaranteed EEE return at 8.2% p.a. — better than PPF and entirely tax-free.`,

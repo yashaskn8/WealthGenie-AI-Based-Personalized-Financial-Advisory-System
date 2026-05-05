@@ -44,8 +44,12 @@ const ProjectionBand = ({ chartData, targetAmount, goalProbability, instrumentNa
   return (
     <div style={{
       opacity: visible ? 1 : 0, transition: 'opacity 0.4s ease',
-      background: 'rgba(15, 23, 42, 0.4)', borderRadius: 16, padding: 20,
-      border: '1px solid rgba(6, 182, 212, 0.15)',
+      background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.3))',
+      backdropFilter: 'blur(16px)',
+      borderRadius: 20, padding: 24,
+      border: '1px solid rgba(56, 189, 248, 0.15)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+      boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.03), 0 8px 30px rgba(0,0,0,0.3)'
     }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>

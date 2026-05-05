@@ -267,13 +267,14 @@ const DashboardShell = ({ userProfile, onRecalculate }) => {
             onLearnMore={handleLearnMore}
             onExploreAll={() => setShowComparisonTable(true)}
             onRebalance={() => setActivePage('rebalancer')}
+            onNavigate={setActivePage}
           />
           </ErrorBoundary>
         );
       case 'post-tax':
         return <ErrorBoundary><PostTaxAnalysis profile={userProfile} recommendations={recommendations} /></ErrorBoundary>;
       case 'health':
-        return <ErrorBoundary><HealthScoreScreen profile={userProfile} recommendations={recommendations} /></ErrorBoundary>;
+        return <ErrorBoundary><HealthScoreScreen profile={userProfile} recommendations={recommendations} onNavigate={setActivePage} /></ErrorBoundary>;
       case 'goals':
         return <ErrorBoundary><GoalTracker profile={userProfile} recommendations={recommendations} /></ErrorBoundary>;
       case 'goal-planner':
@@ -600,7 +601,21 @@ function AuthPage() {
                 </div>
                 <div className="input-group">
                   <label htmlFor="login-password">Password</label>
-                  <input type="password" id="login-password" placeholder="Enter password (admin123)" required />
+                  <div className="password-wrapper">
+                    <input 
+                      type={showPassword ? 'text' : 'password'} 
+                      id="login-password" 
+                      placeholder="Enter password (admin123)" 
+                      required 
+                    />
+                    <button
+                      type="button"
+                      className="toggle-password-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
                 </div>
                 <div className="form-actions">
                   <label className="remember-me">

@@ -196,5 +196,21 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
         expect(r.postTaxReturn).toBeLessThanOrEqual(nominal + 0.001);
       });
     });
+
+    test('Liquid MF: 7.0% nominal at 5% slab = 6.65% post-tax', () => {
+      const r = calculatePostTaxReturnSafe(
+        'Liquid_MF', 0.07, 780000, 1, 'new'
+      );
+      expect(r.postTaxReturn).toBeCloseTo(0.0665, 3);
+      expect(r.taxRate).toBe(0.05);
+      expect(r.postTaxReturn).toBeLessThan(0.07);
+    });
+
+    test('Debt MF: 7.5% nominal at 5% slab = 7.125% post-tax', () => {
+      const r = calculatePostTaxReturnSafe(
+        'Debt_MF', 0.075, 780000, 1, 'new'
+      );
+      expect(r.postTaxReturn).toBeCloseTo(0.07125, 3);
+    });
   });
 });

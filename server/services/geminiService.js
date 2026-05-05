@@ -3,7 +3,8 @@ import { getCache, setCache } from '../config/redis.js';
 import crypto from 'crypto';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL_NAME = 'llama3-70b-8192';
+const MODEL_NAME = 'llama-3.3-70b-versatile';
+const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 function hashProfile(profile) {
   return crypto.createHash('md5').update(JSON.stringify(profile)).digest('hex');
@@ -83,30 +84,49 @@ function getFallbackAdvisory({ age, riskCategory, instruments }) {
 }
 
 export async function chatWithGemini(message, profileContext) {
-  try {
-    const apiKey = process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) return 'Groq API key not configured.';
+  const systemPrompt = `You are WealthGenie, an AI financial advisor for Indian retail investors. The user's profile: Age ${profileContext.age}, Income ₹${profileContext.annualIncome}/yr, Risk: ${profileContext.riskCategory}. Answer concisely in 2-3 sentences. Only give financial advice relevant to Indian markets and tax laws.`;
 
-    const systemPrompt = `You are WealthGenie, an AI financial advisor for Indian retail investors. The user's profile: Age ${profileContext.age}, Income ₹${profileContext.annualIncome}/yr, Risk: ${profileContext.riskCategory}. Answer concisely in 2-3 sentences. Only give financial advice relevant to Indian markets and tax laws.`;
-
-    const res = await axios.post(GROQ_API_URL, {
-      model: MODEL_NAME,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
-      max_tokens: 300,
-      temperature: 0.6
-    }, { 
-      timeout: 10000,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    return res.data?.choices?.[0]?.message?.content || 'I could not process that question.';
-  } catch (err) {
-    return 'Sorry, the AI service is temporarily unavailable. Please try again.';
+  // ── Attempt 1: Groq API ──
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const res = await axios.post(GROQ_API_URL, {
+        model: MODEL_NAME,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        max_tokens: 300,
+        temperature: 0.6
+      }, {
+        timeout: 10000,
+        headers: {
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const text = res.data?.choices?.[0]?.message?.content;
+      if (text) return text;
+    } catch (groqErr) {
+      console.error('[chatWithGemini] Groq failed, falling back to Gemini:', groqErr.response?.data || groqErr.message);
+    }
   }
+
+  // ── Attempt 2: Gemini API fallback ──
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const res = await axios.post(`${GEMINI_CHAT_URL}?key=${geminiKey}`, {
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: message }] }],
+        generationConfig: { maxOutputTokens: 300, temperature: 0.6 }
+      }, { timeout: 15000 });
+      const text = res.data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('');
+      if (text) return text;
+    } catch (geminiErr) {
+      console.error('[chatWithGemini] Gemini also failed:', geminiErr.response?.data || geminiErr.message);
+    }
+  }
+
+  return 'I could not process that question right now. Please try again later.';
 }
