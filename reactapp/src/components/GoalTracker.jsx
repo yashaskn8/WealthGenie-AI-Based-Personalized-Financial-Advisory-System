@@ -371,16 +371,20 @@ const GoalTracker = ({ profile, recommendations }) => {
 
       <motion.div
         className="page-header"
-        initial={{ y: -20, opacity: 0 }}
+        style={{ textAlign: 'center', marginBottom: 8 }}
+        initial={{ y: -15, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 100 }}
+        transition={{ delay: 0.1, duration: 0.5 }}
       >
-        <h1 className="page-title">
-          <Target size={32} className="title-icon" /> My Financial Goals
-        </h1>
-        <p className="page-subtitle">
+        <div className="gt-page-badge">
+          <Target size={11} />
+          Personalized Financial Goals
+        </div>
+        <h1 className="gt-page-title">My Financial Goals</h1>
+        <p className="gt-page-subtitle">
           Personalized targets based on ₹{(Number(profile?.monthly_income) || 0).toLocaleString('en-IN')}/mo income & Age {profile?.age || 30}
         </p>
+        <div className="gt-header-divider" />
       </motion.div>
 
       {/* ── Overview Card ────────────────────────────────── */}

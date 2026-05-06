@@ -288,11 +288,15 @@
 }
 
 .sidebar-icon-wrap--active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(139, 92, 246, 0.25)) !important;
-  border-color: rgba(56, 189, 248, 0.6) !important;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.45), rgba(139, 92, 246, 0.4)) !important;
+  border-color: rgba(56, 189, 248, 0.85) !important;
   color: #fff !important;
-  box-shadow: 0 8px 25px rgba(56, 189, 248, 0.4), inset 0 2px 5px rgba(255,255,255,0.3);
+  box-shadow: 
+    0 0 20px rgba(56, 189, 248, 0.5), 
+    0 0 40px rgba(56, 189, 248, 0.2),
+    inset 0 2px 8px rgba(255, 255, 255, 0.4);
   transform: scale(1.08);
+  filter: brightness(1.1);
 }
 
 .icon-glow {
@@ -301,8 +305,9 @@
   border-radius: 12px;
   background: radial-gradient(
     circle at center,
-    rgba(56, 189, 248, 0.4) 0%,
-    transparent 70%
+    rgba(56, 189, 248, 0.6) 0%,
+    rgba(139, 92, 246, 0.2) 30%,
+    transparent 80%
   );
   pointer-events: none;
   animation: iconGlowPulse 2.5s ease-in-out infinite;

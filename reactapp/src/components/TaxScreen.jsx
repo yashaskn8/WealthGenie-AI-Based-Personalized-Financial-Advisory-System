@@ -67,27 +67,17 @@ const TaxScreen = ({ profile }) => {
   return (
     <div className="tax-page">
       <motion.header 
-        style={{ marginBottom: 40, textAlign: 'center' }}
-        initial={{ opacity: 0, y: -20 }}
+        style={{ marginBottom: 32, textAlign: 'center' }}
+        initial={{ opacity: 0, y: -15 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 48,
-            height: 48,
-            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(139, 92, 246, 0.1))',
-            border: '1px solid rgba(56, 189, 248, 0.2)',
-            borderRadius: '14px',
-            boxShadow: '0 0 20px rgba(139, 92, 246, 0.3), inset 0 0 10px rgba(56, 189, 248, 0.1)'
-          }}>
-            <Calculator size={28} color="#38bdf8" />
-          </div>
-          Tax Saving Optimizer
-        </h1>
-        <p className="page-subtitle">Maximize your deductions and minimize tax liability under Indian IT laws</p>
+        <div className="tax-page-badge">
+          <ShieldCheck size={11} />
+          Indian IT Act Compliance
+        </div>
+        <h1 className="tax-page-title">Tax Saving Optimizer</h1>
+        <p className="tax-page-subtitle">Maximize your deductions and minimize tax liability under Indian IT laws</p>
+        <div className="tax-header-divider" />
       </motion.header>
 
       {/* Regime Toggle + Inputs */}

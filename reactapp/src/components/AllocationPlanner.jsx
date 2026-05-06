@@ -105,30 +105,22 @@ const AllocationPlanner = ({ profile }) => {
 
   return (
     <div className="ap-page">
-      <motion.h1 
-        className="page-title"
-        style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '2.4rem' }}
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
+      <motion.div
+        style={{ textAlign: 'center', marginBottom: 8 }}
+        initial={{ opacity: 0, y: -15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
       >
-        <span style={{ 
-          display: 'inline-flex', 
-          width: 32, height: 32, 
-          background: 'linear-gradient(135deg, #0ea5e9, #3b82f6)', 
-          borderRadius: 8, 
-          boxShadow: '0 0 20px rgba(14, 165, 233, 0.7)' 
-        }}></span> 
-        Portfolio Allocation Planner
-      </motion.h1>
-      <motion.p 
-        className="page-subtitle"
-        style={{ fontSize: '1.1rem', marginBottom: '32px' }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        Suggested split for ₹{savings.toLocaleString("en-IN")}/month across your top-ranked eligible instruments.
-      </motion.p>
+        <div className="ap-page-badge">
+          <PieChartIcon size={11} />
+          AI-Optimized Allocation
+        </div>
+        <h1 className="ap-page-title">Portfolio Allocation Planner</h1>
+        <p className="ap-page-subtitle">
+          Suggested split for ₹{savings.toLocaleString("en-IN")}/month across your top-ranked eligible instruments.
+        </p>
+      </motion.div>
+      <div className="ap-header-divider" />
 
       <div className="ap-main-grid">
         {/* LEFT: Donut */}

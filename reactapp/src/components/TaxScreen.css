@@ -1,12 +1,55 @@
 .tax-page {
-  padding: 40px 20px;
+  padding: 36px 28px 60px;
   max-width: 1100px;
   margin: 0 auto;
-  color: #fff;
-  font-family: 'Outfit', sans-serif;
-  animation: fadeIn 0.6s ease-out;
+  color: #f8fafc;
+  font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
   position: relative;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Page Header ────────────────────────────────────────────────── */
+.tax-page-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  margin-bottom: 16px;
+}
+
+.tax-page-title {
+  font-size: 2.4rem;
+  font-weight: 900;
+  margin: 0 0 10px;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tax-page-subtitle {
+  color: #546178;
+  font-size: 0.88rem;
+  max-width: 520px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.tax-header-divider {
+  height: 1px;
+  margin: 20px auto 0;
+  max-width: 400px;
+  background: linear-gradient(90deg, transparent, rgba(139,92,246,0.12), rgba(56,189,248,0.08), transparent);
 }
 
 /* Ambient Background Orbs */
@@ -131,33 +174,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.page-title {
-  font-size: 2.2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #0ea5e9, #a855f7);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 8px;
-}
-
-.page-subtitle {
-  color: #94a3b8;
-  font-size: 1.05rem;
-  margin-bottom: 32px;
-}
-
 /* Base glassmorphism style */
 .tax-controls, .tax-summary-card, .tax-chart-wrapper, .tax-limit-card, .tax-rec-card {
-  background: linear-gradient(160deg, rgba(20, 30, 50, 0.7) 0%, rgba(10, 15, 30, 0.85) 100%);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: linear-gradient(165deg, rgba(18, 27, 46, 0.7) 0%, rgba(8, 13, 28, 0.85) 100%);
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
-  box-shadow: 
-    0 20px 40px -10px rgba(0, 0, 0, 0.7),
-    inset 0 1px 1px rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   position: relative;
 }
 
@@ -387,31 +412,33 @@
 }
 
 .tax-summary-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Specific Glowing Borders for Summary Cards */
-.tax-summary-card:nth-child(1) { border-top: 2px solid #38bdf8; background: linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, rgba(3, 7, 18, 0.6) 100%); }
-.tax-summary-card:nth-child(2) { border-top: 2px solid #fb7185; background: linear-gradient(180deg, rgba(251, 113, 133, 0.05) 0%, rgba(3, 7, 18, 0.6) 100%); }
-.tax-summary-card:nth-child(3) { border-top: 2px solid #a78bfa; background: linear-gradient(180deg, rgba(167, 139, 250, 0.05) 0%, rgba(3, 7, 18, 0.6) 100%); }
-.tax-summary-card:nth-child(4) { border-top: 2px solid #34d399; background: linear-gradient(180deg, rgba(52, 211, 153, 0.05) 0%, rgba(3, 7, 18, 0.6) 100%); }
+.tax-summary-card:nth-child(1) { border-top: 2px solid #38bdf8; }
+.tax-summary-card:nth-child(2) { border-top: 2px solid #fb7185; }
+.tax-summary-card:nth-child(3) { border-top: 2px solid #a78bfa; }
+.tax-summary-card:nth-child(4) { border-top: 2px solid #34d399; }
 
 .tax-sum-label { 
   display: block; 
-  font-size: 0.85rem; 
-  color: #94a3b8; 
-  margin-bottom: 12px; 
-  font-weight: 600;
+  font-size: 0.65rem; 
+  color: #546178; 
+  margin-bottom: 10px; 
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 2px;
 }
 
 .tax-sum-value { 
-  font-size: 2rem; 
-  font-weight: 800; 
-  letter-spacing: -0.5px;
-  color: #f8fafc;
+  font-size: 1.8rem; 
+  font-weight: 900; 
+  letter-spacing: -1px;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Adjust colors for specific values */
@@ -419,22 +446,23 @@
 .tax-summary-card:nth-child(4) .tax-sum-value { color: #10b981; }
 
 .tax-chart-wrapper {
-  background: rgba(11, 19, 30, 0.4);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 24px;
-  padding: 36px 32px;
-  margin-bottom: 40px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(165deg, rgba(18, 27, 46, 0.6) 0%, rgba(8, 13, 28, 0.75) 100%);
+  backdrop-filter: blur(48px) saturate(180%);
+  -webkit-backdrop-filter: blur(48px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  padding: 28px 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5);
 }
 
 .tax-chart-wrapper h3 {
-  font-size: 1.4rem;
-  margin-bottom: 24px;
-  font-weight: 700;
-  color: #f8fafc;
-  letter-spacing: 0.5px;
+  font-size: 0.72rem;
+  margin-bottom: 20px;
+  font-weight: 800;
+  color: #546178;
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 
 /* Custom glow for Recharts */

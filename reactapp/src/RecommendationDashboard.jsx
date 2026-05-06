@@ -876,7 +876,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                             </td>
                             <td className="col-weight" style={{ color: '#94a3b8' }}>
                               {isUnfunded
-                                ? <span style={{color: '#f59e0b', fontSize: '0.75rem', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 6px', borderRadius: 6}}>Not Funded</span>
+                                ? <span style={{display: 'inline-block', whiteSpace: 'nowrap', color: '#f59e0b', fontSize: '0.75rem', background: 'rgba(245, 158, 11, 0.1)', padding: '2px 8px', borderRadius: 6, lineHeight: 1.2}}>Not Funded</span>
                                 : <span style={{ color: '#fff' }}>{child.weight.toFixed(1)}%</span>
                               }
                             </td>
@@ -893,8 +893,11 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                                     : { bg: 'rgba(251, 191, 36, 0.1)', color: '#fbbf24', border: 'rgba(251, 191, 36, 0.2)' };
                                 return (
                                   <span style={{
+                                    display: 'inline-block',
+                                    whiteSpace: 'nowrap',
                                     background: styles.bg, color: styles.color, border: `1px solid ${styles.border}`,
-                                    padding: '3px 8px', borderRadius: 12, fontSize: '0.68rem', fontWeight: 600, textTransform: 'capitalize'
+                                    padding: '4px 10px', borderRadius: 12, fontSize: '0.68rem', fontWeight: 600, textTransform: 'capitalize',
+                                    lineHeight: 1
                                   }}>
                                     {child.risk}
                                   </span>

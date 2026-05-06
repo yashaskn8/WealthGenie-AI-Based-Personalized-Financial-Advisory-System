@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, Sliders, Activity, IndianRupee, TrendingUp, ShieldAlert } from 'lucide-react';
+import { BarChart3, Sliders, Activity, IndianRupee, TrendingUp, ShieldAlert, Layers } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import './RebalancerScreen.css';
 
@@ -11,6 +11,14 @@ const RISK_WEIGHTS = {
 const RISK_COLORS = {
   'Very Low': '#10b981', 'Low': '#34d399', 'Medium-Low': '#fbbf24', 
   'Medium': '#f59e0b', 'High': '#ef4444', 'Very High': '#dc2626'
+};
+
+const INSTRUMENT_ICONS = {
+  'ppf': '🛡️', 'scss': '👴', 'sukanya': '👧', 'rbi_bonds': '🏛️',
+  'fd': '🏦', 'debt_mf': '📜', 'nps': '⚖️', 'hybrid_mf': '📊',
+  'index_mf': '📈', 'gold_etf': '🥇', 'elss': '💰', 'nifty_etf': '🛒',
+  'midcap_mf': '🚀', 'smallcap_mf': '⚡', 'direct_equity': '📉',
+  'liquid_mf': '💧'
 };
 
 const RebalancerScreen = ({ profile, recommendations, onSave }) => {
@@ -99,10 +107,18 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
   };
 
   const getRiskColor = (score) => {
-    if (score < 25) return '#10b981'; // Emerald
-    if (score < 50) return '#84cc16'; // Lime
-    if (score < 75) return '#f59e0b'; // Amber
-    return '#ef4444'; // Red
+    if (score < 25) return '#10b981';
+    if (score < 50) return '#84cc16';
+    if (score < 75) return '#f59e0b';
+    return '#ef4444';
+  };
+
+  const getRiskLabel = (score) => {
+    if (score < 20) return 'Very Conservative';
+    if (score < 35) return 'Conservative';
+    if (score < 50) return 'Moderate';
+    if (score < 70) return 'Growth';
+    return 'Aggressive';
   };
 
   const currentRiskColor = getRiskColor(portfolioRiskScore);
@@ -119,21 +135,28 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         <div className="ambient-orb orb-2"></div>
       </div>
 
+      {/* ── Header ──────────────────────────── */}
       <motion.div
         className="page-header"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 100 }}
       >
+        <div className="page-header-badge">
+          <Sliders size={12} />
+          Asset Allocation Engine
+        </div>
         <h1 className="page-title">
-          <Sliders size={32} className="title-icon" color="#0ea5e9" /> Portfolio Rebalancer
+          Portfolio Rebalancer
         </h1>
         <p className="page-subtitle">
           Fine-tune your asset allocations. The engine automatically keeps your total balanced at 100%.
         </p>
       </motion.div>
 
-      {/* Risk & Return Indicators */}
+      <div className="header-divider" />
+
+      {/* ── KPI Cards ───────────────────────── */}
       <div className="rebal-indicators">
         {/* Risk Score Card */}
         <motion.div 
@@ -143,8 +166,9 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           transition={{ delay: 0.15, type: 'spring' }}
           style={{ '--risk-color': currentRiskColor }}
         >
+          <div className="card-accent-line" style={{ background: `linear-gradient(90deg, transparent, ${currentRiskColor}, transparent)` }} />
           <div className="indicator-header">
-            <Activity size={18} color="#94a3b8" />
+            <Activity size={16} color={currentRiskColor} />
             <span className="rebal-ind-label">Portfolio Risk Score</span>
           </div>
           
@@ -179,13 +203,17 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2, type: 'spring' }}
         >
+          <div className="card-accent-line" style={{ background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)' }} />
           <div className="indicator-header">
-            <TrendingUp size={18} color="#94a3b8" />
+            <TrendingUp size={16} color="#8b5cf6" />
             <span className="rebal-ind-label">Blended Return</span>
           </div>
           <span className="rebal-return-value text-gradient-primary">
             {blendedReturn.toFixed(1)}% <span className="rebal-return-suffix">p.a.</span>
           </span>
+          <div style={{ fontSize: '0.65rem', color: '#475569', marginTop: 6, fontWeight: 600, position: 'relative', zIndex: 2 }}>
+            Weighted avg. across all instruments
+          </div>
           <div className="card-glow-bg purple-glow"></div>
         </motion.div>
 
@@ -196,24 +224,56 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.25, type: 'spring' }}
         >
+          <div className="card-accent-line" style={{ background: 'linear-gradient(90deg, transparent, #0ea5e9, transparent)' }} />
           <div className="indicator-header">
-            <IndianRupee size={18} color="#94a3b8" />
+            <IndianRupee size={16} color="#38bdf8" />
             <span className="rebal-ind-label">Total Monthly</span>
           </div>
           <span className="rebal-return-value" style={{ color: '#fff' }}>
             {formatINR(totalSavings)}
           </span>
+          <div style={{ fontSize: '0.65rem', color: '#475569', marginTop: 6, fontWeight: 600, position: 'relative', zIndex: 2 }}>
+            Based on monthly savings
+          </div>
           <div className="card-glow-bg cyan-glow"></div>
         </motion.div>
       </div>
 
-      {/* Allocation Sliders */}
+      {/* ── Visual Allocation Bar ───────────── */}
+      <div className="allocation-summary-bar">
+        {recommendations.map((inv) => {
+          const pct = allocations[inv.id] || 0;
+          const color = RISK_COLORS[inv.risk_level] || '#38bdf8';
+          return (
+            <div
+              key={inv.id}
+              className="bar-segment"
+              style={{ width: `${pct}%`, background: color }}
+              title={`${inv.name}: ${pct.toFixed(1)}%`}
+            />
+          );
+        })}
+      </div>
+
+      {/* ── Section Header ──────────────────── */}
+      <div className="section-header">
+        <div className="section-header-icon">
+          <Layers size={16} color="#38bdf8" />
+        </div>
+        <div className="section-header-text">
+          <h3>Instrument Allocations</h3>
+          <span>Drag sliders to rebalance · {recommendations.length} instruments</span>
+        </div>
+      </div>
+
+      {/* ── Allocation Sliders ──────────────── */}
       <div className="rebal-sliders">
         <AnimatePresence>
           {recommendations.map((inv, index) => {
             const pct = allocations[inv.id] || 0;
             const amount = Math.round((pct / 100) * totalSavings / 100) * 100;
             const badgeColor = RISK_COLORS[inv.risk_level] || '#0ea5e9';
+            const icon = INSTRUMENT_ICONS[inv.id] || '📄';
 
             return (
               <motion.div 
@@ -221,30 +281,44 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                 className="rebal-slider-row premium-glass"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + (index * 0.05), type: 'spring' }}
-                whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
+                transition={{ delay: 0.3 + (index * 0.04), type: 'spring' }}
+                whileHover={{ scale: 1.005, transition: { duration: 0.2 } }}
                 style={{ '--row-color': badgeColor }}
               >
                 <div className="row-glow-bar" style={{ background: badgeColor }}></div>
                 
+                {/* Left: Instrument Info */}
                 <div className="rebal-slider-info">
-                  <span className="rebal-slider-name">{inv.name}</span>
-                  <div className="rebal-slider-meta">
-                    <span 
-                      className="rebal-slider-badge" 
-                      style={{ 
-                        color: badgeColor, 
-                        borderColor: `${badgeColor}40`,
-                        background: `${badgeColor}15`
-                      }}
-                    >
-                      <ShieldAlert size={10} style={{ marginRight: 4 }} />
-                      {inv.risk_level} Risk
-                    </span>
-                    <span className="rebal-slider-return">{inv.expected_return_min}% - {inv.expected_return_max}% p.a.</span>
+                  <div 
+                    className="instrument-icon-wrap"
+                    style={{ 
+                      background: `${badgeColor}15`,
+                      borderColor: `${badgeColor}25`,
+                      boxShadow: `0 4px 14px ${badgeColor}18, inset 0 1px 2px rgba(255,255,255,0.06)`
+                    }}
+                  >
+                    {icon}
+                  </div>
+                  <div className="instrument-text">
+                    <span className="rebal-slider-name">{inv.name}</span>
+                    <div className="rebal-slider-meta">
+                      <span 
+                        className="rebal-slider-badge" 
+                        style={{ 
+                          color: badgeColor, 
+                          borderColor: `${badgeColor}35`,
+                          background: `${badgeColor}10`
+                        }}
+                      >
+                        <ShieldAlert size={9} style={{ marginRight: 4 }} />
+                        {inv.risk_level}
+                      </span>
+                      <span className="rebal-slider-return">{inv.expected_return_min}% – {inv.expected_return_max}% p.a.</span>
+                    </div>
                   </div>
                 </div>
 
+                {/* Right: Slider Control */}
                 <div className="rebal-slider-control">
                   <div className="rebal-slider-values-top">
                     <span className="pct-value" style={{ color: badgeColor }}>{pct.toFixed(1)}%</span>
@@ -273,6 +347,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </AnimatePresence>
       </div>
 
+      {/* ── CTA ─────────────────────────────── */}
       <motion.div 
         className="rebal-actions"
         initial={{ opacity: 0, y: 20 }}
