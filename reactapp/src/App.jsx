@@ -25,21 +25,33 @@ import AllocationPlanner from './components/AllocationPlanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import GoalPlanner from './components/GoalPlanner';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
+import ProfileEditor from './ProfileEditor';
 import { motion } from 'framer-motion';
 import * as api from './services/api';
 
+const PROFILE_STORAGE_KEY = 'wealthgenie_user_profile';
+
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const [isComplete, setIsComplete] = useState(false);
-  const [age, setAge] = useState(32);
-  const [monthlyIncome, setMonthlyIncome] = useState(65000);
-  const [monthlySavings, setMonthlySavings] = useState(12000);
-  const [riskAppetite, setRiskAppetite] = useState('Medium');
+
+  // Try to load saved profile from localStorage
+  const savedProfile = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }, []);
+
+  const [isComplete, setIsComplete] = useState(!!savedProfile);
+  const [age, setAge] = useState(savedProfile?.age || 32);
+  const [monthlyIncome, setMonthlyIncome] = useState(savedProfile?.monthly_income || 65000);
+  const [monthlySavings, setMonthlySavings] = useState(savedProfile?.monthly_savings || 12000);
+  const [riskAppetite, setRiskAppetite] = useState(savedProfile?.risk_appetite || 'Medium');
   const [showRiskQuiz, setShowRiskQuiz] = useState(false);
   const [riskScore, setRiskScore] = useState(null);
-  const [investmentGoals, setInvestmentGoals] = useState(['Retirement', 'Wealth Growth']);
-  const [horizon, setHorizon] = useState(15);
-  const [taxRegime, setTaxRegime] = useState('new');
+  const [investmentGoals, setInvestmentGoals] = useState(savedProfile?.investment_goals || ['Retirement', 'Wealth Growth']);
+  const [horizon, setHorizon] = useState(savedProfile?.investment_horizon || 15);
+  const [taxRegime, setTaxRegime] = useState(savedProfile?.taxRegime || 'new');
 
   const toggleGoal = (goal) => {
     setInvestmentGoals((prev) =>
@@ -47,18 +59,7 @@ const ProfilePage = () => {
     );
   };
 
-  const handleSaveProfile = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await api.buildProfile(monthlyIncome, age, monthlySavings, taxRegime);
-      console.log("Profile built:", response);
-      setIsComplete(true);
-    } catch (err) {
-      alert("Error saving profile: " + err.message);
-    }
-  };
-
-  const userProfilePayload = {
+  const userProfilePayload = useMemo(() => ({
     age,
     monthly_income: monthlyIncome,
     monthly_savings: monthlySavings,
@@ -66,13 +67,38 @@ const ProfilePage = () => {
     investment_goals: investmentGoals,
     investment_horizon: horizon,
     taxRegime
+  }), [age, monthlyIncome, monthlySavings, riskAppetite, investmentGoals, horizon, taxRegime]);
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.buildProfile(monthlyIncome, age, monthlySavings, taxRegime);
+      console.log("Profile built:", response);
+      // Persist profile to localStorage
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userProfilePayload));
+      setIsComplete(true);
+    } catch (err) {
+      alert("Error saving profile: " + err.message);
+    }
+  };
+
+  // Called from DashboardShell when profile is updated inline
+  const handleProfileUpdate = (updatedProfile) => {
+    setAge(updatedProfile.age);
+    setMonthlyIncome(updatedProfile.monthly_income);
+    setMonthlySavings(updatedProfile.monthly_savings);
+    setRiskAppetite(updatedProfile.risk_appetite);
+    setInvestmentGoals(updatedProfile.investment_goals);
+    setHorizon(updatedProfile.investment_horizon);
+    setTaxRegime(updatedProfile.taxRegime);
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updatedProfile));
   };
 
   if (isComplete) {
     return (
       <DashboardShell
         userProfile={userProfilePayload}
-        onRecalculate={() => setIsComplete(false)}
+        onProfileUpdate={handleProfileUpdate}
       />
     );
   }
@@ -193,7 +219,7 @@ const ProfilePage = () => {
 };
 
 /* ===== DASHBOARD SHELL — Sidebar + Pages + Chatbot ===== */
-const DashboardShell = ({ userProfile, onRecalculate }) => {
+const DashboardShell = ({ userProfile, onProfileUpdate }) => {
   const [activePage, setActivePage] = useState('dashboard');
   const [deepDiveInvestment, setDeepDiveInvestment] = useState(null);
   const [showComparisonTable, setShowComparisonTable] = useState(false);
@@ -263,7 +289,7 @@ const DashboardShell = ({ userProfile, onRecalculate }) => {
             recommendations={recommendations}
             isLoading={isLoading}
             explanation={backendRecs?.explanation || null}
-            onRecalculate={onRecalculate}
+            onRecalculate={() => setActivePage('profile')}
             onLearnMore={handleLearnMore}
             onExploreAll={() => setShowComparisonTable(true)}
             onRebalance={() => setActivePage('rebalancer')}
@@ -323,98 +349,11 @@ const DashboardShell = ({ userProfile, onRecalculate }) => {
       case 'allocation':
         return <ErrorBoundary><AllocationPlanner profile={userProfile} /></ErrorBoundary>;
       case 'profile':
-        const profileData = [
-          { label: 'Age', value: userProfile.age, icon: <Clock size={20} color="#94a3b8" /> },
-          { label: 'Monthly Income', value: `₹${Number(userProfile.monthly_income).toLocaleString('en-IN')}`, icon: <Banknote size={20} color="#34d399" /> },
-          { label: 'Monthly Savings', value: `₹${Number(userProfile.monthly_savings).toLocaleString('en-IN')}`, icon: <Wallet size={20} color="#38bdf8" /> },
-          { label: 'Risk Appetite', value: userProfile.risk_appetite, icon: <Scale size={20} color="#fbbf24" /> },
-          { label: 'Investment Goals', value: userProfile.investment_goals.join(', '), icon: <Target size={20} color="#fb7185" /> },
-          { label: 'Investment Horizon', value: `${userProfile.investment_horizon} years`, icon: <Telescope size={20} color="#a78bfa" /> },
-        ];
-        const savingsRate = userProfile.monthly_income > 0
-          ? ((Number(userProfile.monthly_savings) / Number(userProfile.monthly_income)) * 100).toFixed(0)
-          : 0;
         return (
-          <div style={{ padding: '40px 28px', maxWidth: 960, margin: '0 auto', color: '#fff', position: 'relative' }}>
-            {/* Decorative mesh background */}
-            <div className="profile-mesh-bg" />
-
-            <motion.div
-              style={{ position: 'relative', zIndex: 2, marginBottom: 12 }}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: '#38bdf8', marginBottom: 8, opacity: 0.9 }}>
-                FINANCIAL COMMAND CENTER
-              </div>
-              <h1 className="page-title" style={{ fontSize: '2.4rem', marginBottom: 6 }}>
-                My <span style={{
-                  background: 'linear-gradient(135deg, #38bdf8, #a78bfa)',
-                  WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent'
-                }}>Profile</span>
-              </h1>
-              <p className="page-title-sub" style={{ marginBottom: 0, fontSize: '0.95rem' }}>
-                Your personalized wealth parameters driving AI recommendations
-              </p>
-            </motion.div>
-
-            {/* Summary Stats Bar */}
-            <motion.div
-              className="profile-summary-bar"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              <div className="profile-summary-item">
-                <div className="summary-number" style={{ color: '#34d399' }}>{savingsRate}%</div>
-                <div className="summary-label">Savings Rate</div>
-              </div>
-              <div className="profile-summary-item">
-                <div className="summary-number" style={{ color: '#38bdf8' }}>₹{Number(userProfile.monthly_savings).toLocaleString('en-IN')}</div>
-                <div className="summary-label">Monthly SIP Budget</div>
-              </div>
-              <div className="profile-summary-item">
-                <div className="summary-number" style={{ color: '#a78bfa' }}>{userProfile.investment_horizon}Y</div>
-                <div className="summary-label">Horizon</div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="hud-profile-card"
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.35, type: "spring", stiffness: 100 }}
-              style={{ maxWidth: '100%' }}
-            >
-              <div className="hud-profile-grid">
-                {profileData.map((item, index) => (
-                  <motion.div
-                    key={item.label}
-                    className="hud-stat-box"
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.45 + (index * 0.08) }}
-                  >
-                    <div className="hud-stat-icon">{item.icon}</div>
-                    <div className="hud-stat-content">
-                      <span className="hud-stat-label">{item.label}</span>
-                      <span className="hud-stat-value">{item.value}</span>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              <motion.button
-                className="hud-profile-btn"
-                onClick={onRecalculate}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.0 }}
-              >
-                Edit Profile & Recalculate
-              </motion.button>
-            </motion.div>
-          </div>
+          <ProfileEditor
+            userProfile={userProfile}
+            onProfileUpdate={onProfileUpdate}
+          />
         );
       case 'insights':
         return <InsightsScreen profile={userProfile} recommendations={recommendations} />;

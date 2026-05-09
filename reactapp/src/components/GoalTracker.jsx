@@ -16,16 +16,18 @@ function computeSmartDefaults(profile) {
   const retirementAge = 60;
   const yearsToRetire = Math.max(5, retirementAge - age);
 
+  const retirementTarget = Math.round(monthlyExpenses * 12 * 25 * Math.pow(1.06, yearsToRetire) / 100000) * 100000;
+
   return {
     'Retirement': {
-      target: Math.round(monthlyExpenses * 12 * 25 * Math.pow(1.06, yearsToRetire) / 100000) * 100000,
+      target: retirementTarget,
       currentSaved: Math.round(savings * 6), 
       icon: Palmtree,
       themeColor: '#0ea5e9', // Cyan
       themeColorRGB: '14, 165, 233',
       returnRate: 12,
       yearsToGoal: yearsToRetire,
-      description: `Build ${Math.round(monthlyExpenses * 12 * 25 / 100000)}L+ corpus (25× annual expenses) by age ${retirementAge}`,
+      description: `Build ${formatShort(retirementTarget)} corpus (25× annual expenses) by age ${retirementAge}`,
       tip: `Based on your ₹${monthlyExpenses.toLocaleString('en-IN')}/mo expenses, you need ~25× annual expenses at retirement.`,
     },
     'Wealth Growth': {
@@ -85,7 +87,8 @@ function clampValue(val, min = 0, max = MAX_TARGET) {
 const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurrentChange, monthlyAllocation, horizon, returnRate, index, totalSavings }) => {
   const actualTarget = Number(target) || 0;
   const actualSaved = Number(currentSaved) || 0;
-  const projectedValue = calculateSIPFutureValue(monthlyAllocation, returnRate, horizon) + actualSaved;
+  const lumpSumGrowth = actualSaved > 0 ? actualSaved * Math.pow(1 + returnRate / 100, horizon) : 0;
+  const projectedValue = calculateSIPFutureValue(monthlyAllocation, returnRate, horizon) + lumpSumGrowth;
   const progressPercent = Math.min((actualSaved / (actualTarget || 1)) * 100, 100);
   const projectedPercent = Math.min((projectedValue / (actualTarget || 1)) * 100, 100);
 
@@ -100,6 +103,17 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
     const fvFactor = ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
     return Math.ceil(gap / fvFactor / 100) * 100;
   }, [gap, horizon, returnRate]);
+
+  const extraWaitYears = useMemo(() => {
+    if (gap <= 0 || monthlyAllocation <= 0) return 0;
+    for (let y = 1; y <= 200; y++) {
+      const totalYrs = horizon + y;
+      const sipFV = calculateSIPFutureValue(monthlyAllocation, returnRate, totalYrs);
+      const lumpFV = actualSaved * Math.pow(1 + returnRate / 100, totalYrs);
+      if (sipFV + lumpFV >= actualTarget) return y;
+    }
+    return 999;
+  }, [gap, monthlyAllocation, returnRate, horizon, actualSaved, actualTarget]);
 
   const completionPct = Math.min(Math.round((projectedValue / (actualTarget || 1)) * 100), 999);
 
@@ -287,7 +301,7 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
             <Zap size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2, zIndex: 1 }} />
             <div style={{ zIndex: 1 }}>
               <strong>To close gap:</strong> Increase SIP by <span className="highlight-text">₹{requiredExtraSIP.toLocaleString('en-IN')}/mo</span>,
-              or wait <span className="highlight-text">{Math.ceil(gap / (monthlyAllocation * 12 || 1))}y</span> more.
+              or wait <span className="highlight-text">{extraWaitYears}y</span> more.
             </div>
           </motion.div>
         ) : completionPct >= 100 ? (
@@ -352,7 +366,7 @@ const GoalTracker = ({ profile, recommendations }) => {
   const totalProjected = goals.reduce((sum, g) => {
     const yr = smartDefaults[g]?.yearsToGoal || horizon;
     const rate = smartDefaults[g]?.returnRate || 10;
-    return sum + calculateSIPFutureValue(goalAllocations[g] || 0, rate, yr) + (Number(currentSaved[g]) || 0);
+    return sum + calculateSIPFutureValue(goalAllocations[g] || 0, rate, yr) + (Number(currentSaved[g]) || 0) * Math.pow(1 + rate / 100, yr);
   }, 0);
   const totalMonthlySIP = Object.values(goalAllocations).reduce((a, b) => a + b, 0);
   const overallHealth = totalTarget > 0 ? Math.min(Math.round((totalProjected / totalTarget) * 100), 100) : 0;

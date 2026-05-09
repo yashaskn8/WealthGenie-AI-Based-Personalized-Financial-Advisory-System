@@ -24,6 +24,7 @@ const DEFAULT_COLORS = ['#6366f1', '#06b6d4', '#f59e0b', '#8b5cf6', '#ec4899', '
 const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, onRebalance, onNavigate, isLoading: isLoadingProp, explanation }) => {
   const defaultHorizon = userProfile?.investment_horizon || 15;
   const [horizon, setHorizon] = useState(defaultHorizon);
+  const [initialCapital, setInitialCapital] = useState(Number(userProfile?.existing_savings) || 0);
   const [inflationAdjusted, setInflationAdjusted] = useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   
@@ -178,8 +179,19 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
          best += maxR > 0 ? r.monthly_allocation * ((Math.pow(1 + maxR, m) - 1) / maxR) * (1 + maxR) : r.monthly_allocation * m;
          avg += midR > 0 ? r.monthly_allocation * ((Math.pow(1 + midR, m) - 1) / midR) * (1 + midR) : r.monthly_allocation * m;
       });
+      
+      const initialRate = inflationAdjusted ? 0.06 : 0.12;
+      const initialFV = initialCapital * Math.pow(1 + initialRate, yr);
+      
+      worst += initialFV * 0.9;
+      avg += initialFV;
+      best += initialFV * 1.1;
+      
       return { year: yr.toString(), worst, average: avg, best };
     });
+
+    const finalInitialFV = initialCapital * Math.pow(1 + (inflationAdjusted ? 0.06 : 0.12), horizon);
+    proj += finalInitialFV;
 
     // Expand all table rows by default on computed map
     const initialExpanded = {};
@@ -194,7 +206,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
       currentMonthly: totalMonthly,
       totalProjected: proj
     };
-  }, [recommendations, horizon, inflationAdjusted]);
+  }, [recommendations, horizon, inflationAdjusted, initialCapital]);
 
   // Risk-grouped eligible instruments for "Browse by Risk Level"
   const riskGroups = useMemo(() => {
@@ -418,12 +430,21 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
               <span>Investment Horizon</span>
               <span style={{color: '#e2e8f0', fontWeight: 700, fontVariantNumeric: 'tabular-nums'}}>{horizon} <span style={{color:'#64748b', fontWeight:400}}>Yrs</span></span>
             </div>
-            <input type="range" min="1" max="30" value={horizon} onChange={e => setHorizon(Number(e.target.value))} style={{'--value': `${(horizon/30)*100}%`, marginBottom: 16}} />
+            <input type="range" min="1" max="30" value={horizon} onChange={e => setHorizon(Number(e.target.value))} className="dash-range" style={{'--value': `${(horizon/30)*100}%`, marginBottom: 16}} />
 
             <div className="param-row">
               <span>Initial Capital</span>
               <div className="param-input-group">
-                <span style={{color:'#64748b', fontSize:'0.8rem'}}>₹</span><input type="text" readOnly value="0" />
+                <span style={{color:'#64748b', fontSize:'0.8rem'}}>₹</span>
+                <input 
+                  type="text" 
+                  value={initialCapital === 0 ? '' : initialCapital.toLocaleString('en-IN')} 
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/,/g, '');
+                    if (!isNaN(val) && val >= 0) setInitialCapital(Number(val));
+                  }}
+                  placeholder="0"
+                />
               </div>
             </div>
 
@@ -442,7 +463,7 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
               <span>Risk Profile</span>
               <span style={{background: 'rgba(223, 189, 105, 0.12)', color: '#dfbd69', padding: '3px 10px', borderRadius: 6, fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.5px', border: '1px solid rgba(223, 189, 105, 0.2)'}}>{userProfile?.risk_appetite || 'Medium'}</span>
             </div>
-            <input type="range" min="1" max="10" value={riskValue} onChange={e => setRiskValue(e.target.value)} style={{'--value': `${(riskValue/10)*100}%`}} />
+            <input type="range" min="1" max="10" value={riskValue} onChange={e => setRiskValue(e.target.value)} className="dash-range" style={{'--value': `${((riskValue - 1) / 9) * 100}%`}} />
             <div className="risk-scale">
                {[1,2,3,4,5,6,7,8,9,10].map(v => <span key={v}>{v}</span>)}
             </div>
@@ -1131,58 +1152,69 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                 fontVariantNumeric: 'tabular-nums'
               }}>{recommendations.length} instruments</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 20 }}>
               {recommendations.map((rec, idx) => {
                 const whyReasons = getWhy(rec, userProfile);
                 const isExpanded = expandedWhyCards[rec.id];
                 const isTop3 = idx < 3;
+                const cardAccent = rec.color || '#06b6d4';
                 return (
                   <div key={rec.id} id={`rec-card-${rec.id}`} className="rec-card" style={{
-                    background: `linear-gradient(165deg, rgba(18, 27, 46, 0.75) 0%, rgba(8, 13, 28, 0.92) 100%)`,
-                    backdropFilter: 'blur(32px) saturate(150%)',
-                    border: `1px solid ${rec.color || 'rgba(255,255,255,0.06)'}25`,
-                    borderTop: `1px solid rgba(255,255,255,0.07)`,
-                    borderRadius: 20, padding: '20px 22px', position: 'relative', overflow: 'hidden',
-                    transition: 'all 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
-                    boxShadow: '0 10px 36px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)'
+                    background: `linear-gradient(165deg, rgba(18, 27, 46, 0.8) 0%, rgba(8, 13, 28, 0.95) 100%)`,
+                    backdropFilter: 'blur(40px) saturate(160%)',
+                    border: `1px solid ${cardAccent}20`,
+                    borderTop: `2px solid ${cardAccent}30`,
+                    borderRadius: 22, padding: '22px 24px', position: 'relative', overflow: 'hidden',
+                    transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                    boxShadow: `0 12px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)`
                   }}>
-                    {/* Ambient glow for #1 ranked card */}
-                    {idx === 0 && (
-                      <div style={{
-                        position: 'absolute', top: -40, right: -40, width: 120, height: 120,
-                        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.08), transparent 70%)',
-                        pointerEvents: 'none'
-                      }} />
-                    )}
+                    {/* Ambient glow — top-right radial */}
+                    <div style={{
+                      position: 'absolute', top: -60, right: -60,
+                      width: idx === 0 ? 180 : 120, height: idx === 0 ? 180 : 120,
+                      background: `radial-gradient(circle, ${cardAccent}${idx === 0 ? '14' : '08'}, transparent 70%)`,
+                      pointerEvents: 'none'
+                    }} />
+                    {/* Bottom-left subtle glow */}
+                    <div style={{
+                      position: 'absolute', bottom: -40, left: -40,
+                      width: 100, height: 100,
+                      background: `radial-gradient(circle, rgba(139, 92, 246, 0.05), transparent 70%)`,
+                      pointerEvents: 'none'
+                    }} />
                     {/* Rank badge */}
                     <div style={{
-                      position: 'absolute', top: 12, right: 12,
-                      background: idx === 0 ? 'linear-gradient(135deg, #f59e0b, #d97706)' : isTop3 ? 'rgba(223, 189, 105, 0.08)' : 'rgba(255,255,255,0.03)',
+                      position: 'absolute', top: 14, right: 14,
+                      background: idx === 0 ? 'linear-gradient(135deg, #f59e0b, #d97706)' : isTop3 ? `linear-gradient(135deg, rgba(223, 189, 105, 0.12), rgba(223, 189, 105, 0.04))` : 'rgba(255,255,255,0.03)',
                       color: idx === 0 ? '#000' : isTop3 ? '#dfbd69' : '#546178',
-                      width: idx === 0 ? 30 : 26, height: idx === 0 ? 30 : 26, borderRadius: idx === 0 ? 10 : 8,
+                      width: idx === 0 ? 32 : 28, height: idx === 0 ? 32 : 28, borderRadius: idx === 0 ? 10 : 9,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 800, fontSize: idx === 0 ? '0.78rem' : '0.72rem',
-                      border: idx === 0 ? 'none' : isTop3 ? '1px solid rgba(223, 189, 105, 0.15)' : '1px solid rgba(255,255,255,0.04)',
-                      boxShadow: idx === 0 ? '0 4px 16px rgba(245, 158, 11, 0.35)' : 'none'
+                      fontWeight: 800, fontSize: idx === 0 ? '0.8rem' : '0.72rem',
+                      border: idx === 0 ? 'none' : isTop3 ? '1px solid rgba(223, 189, 105, 0.2)' : '1px solid rgba(255,255,255,0.05)',
+                      boxShadow: idx === 0 ? '0 4px 20px rgba(245, 158, 11, 0.4), inset 0 1px 1px rgba(255,255,255,0.3)' : isTop3 ? '0 2px 8px rgba(0,0,0,0.2)' : 'none'
                     }}>#{idx + 1}</div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                      <div style={{ width: 8, height: 32, borderRadius: 4, background: rec.color || '#06b6d4' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                      <div style={{
+                        width: 4, height: 36, borderRadius: 4,
+                        background: `linear-gradient(180deg, ${cardAccent}, ${cardAccent}60)`,
+                        boxShadow: `0 0 8px ${cardAccent}30`
+                      }} />
                       <div style={{flex: 1}}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>{rec.abbr || rec.name}</span>
+                          <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#f1f5f9', letterSpacing: '-0.3px' }}>{rec.abbr || rec.name}</span>
                           {INSTRUMENT_EXPLAINERS[rec.id] && (
                             <span 
                               onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === rec.id ? null : rec.id); }}
-                              style={{cursor: 'pointer', display: 'inline-flex', opacity: 0.5, transition: 'opacity 0.2s'}}
+                              style={{cursor: 'pointer', display: 'inline-flex', opacity: 0.4, transition: 'opacity 0.2s'}}
                               onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                              onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                              onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
                             >
                               <HelpCircle size={13} color="#38bdf8" />
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: '0.68rem', color: '#546178', marginTop: 1 }}>{CARD_SUBTITLES[rec.id] || rec.name}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 2, lineHeight: 1.3 }}>{CARD_SUBTITLES[rec.id] || rec.name}</div>
                       </div>
                     </div>
                     {/* Beginner tooltip */}
@@ -1203,22 +1235,22 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                       </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
-                      <div style={{ background: 'rgba(10,16,30,0.5)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                        <div style={{ fontSize: '0.62rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Post-Tax Return</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 700, color: '#4ade80', fontVariantNumeric: 'tabular-nums' }}>{typeof rec.postTaxReturn === 'number' ? rec.postTaxReturn.toFixed(1) : (rec.rate || 0).toFixed(1)}%</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                      <div className="stat-box">
+                        <div style={{ fontSize: '0.6rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4, fontWeight: 500 }}>Post-Tax Return</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#4ade80', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.3px' }}>{typeof rec.postTaxReturn === 'number' ? rec.postTaxReturn.toFixed(1) : (rec.rate || 0).toFixed(1)}%</div>
                       </div>
-                      <div style={{ background: 'rgba(10,16,30,0.5)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                        <div style={{ fontSize: '0.62rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Risk Level</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 700, color: RISK_COLORS[rec.riskLabel] || '#f59e0b' }} title={RISK_PLAIN_LABELS[rec.riskLabel] || ''}>{rec.riskLabel}</div>
+                      <div className="stat-box">
+                        <div style={{ fontSize: '0.6rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4, fontWeight: 500 }}>Risk Level</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: RISK_COLORS[rec.riskLabel] || '#f59e0b', letterSpacing: '-0.3px' }} title={RISK_PLAIN_LABELS[rec.riskLabel] || ''}>{rec.riskLabel}</div>
                       </div>
-                      <div style={{ background: 'rgba(10,16,30,0.5)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                        <div style={{ fontSize: '0.62rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Monthly SIP</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 700, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }}>₹{rec.monthly_allocation?.toLocaleString()}</div>
+                      <div className="stat-box">
+                        <div style={{ fontSize: '0.6rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4, fontWeight: 500 }}>Monthly SIP</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.3px' }}>₹{rec.monthly_allocation?.toLocaleString()}</div>
                       </div>
-                      <div style={{ background: 'rgba(10,16,30,0.5)', borderRadius: 8, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                        <div style={{ fontSize: '0.62rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Lock-in</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 700, color: '#e2e8f0' }}
+                      <div className="stat-box">
+                        <div style={{ fontSize: '0.6rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4, fontWeight: 500 }}>Lock-in</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.3px' }}
                           title={rec.maturity_type === 'age_based'
                             ? `Matures at age ${rec.maturity_age} (${rec.lock_in_years} years from now)`
                             : undefined}
@@ -1259,19 +1291,20 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                       const displayPct = Math.round(confidence * 100);
                       return (
                         <>
-                          <div className="confidence-bar-container" style={{ marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>ML Confidence</span>
-                            <span className="confidence-value" style={{ fontSize: '0.7rem', color: confLabel.colour }}>
+                          <div className="confidence-bar-container" style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 500 }}>ML Confidence</span>
+                            <span className="confidence-value" style={{ fontSize: '0.72rem', color: confLabel.colour, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                               {confLabel.label || `${displayPct}%`}
                             </span>
                           </div>
-                          <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 2, marginBottom: 6 }}>
+                          <div style={{ height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 100, marginBottom: 8, overflow: 'hidden' }}>
                             <div className="confidence-bar" style={{
                               height: '100%',
                               width: `${Math.min(100, displayPct)}%`,
-                              background: confLabel.colour,
-                              borderRadius: 2,
-                              transition: 'width 0.5s ease'
+                              background: `linear-gradient(90deg, ${confLabel.colour}cc, ${confLabel.colour})`,
+                              borderRadius: 100,
+                              transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                              boxShadow: `0 0 8px ${confLabel.colour}40`
                             }} />
                           </div>
                           {/* Fix 4: Low confidence badge */}
@@ -1292,11 +1325,15 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
                     <button
                       onClick={() => toggleWhyCard(rec.id)}
                       style={{
-                        background: 'rgba(6, 182, 212, 0.06)', border: '1px solid rgba(6, 182, 212, 0.12)', 
-                        color: '#22d3ee', cursor: 'pointer', borderRadius: 8,
-                        fontSize: '0.72rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 4,
-                        fontWeight: 600, fontFamily: 'inherit', transition: 'all 0.2s ease'
+                        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.04))',
+                        border: '1px solid rgba(6, 182, 212, 0.15)',
+                        color: '#22d3ee', cursor: 'pointer', borderRadius: 10,
+                        fontSize: '0.72rem', padding: '7px 14px', display: 'flex', alignItems: 'center', gap: 5,
+                        fontWeight: 600, fontFamily: 'inherit', transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                        letterSpacing: '0.2px'
                       }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.14), rgba(139, 92, 246, 0.08))'; e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.25)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.04))'; e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.15)'; }}
                     >
                       {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                       Why recommended?

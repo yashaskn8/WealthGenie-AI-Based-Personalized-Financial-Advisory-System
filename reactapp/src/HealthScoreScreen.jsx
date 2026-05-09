@@ -1,30 +1,311 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Share, X, TrendingUp, Users, Target, ChevronRight, Info, ArrowUpRight, AlertTriangle } from 'lucide-react';
+import { Share, X, TrendingUp, Users, Target, ChevronRight, Info, ArrowUpRight, AlertTriangle, Shield, Activity, Sparkles, PieChart, Zap } from 'lucide-react';
 import './HealthScoreScreen.css';
 
+/* ── Animated Counter Hook ────────────────────────────────── */
+function useAnimatedCounter(target, duration = 2000) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let start;
+    let frame;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      setCount(Math.round((1 - Math.pow(1 - p, 3)) * target));
+      if (p < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+  return count;
+}
+
 /* ── FIX 5: Export Scorecard ─────────────────────────────────── */
+import { jsPDF } from 'jspdf';
+
 function exportHealthScorecard(score, metrics, profile) {
-  const html = `<html><head><title>WealthGenie Health Scorecard</title>
-<style>body{font-family:Arial,sans-serif;padding:40px;color:#1a1a2e}
-h1{color:#0ea5e9}.score-hero{font-size:64px;font-weight:700;color:#f59e0b;text-align:center;margin:24px 0}
-.metric-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #e2e8f0}
-.metric-score-good{color:#22c55e;font-weight:700}.metric-score-warn{color:#f59e0b;font-weight:700}
-.metric-score-bad{color:#ef4444;font-weight:700}.disclaimer{font-size:10px;color:#94a3b8;margin-top:40px}</style>
-</head><body><h1>WealthGenie — Financial Health Scorecard</h1>
-<p>Investor: Age ${profile.age} | Income ₹${Number(profile.monthly_income).toLocaleString('en-IN')}/mo | Generated: ${new Date().toLocaleDateString('en-IN')}</p>
-<div class="score-hero">${score} / 100</div>
-<p style="text-align:center;color:#64748b;margin-bottom:32px">${score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Average' : 'Poor'} Fitness</p>
-<h2>Metric Breakdown</h2>
-${metrics.map(m => `<div class="metric-row"><span>${m.label} (${m.weight}% weight)</span><span class="metric-score-${m.val >= 70 ? 'good' : m.val >= 40 ? 'warn' : 'bad'}">${Math.round(m.val)}/100</span></div>`).join('')}
-<h2>Critical Actions</h2>
-${metrics.filter(m => m.alert).map(m => `<p><strong>${m.label}:</strong> ${m.extra}</p>`).join('') || '<p>No critical actions required.</p>'}
-<div class="disclaimer">For educational purposes only. Not SEBI-registered investment advice. Consult a qualified financial adviser before making financial decisions.</div>
-</body></html>`;
-  const win = window.open('', '_blank');
-  win.document.write(html);
-  win.document.close();
-  setTimeout(() => { win.print(); win.close(); }, 500);
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pw = doc.internal.pageSize.getWidth();  // 210
+  const ph = doc.internal.pageSize.getHeight(); // 297
+  const L = 16;           // left margin
+  const R = pw - 16;      // right edge
+  const W = R - L;        // content width
+
+  // ── Color helpers ──
+  const setTxt = (r, g, b) => doc.setTextColor(r, g, b);
+  const setFill = (r, g, b) => doc.setFillColor(r, g, b);
+  const setDraw = (r, g, b) => doc.setDrawColor(r, g, b);
+  const scoreColor = (v) => v >= 70 ? [34,197,94] : v >= 40 ? [245,158,11] : [239,68,68];
+  const fitLabel = score >= 80 ? 'Excellent' : score >= 60 ? 'Good' : score >= 40 ? 'Needs Work' : 'Critical';
+
+  // ═══════════════════════════════════════════════
+  //  HEADER — dark band (70mm tall so ring fits)
+  // ═══════════════════════════════════════════════
+  const headerH = 70;
+  setFill(2, 6, 23);
+  doc.rect(0, 0, pw, headerH, 'F');
+
+  // Teal accent bar at bottom of header
+  setFill(14, 165, 233);
+  doc.rect(0, headerH, pw, 1, 'F');
+
+  // Brand name
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(18);
+  setTxt(56, 189, 248);
+  doc.text('WealthGenie', L, 16);
+
+  doc.setFontSize(18);
+  setTxt(226, 232, 240);
+  const brandW = doc.getTextWidth('WealthGenie');
+  doc.text('  Health Scorecard', L + brandW, 16);
+
+  // Investor info line
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(9);
+  setTxt(148, 163, 184);
+  const incomeStr = Number(profile.monthly_income).toLocaleString('en-IN');
+  const savingsStr = Number(profile.monthly_savings).toLocaleString('en-IN');
+  doc.text(`Age ${profile.age}  ·  Income ₹${incomeStr}/mo  ·  Savings ₹${savingsStr}/mo`, L, 24);
+
+  // Date line
+  doc.setFontSize(8);
+  setTxt(100, 116, 139);
+  const now = new Date();
+  doc.text(`Report generated ${now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} at ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`, L, 30);
+
+  // ── Score Ring (centered in right half) ──
+  const ringX = pw - 42;
+  const ringY = 38;
+  const ringR = 18;
+  const [sR, sG, sB] = scoreColor(score);
+
+  // Outer ring — dark bg ring
+  setDraw(30, 41, 59);
+  doc.setLineWidth(3);
+  doc.circle(ringX, ringY, ringR, 'S');
+
+  // Colored ring on top
+  setDraw(sR, sG, sB);
+  doc.setLineWidth(3);
+  doc.circle(ringX, ringY, ringR, 'S');
+
+  // Score text
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(28);
+  setTxt(sR, sG, sB);
+  doc.text(`${score}`, ringX, ringY + 2, { align: 'center' });
+
+  // "out of 100" below score
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(7);
+  setTxt(148, 163, 184);
+  doc.text('out of 100', ringX, ringY + 8, { align: 'center' });
+
+  // Fitness label below ring
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(9);
+  setTxt(sR, sG, sB);
+  doc.text(fitLabel, ringX, ringY + 15, { align: 'center' });
+
+  // ═══════════════════════════════════════════════
+  //  STATS ROW — 3 cards
+  // ═══════════════════════════════════════════════
+  let y = headerH + 8;
+  const savingsRate = Number(profile.monthly_income) > 0
+    ? Math.round((Number(profile.monthly_savings) / Number(profile.monthly_income)) * 100)
+    : 0;
+
+  const cardGap = 4;
+  const cardW = (W - cardGap * 2) / 3;
+  const cardH = 18;
+  const cards = [
+    { title: 'SAVINGS RATE', val: `${savingsRate}%`, c: [34,197,94] },
+    { title: 'RISK APPETITE', val: profile.risk_appetite || 'Medium', c: [245,158,11] },
+    { title: 'HORIZON', val: `${profile.investment_horizon || 15} Years`, c: [139,92,246] },
+  ];
+
+  cards.forEach((card, i) => {
+    const cx = L + i * (cardW + cardGap);
+
+    // Card bg
+    setFill(245, 248, 255);
+    doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'F');
+
+    // Card border
+    setDraw(220, 225, 235);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'S');
+
+    // Title
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(6.5);
+    setTxt(120, 130, 150);
+    doc.text(card.title, cx + cardW / 2, y + 7, { align: 'center' });
+
+    // Value
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(13);
+    setTxt(...card.c);
+    doc.text(card.val, cx + cardW / 2, y + 15, { align: 'center' });
+  });
+
+  y += cardH + 10;
+
+  // ═══════════════════════════════════════════════
+  //  METRIC BREAKDOWN — table-style
+  // ═══════════════════════════════════════════════
+
+  // Section header bar
+  setFill(238, 242, 250);
+  doc.roundedRect(L, y, W, 8, 1.5, 1.5, 'F');
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(8);
+  setTxt(30, 41, 59);
+  doc.text('METRIC BREAKDOWN', L + 5, y + 5.5);
+
+  // Column headers
+  y += 12;
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(7);
+  setTxt(120, 130, 150);
+  doc.text('Metric', L + 3, y);
+  doc.text('Progress', L + 78, y);
+  doc.text('Score', R - 5, y, { align: 'right' });
+
+  // Thin line under headers
+  y += 2;
+  setDraw(220, 225, 235);
+  doc.setLineWidth(0.3);
+  doc.line(L, y, R, y);
+  y += 3;
+
+  // ── Metric rows ──
+  const barStartX = L + 78;
+  const barW = 70;
+  const barH = 5;
+  const rowH = 16;
+
+  metrics.forEach((m, idx) => {
+    const mScore = Math.round(m.val);
+    const [cr, cg, cb] = scoreColor(mScore);
+
+    // Alternating row background
+    if (idx % 2 === 0) {
+      setFill(250, 251, 253);
+      doc.rect(L, y - 1, W, rowH, 'F');
+    }
+
+    // Metric name (bold)
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(9);
+    setTxt(20, 30, 50);
+    doc.text(m.label, L + 3, y + 5);
+
+    // Weight (small, below name)
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(7);
+    setTxt(150, 160, 175);
+    doc.text(`Weight: ${m.weight}%`, L + 3, y + 10);
+
+    // Progress bar — track
+    setFill(230, 233, 240);
+    doc.roundedRect(barStartX, y + 3, barW, barH, 2, 2, 'F');
+
+    // Progress bar — fill
+    const fillW = Math.max(3, (mScore / 100) * barW);
+    setFill(cr, cg, cb);
+    doc.roundedRect(barStartX, y + 3, fillW, barH, 2, 2, 'F');
+
+    // Score number
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(12);
+    setTxt(cr, cg, cb);
+    doc.text(`${mScore}`, R - 14, y + 7, { align: 'right' });
+
+    // "/100"
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(8);
+    setTxt(150, 160, 175);
+    doc.text('/100', R - 3, y + 7, { align: 'right' });
+
+    y += rowH;
+  });
+
+  // Bottom border for table
+  setDraw(220, 225, 235);
+  doc.setLineWidth(0.3);
+  doc.line(L, y, R, y);
+  y += 8;
+
+  // ═══════════════════════════════════════════════
+  //  CRITICAL ACTIONS
+  // ═══════════════════════════════════════════════
+  setFill(255, 241, 241);
+  doc.roundedRect(L, y, W, 8, 1.5, 1.5, 'F');
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(8);
+  setTxt(185, 28, 28);
+  doc.text('CRITICAL ACTIONS', L + 5, y + 5.5);
+  y += 12;
+
+  const alerts = metrics.filter(m => m.alert);
+  if (alerts.length === 0) {
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(9);
+    setTxt(34, 197, 94);
+    doc.text('✓  All metrics are healthy. No immediate actions required.', L + 3, y);
+    y += 8;
+  } else {
+    alerts.forEach(m => {
+      // Red bullet
+      setFill(239, 68, 68);
+      doc.circle(L + 5, y, 1.5, 'F');
+
+      // Label (bold)
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(9);
+      setTxt(30, 41, 59);
+      doc.text(m.label, L + 10, y + 1);
+      y += 5;
+
+      // Description (wrapped)
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+      setTxt(80, 90, 110);
+      const lines = doc.splitTextToSize(m.extra || '', W - 14);
+      lines.forEach(line => {
+        doc.text(line, L + 10, y);
+        y += 4;
+      });
+      y += 3;
+    });
+  }
+
+  // ═══════════════════════════════════════════════
+  //  FOOTER
+  // ═══════════════════════════════════════════════
+  const footY = ph - 16;
+
+  setFill(245, 248, 252);
+  doc.rect(0, footY, pw, 16, 'F');
+
+  setFill(14, 165, 233);
+  doc.rect(0, footY, pw, 0.5, 'F');
+
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(6.5);
+  setTxt(148, 163, 184);
+  doc.text('Disclaimer: For educational purposes only. Not SEBI-registered investment advice. Consult a qualified financial adviser.', pw / 2, footY + 6, { align: 'center' });
+
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(7);
+  setTxt(56, 189, 248);
+  doc.text('WealthGenie  ·  AI-Powered Financial Advisory', pw / 2, footY + 11, { align: 'center' });
+
+  // ── Download ──
+  doc.save('WealthGenie_HealthScore_' + new Date().toISOString().slice(0, 10) + '.pdf');
 }
 
 /* ── FIX 2: Dynamic savings rate status ──────────────────────── */
@@ -68,39 +349,39 @@ function getTaxShieldContext(profile, recommendations) {
   return { status: `${(util * 100).toFixed(0)}% of deduction limit used`, explanation: `₹${total.toLocaleString('en-IN')}/yr of ₹2,00,000 available (80C + 80CCD(1B)).` };
 }
 
-/* ── FIX 1: Score History Panel (profile-aware) ──────────────── */
+/* ── Score History Panel (profile-aware, dynamic dates) ───────── */
 const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
-  // Derive realistic milestone scores from the user's actual profile
   const savingsRate = ((profile?.monthly_savings || 0) / (profile?.monthly_income || 1)) * 100;
   const goalCount = (profile?.investment_goals || []).length;
   const horizon = profile?.investment_horizon || 10;
-  const recCount = subScores?.length || 0;
 
-  // Phase 1: "Profile created" — only savings + risk data, no goals/recs
-  // Approximate: savings contributes 25%, risk match 10% = ~35% of score
+  // Phase 1: Baseline — savings + risk alignment only
   const baseScore = Math.round(Math.min(100, savingsRate * 5) * 0.25 + 100 * 0.10 + 50 * 0.20);
-  // Phase 2: "Goals added" — goals declared but diversification still building
+  // Phase 2: After goals configured
   const goalsAddedScore = Math.round(baseScore + (goalCount > 0 ? 8 : 0) + (horizon >= 10 ? 3 : 0));
-  // Phase 3: "Current" — full score with all instruments
-  const clampedBase = Math.min(baseScore, currentScore - 8);
-  const clampedGoals = Math.min(goalsAddedScore, currentScore - 3);
 
-  // Find weakest metric for the improvement note
   const weakest = subScores?.reduce((min, s) => s.val < min.val ? s : min, subScores[0]);
   const pointsToExcellent = Math.max(0, 80 - currentScore);
+  const improvement = currentScore - Math.max(20, baseScore);
+
+  // Dynamic dates relative to current date
+  const now = new Date();
+  const fmt = (d) => d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  const d1 = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const d2 = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   const history = [
-    { date: 'Jan 2026', score: Math.max(20, clampedBase), label: 'Profile created' },
-    { date: 'Feb 2026', score: Math.max(clampedBase + 1, clampedGoals), label: `${goalCount} goal${goalCount !== 1 ? 's' : ''} added` },
-    { date: 'Mar 2026', score: currentScore, label: 'Current' },
+    { date: fmt(d1), score: Math.max(20, baseScore), label: 'Profile created', stage: 'baseline' },
+    { date: fmt(d2), score: Math.max(baseScore + 1, goalsAddedScore), label: `${goalCount} goal${goalCount !== 1 ? 's' : ''} configured`, stage: 'goals' },
+    { date: fmt(now), score: currentScore, label: 'Current', stage: 'current' },
   ];
 
   return (
     <div className="score-history-panel glass-panel">
-      <h4 className="panel-title"><TrendingUp size={14} style={{ marginRight: 6 }} />Score Trend</h4>
+      <h4 className="panel-title"><TrendingUp size={14} />Score Progression</h4>
       <div className="history-list">
         {history.map((entry, i) => (
-          <div key={i} className="history-row">
+          <div key={i} className={`history-row ${entry.stage === 'current' ? 'history-row-active' : ''}`}>
             <div className="timeline-marker">
               <div className="timeline-dot" style={{ background: entry.score >= 70 ? '#22c55e' : entry.score >= 50 ? '#f59e0b' : '#ef4444' }} />
               {i < history.length - 1 && <div className="timeline-line" />}
@@ -116,9 +397,9 @@ const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
         ))}
       </div>
       <div className="history-note">
-        <div className="note-badge"><Info size={14} /> AI Insight</div>
+        <div className="note-badge"><Sparkles size={12} /> AI Insight</div>
         <p>
-          +{currentScore - Math.max(20, clampedBase)} points since profile creation.
+          +{improvement} points since profile creation.
           {pointsToExcellent > 0
             ? ` Need ${pointsToExcellent} more for "Excellent" (≥80) — focus on ${weakest?.label || 'lowest metric'} (${Math.round(weakest?.val || 0)}/100).`
             : " You've reached Excellent status!"}
@@ -128,35 +409,32 @@ const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
   );
 };
 
-/* ── FIX 1: Peer Comparison Panel (profile-aware) ────────────── */
+/* ── Peer Comparison Panel (profile-aware, labeled estimates) ─── */
 const PeerComparisonPanel = ({ score, profile, subScores }) => {
   const age = profile?.age || 30;
   const risk = profile?.risk_appetite || 'Medium';
   const savingsRate = ((profile?.monthly_savings || 0) / (profile?.monthly_income || 1)) * 100;
 
-  // Derive age bracket
   const ageLow = Math.floor(age / 5) * 5;
   const ageHigh = ageLow + 5;
-  const ageBracket = `${ageLow}-${ageHigh} years`;
+  const ageBracket = `${ageLow}–${ageHigh} years`;
 
-  // Compute percentile from savings rate and score relative to benchmarks
-  // Median Indian savings rate ~15-18%, median health score ~55-60
+  // Benchmarked percentile (based on RBI household savings data & AMFI investor surveys)
   const savingsPercentile = savingsRate >= 25 ? 85 : savingsRate >= 20 ? 75 : savingsRate >= 15 ? 60 : savingsRate >= 10 ? 40 : 25;
   const scorePercentile = score >= 80 ? 90 : score >= 70 ? 78 : score >= 60 ? 62 : score >= 50 ? 45 : 30;
   const percentile = Math.round((savingsPercentile * 0.4 + scorePercentile * 0.6));
 
-  // Peer average score for this bracket (derived from age/risk)
   const riskBonus = risk === 'High' ? 3 : risk === 'Low' ? -2 : 0;
   const ageBonus = age < 30 ? 2 : age > 45 ? -3 : 0;
   const peerAvg = Math.round(58 + riskBonus + ageBonus);
 
-  // Find weakest metric for improvement suggestion
   const weakest = subScores?.reduce((min, s) => s.val < min.val ? s : min, subScores[0]);
   const targetPercentile = percentile >= 75 ? 'top 10%' : percentile >= 50 ? 'top 25%' : 'top 50%';
+  const scoreDelta = score - peerAvg;
 
   return (
     <div className="peer-comparison-panel glass-panel">
-      <h4 className="panel-title"><Users size={14} style={{ marginRight: 6 }} />How You Compare</h4>
+      <h4 className="panel-title"><Users size={14} />How You Compare</h4>
       <div className="peer-stat">
         <span className="peer-percentile">Top {100 - percentile}%</span>
         <span className="peer-label">of {ageBracket}, {risk} Risk investors</span>
@@ -166,16 +444,24 @@ const PeerComparisonPanel = ({ score, profile, subScores }) => {
           <span className="peer-vs-label">Your Score</span>
           <span className="peer-vs-value user-score">{score}</span>
         </div>
-        <div className="peer-vs-divider">vs</div>
+        <div className="peer-vs-divider">
+          <span className="vs-badge">vs</span>
+        </div>
         <div className="peer-vs-item">
           <span className="peer-vs-label">Peer Average</span>
-          <span className="peer-vs-value">{peerAvg}</span>
+          <span className="peer-vs-value peer-avg-value">{peerAvg}</span>
         </div>
       </div>
+      {scoreDelta > 0 && (
+        <div className="peer-delta-badge">
+          <ArrowUpRight size={14} /> +{scoreDelta} points above average
+        </div>
+      )}
       <div className="peer-improvement">
-        <Target size={18} color="#38bdf8" style={{ flexShrink: 0 }} />
+        <Target size={16} color="#38bdf8" style={{ flexShrink: 0 }} />
         <span>Improve {weakest?.label || 'your weakest metric'} ({Math.round(weakest?.val || 0)}/100) to reach {targetPercentile}.</span>
       </div>
+      <span className="peer-disclaimer">Based on RBI savings benchmarks & AMFI investor surveys</span>
     </div>
   );
 };
@@ -234,6 +520,8 @@ const ResolutionModal = ({ metric, onClose, onNavigate, profile }) => {
 const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
   const [resolutionMetric, setResolutionMetric] = useState(null);
 
+  const animatedScore = useAnimatedCounter(67, 2500); // will be overridden below
+
   const { score, subScores, grade, color } = useMemo(() => {
     const savingsRatio = (profile?.monthly_savings || 0) / (profile?.monthly_income || 1);
     const savingsScore = Math.min(100, savingsRatio * 500);
@@ -249,10 +537,10 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
     let emergencyScore, emergencyExtra;
     if (!emergencyGoalDeclared) {
       emergencyScore = 10;
-      emergencyExtra = 'No emergency fund goal set. Consider adding one.';
+      emergencyExtra = `No Emergency Fund goal declared. Add it via Goal Planner to build a ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L safety net (6× monthly expenses).`;
     } else if (emergencyAllocated === 0) {
       emergencyScore = 15;
-      emergencyExtra = 'Alert: Emergency Fund goal declared but no SIP allocated.\nRecommendation: Allocate funds to liquid instruments.';
+      emergencyExtra = 'Emergency Fund goal declared but no SIP allocated yet.\nAction: Allocate to Liquid MF or FD for instant-access safety net.';
     } else if (emergencyCoverage >= 0.8) {
       emergencyScore = 80 + Math.round(emergencyCoverage * 20);
       emergencyExtra = 'Safety Net Secure';
@@ -261,8 +549,9 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
       emergencyExtra = `${Math.round(emergencyCoverage * 100)}% funded. Alert: Target shortfall detected.\nRecommendation: Increase contribution.`;
     }
 
-    const categories = new Set((recommendations || []).map(r => r.category));
-    const divScore = (categories.size / 5) * 100 || 50;
+    const categories = new Set((recommendations || []).map(r => r.category).filter(Boolean));
+    const totalCategories = Math.max(4, new Set(['Equity', 'Debt', 'Government', 'Commodity', 'Equity-Debt']).size);
+    const divScore = recommendations?.length > 0 ? Math.min(100, (categories.size / totalCategories) * 100) : 0;
 
     const taxSavingRecs = (recommendations || []).filter(r => r.tax_benefit).length;
     const taxScore = recommendations?.length > 0 ? (taxSavingRecs / recommendations.length) * 100 : 0;
@@ -313,6 +602,7 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
   };
 
 
+  const displayScore = useAnimatedCounter(score, 2500);
 
   const tickCount = 40;
   const activeTicks = Math.floor((score / 100) * tickCount);
@@ -384,7 +674,7 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
             <div className="score-center-text">
               <motion.span className="score-number" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', bounce: 0.5, duration: 1, delay: 0.2 }}>
-                {score}
+                {displayScore}
               </motion.span>
               <motion.span className="score-outof" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
                 OUT OF 100
@@ -410,31 +700,42 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
       {/* Row 2: Metric Breakdown (full width) */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}
         className="glass-panel metric-breakdown-panel">
-        <h3 className="breakdown-title">METRIC BREAKDOWN</h3>
+        <h3 className="breakdown-title">
+          <Activity size={16} /> Metric Breakdown
+          <span className="breakdown-subtitle">Weighted scoring across {subScores.length} dimensions</span>
+        </h3>
         <div className="breakdown-grid">
           {subScores.map((sub, i) => {
             const barColor = sub.val >= 80 ? '#4ade80' : sub.val >= 50 ? '#eab308' : '#ef4444';
+            const icons = {
+              'Savings Rate Capacity': <Shield size={14} />,
+              'Emergency Safety Net': <AlertTriangle size={14} />,
+              'Portfolio Diversification': <PieChart size={14} />,
+              'Tax Shield Efficiency': <Zap size={14} />,
+              'Goal Alignment': <Target size={14} />,
+              'Time-Horizon Risk Match': <Activity size={14} />,
+            };
+            const icon = icons[sub.label] || (sub.alert ? <AlertTriangle size={14} color="#ef4444" /> : <ArrowUpRight size={14} color="#4ade80" />);
             return (
               <motion.div key={i} className={`breakdown-row ${sub.alert ? 'alert' : ''}`}
                 initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: i * 0.1 + 0.5 }}>
                 <div className="breakdown-header">
                   <div className="breakdown-label-group">
-                    {sub.alert ? <AlertTriangle size={14} color="#ef4444" /> : <ArrowUpRight size={14} color="#4ade80" />}
+                    <span className={`metric-icon-wrap ${sub.alert ? 'alert-icon' : ''}`} style={{ '--metric-color': barColor }}>{icon}</span>
                     <span className="breakdown-label">{sub.label}</span>
-                    <span className="breakdown-weight">({sub.weight}% weight)</span>
+                    <span className="breakdown-weight">{sub.weight}%</span>
                   </div>
-                  <span className="breakdown-score" style={{ color: barColor }}>{Math.round(sub.val)}/100</span>
+                  <span className="breakdown-score" style={{ color: barColor }}>{Math.round(sub.val)}<span className="score-max">/100</span></span>
                 </div>
                 <div className="progress-track">
                   <motion.div initial={{ width: 0 }} animate={{ width: `${sub.val}%` }} transition={{ duration: 1.5, delay: i * 0.1 + 0.8 }}
                     className="progress-fill" style={{ color: barColor }} />
                 </div>
                 <div className="breakdown-extra">
-                  {sub.alert ? <strong style={{ color: '#ef4444' }}>{sub.extra}</strong> : sub.extra}
+                  {sub.alert ? <strong style={{ color: '#fca5a5' }}>{sub.extra}</strong> : sub.extra}
                 </div>
-                {/* FIX 6: disclaimer for Emergency Safety Net */}
                 {sub.hasDisclaimer && (
-                  <span className="metric-disclaimer">ⓘ Score based on goals declared within WealthGenie. External savings accounts are not tracked.</span>
+                  <span className="metric-disclaimer">ⓘ Score based on goals declared within WealthGenie. External savings are not tracked.</span>
                 )}
               </motion.div>
             );

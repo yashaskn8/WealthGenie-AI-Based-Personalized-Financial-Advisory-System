@@ -80,53 +80,61 @@ const StepUpPlanner = ({ profile }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
       >
-        <div className="sup-control-card">
-          <div className="sup-control-header">
-            <div className="sup-control-icon" style={{ background: 'rgba(56, 189, 248, 0.08)', color: '#38bdf8' }}><Wallet size={16} /></div>
+        <div className="sup-control-card" style={{'--card-accent': '#0ea5e9', '--card-accent-rgb': '14, 165, 233'}}>
+          <div className="sup-card-accent-bar" />
+          <div className="sup-control-top">
+            <div className="sup-control-icon" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#38bdf8' }}><Wallet size={15} /></div>
             <label>Base Monthly SIP</label>
-            <div className="sup-val-box">₹{baseSIP.toLocaleString('en-IN')}</div>
           </div>
+          <div className="sup-hero-value" style={{ color: '#38bdf8' }}>₹{baseSIP.toLocaleString('en-IN')}</div>
           <input
             type="range" value={baseSIP} onChange={e => setBaseSIP(Number(e.target.value))}
             min="1000" max="100000" step="1000" className="sup-slider"
-            style={{ background: `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${((baseSIP - 1000) / 99000) * 100}%, rgba(255,255,255,0.06) ${((baseSIP - 1000) / 99000) * 100}%, rgba(255,255,255,0.06) 100%)` }}
+            style={{ '--sup-track-gradient': `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${((baseSIP - 1000) / 99000) * 100}%, rgba(255,255,255,0.06) ${((baseSIP - 1000) / 99000) * 100}%, rgba(255,255,255,0.06) 100%)` }}
           />
+          <div className="sup-range-labels"><span>₹1K</span><span>₹1L</span></div>
         </div>
-        <div className="sup-control-card">
-          <div className="sup-control-header">
-            <div className="sup-control-icon" style={{ background: 'rgba(167, 139, 250, 0.08)', color: '#a78bfa' }}><TrendingUp size={16} /></div>
+        <div className="sup-control-card" style={{'--card-accent': '#a78bfa', '--card-accent-rgb': '167, 139, 250'}}>
+          <div className="sup-card-accent-bar" />
+          <div className="sup-control-top">
+            <div className="sup-control-icon" style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa' }}><TrendingUp size={15} /></div>
             <label>Annual Step-Up</label>
-            <div className="sup-val-box">{stepUpPercent}%</div>
           </div>
+          <div className="sup-hero-value" style={{ color: '#a78bfa' }}>{stepUpPercent}%</div>
           <input
             type="range" value={stepUpPercent} onChange={e => setStepUpPercent(Number(e.target.value))}
             min="0" max="50" step="1" className="sup-slider sup-slider-purple"
-            style={{ background: `linear-gradient(to right, #a78bfa 0%, #a78bfa ${(stepUpPercent / 50) * 100}%, rgba(255,255,255,0.06) ${(stepUpPercent / 50) * 100}%, rgba(255,255,255,0.06) 100%)` }}
+            style={{ '--sup-track-gradient': `linear-gradient(to right, #a78bfa 0%, #a78bfa ${(stepUpPercent / 50) * 100}%, rgba(255,255,255,0.06) ${(stepUpPercent / 50) * 100}%, rgba(255,255,255,0.06) 100%)` }}
           />
+          <div className="sup-range-labels"><span>0%</span><span>50%</span></div>
         </div>
-        <div className="sup-control-card">
-          <div className="sup-control-header">
-            <div className="sup-control-icon" style={{ background: 'rgba(56, 189, 248, 0.08)', color: '#38bdf8' }}><Calendar size={16} /></div>
+        <div className="sup-control-card" style={{'--card-accent': '#0ea5e9', '--card-accent-rgb': '14, 165, 233'}}>
+          <div className="sup-card-accent-bar" />
+          <div className="sup-control-top">
+            <div className="sup-control-icon" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#38bdf8' }}><Calendar size={15} /></div>
             <label>Investment Horizon</label>
-            <div className="sup-val-box">{years} Yrs</div>
           </div>
+          <div className="sup-hero-value" style={{ color: '#38bdf8' }}>{years} <span className="sup-hero-unit">Yrs</span></div>
           <input
             type="range" value={years} onChange={e => setYears(Number(e.target.value))}
             min="1" max="40" step="1" className="sup-slider"
-            style={{ background: `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${((years - 1) / 39) * 100}%, rgba(255,255,255,0.06) ${((years - 1) / 39) * 100}%, rgba(255,255,255,0.06) 100%)` }}
+            style={{ '--sup-track-gradient': `linear-gradient(to right, #0ea5e9 0%, #0ea5e9 ${((years - 1) / 39) * 100}%, rgba(255,255,255,0.06) ${((years - 1) / 39) * 100}%, rgba(255,255,255,0.06) 100%)` }}
           />
+          <div className="sup-range-labels"><span>1 yr</span><span>40 yrs</span></div>
         </div>
-        <div className="sup-control-card">
-          <div className="sup-control-header">
-            <div className="sup-control-icon" style={{ background: 'rgba(167, 139, 250, 0.08)', color: '#a78bfa' }}><Target size={16} /></div>
+        <div className="sup-control-card" style={{'--card-accent': '#a78bfa', '--card-accent-rgb': '167, 139, 250'}}>
+          <div className="sup-card-accent-bar" />
+          <div className="sup-control-top">
+            <div className="sup-control-icon" style={{ background: 'rgba(167, 139, 250, 0.1)', color: '#a78bfa' }}><Target size={15} /></div>
             <label>Expected Return</label>
-            <div className="sup-val-box">{returnRate}%</div>
           </div>
+          <div className="sup-hero-value" style={{ color: '#a78bfa' }}>{returnRate}% <span className="sup-hero-unit">p.a.</span></div>
           <input
             type="range" value={returnRate} onChange={e => setReturnRate(Number(e.target.value))}
             min="1" max="30" step="0.5" className="sup-slider sup-slider-purple"
-            style={{ background: `linear-gradient(to right, #a78bfa 0%, #a78bfa ${((returnRate - 1) / 29) * 100}%, rgba(255,255,255,0.06) ${((returnRate - 1) / 29) * 100}%, rgba(255,255,255,0.06) 100%)` }}
+            style={{ '--sup-track-gradient': `linear-gradient(to right, #a78bfa 0%, #a78bfa ${((returnRate - 1) / 29) * 100}%, rgba(255,255,255,0.06) ${((returnRate - 1) / 29) * 100}%, rgba(255,255,255,0.06) 100%)` }}
           />
+          <div className="sup-range-labels"><span>1%</span><span>30%</span></div>
         </div>
       </motion.div>
 

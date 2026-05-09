@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatINR } from './recommendationEngine';
 import { RISK_COLORS } from './investmentDatabase';
-import { X, Lock, Unlock, Droplets, Info, Search, Link } from 'lucide-react';
+import { X, Lock, Unlock, Droplets, Info, Search, Link, BarChart3, ArrowUpRight, ArrowDownRight, ChevronLeft, TrendingUp, Shield, Zap } from 'lucide-react';
 import './ComparisonTableModal.css';
 
 const CATEGORY_COLORS = {
@@ -150,12 +151,83 @@ const getLiquidityLevel = (lockIn) => {
   return 'Low';
 };
 
+/* ── Deep Comparison Detail Panel ─────────────────────────── */
+const ComparisonDetailPanel = ({ selectedInvestments, onBack }) => {
+  if (!selectedInvestments.length) return null;
+  const metrics = [
+    { key: 'rate', label: 'Return Rate', fmt: v => `${v}%`, icon: <TrendingUp size={14}/>, higher: true },
+    { key: 'riskLabel', label: 'Risk Level', fmt: v => v, icon: <Shield size={14}/> },
+    { key: 'lockIn', label: 'Lock-in (yrs)', fmt: v => v === 0 ? 'None' : `${v} yrs`, icon: <Lock size={14}/>, higher: false },
+    { key: 'taxType', label: 'Tax Treatment', fmt: v => v?.toUpperCase() || 'Slab', icon: <Zap size={14}/> },
+    { key: 'minMonthlyInvestment', label: 'Min Investment', fmt: v => formatINR(v || 0), icon: <BarChart3 size={14}/>, higher: false },
+  ];
+  const bestRate = Math.max(...selectedInvestments.map(i => i.rate || 0));
+  const bestLock = Math.min(...selectedInvestments.map(i => i.lockIn ?? i.lock_in_years ?? 99));
+
+  return (
+    <motion.div className="comparison-detail-panel" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
+      <div className="detail-header">
+        <button className="detail-back-btn" onClick={onBack}><ChevronLeft size={18}/> Back to Table</button>
+        <h3>Deep Comparison — {selectedInvestments.length} Instruments</h3>
+      </div>
+      <div className="detail-grid" style={{ gridTemplateColumns: `200px repeat(${selectedInvestments.length}, 1fr)` }}>
+        {/* Header row */}
+        <div className="detail-cell detail-label-cell" />
+        {selectedInvestments.map(inv => (
+          <div key={inv.id} className="detail-cell detail-header-cell">
+            <div className="detail-inv-icon" style={{ background: `${(CATEGORY_COLORS[inv.cat] || '#888')}20`, borderColor: `${(CATEGORY_COLORS[inv.cat] || '#888')}40` }}>
+              <span style={{ color: CATEGORY_COLORS[inv.cat], fontWeight: 800, fontSize: '0.7rem' }}>{INVESTMENT_ICONS[inv.id] || 'IN'}</span>
+            </div>
+            <span className="detail-inv-name">{inv.abbr || inv.name}</span>
+            <span className="detail-inv-cat" style={{ color: CATEGORY_COLORS[inv.cat] }}>{inv.cat}</span>
+          </div>
+        ))}
+        {/* Metric rows */}
+        {metrics.map(m => (
+          <React.Fragment key={m.key}>
+            <div className="detail-cell detail-label-cell">
+              <span className="detail-metric-icon">{m.icon}</span>
+              {m.label}
+            </div>
+            {selectedInvestments.map(inv => {
+              const val = inv[m.key];
+              const isBest = m.key === 'rate' ? (inv.rate === bestRate) : m.key === 'lockIn' ? ((inv.lockIn ?? inv.lock_in_years ?? 99) === bestLock) : false;
+              return (
+                <div key={inv.id} className={`detail-cell detail-value-cell ${isBest ? 'best-value' : ''}`}>
+                  {m.fmt(val)}
+                  {isBest && m.higher !== undefined && <span className="best-badge">Best</span>}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
+        {/* Verdict row */}
+        <div className="detail-cell detail-label-cell" style={{ fontWeight: 700, color: '#38bdf8' }}>Verdict</div>
+        {selectedInvestments.map(inv => {
+          const score = (inv.rate || 0) * 2 + (inv.lockIn === 0 ? 15 : 0) + (['eee','elss','nps'].includes(inv.taxType) ? 10 : 0);
+          const maxScore = Math.max(...selectedInvestments.map(i => (i.rate||0)*2 + (i.lockIn===0?15:0) + (['eee','elss','nps'].includes(i.taxType)?10:0)));
+          return (
+            <div key={inv.id} className={`detail-cell detail-value-cell ${score === maxScore ? 'verdict-winner' : ''}`}>
+              {score === maxScore ? (
+                <span className="winner-badge"><ArrowUpRight size={12}/> Top Pick</span>
+              ) : (
+                <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Good Option</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+};
+
 const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => {
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterTax, setFilterTax] = useState(false);
   const [riskRange, setRiskRange] = useState(100);
   const [minInvRange, setMinInvRange] = useState(50000);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [showComparison, setShowComparison] = useState(false);
 
   const filtered = useMemo(() => {
     return allInvestments.filter(inv => {
@@ -231,15 +303,10 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                 min="0" max="100" 
                 value={riskRange} 
                 onChange={e => setRiskRange(e.target.value)} 
-                className="tax-input"
+                className="filter-range-slider"
                 style={{
-                  width: '100%',
-                  padding: 0,
-                  height: '6px',
-                  appearance: 'none',
-                  background: `linear-gradient(to right, #fbbf24 0%, #ef4444 ${riskRange}%, rgba(255,255,255,0.1) ${riskRange}%, rgba(255,255,255,0.1) 100%)`,
-                  borderRadius: '3px',
-                  outline: 'none'
+                  '--filter-pct': `${riskRange}%`,
+                  '--filter-gradient': `linear-gradient(to right, #fbbf24 0%, #ef4444 ${riskRange}%, rgba(255,255,255,0.1) ${riskRange}%, rgba(255,255,255,0.1) 100%)`
                 }}
               />
             </div>
@@ -251,18 +318,13 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
               </div>
               <input 
                 type="range" 
-                min="100" max="50000" step="500" 
+                min="500" max="50000" step="500" 
                 value={minInvRange} 
                 onChange={e => setMinInvRange(e.target.value)} 
-                className="tax-input"
+                className="filter-range-slider"
                 style={{
-                  width: '100%',
-                  padding: 0,
-                  height: '6px',
-                  appearance: 'none',
-                  background: `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${(minInvRange/50000)*100}%, rgba(255,255,255,0.1) ${(minInvRange/50000)*100}%, rgba(255,255,255,0.1) 100%)`,
-                  borderRadius: '3px',
-                  outline: 'none'
+                  '--filter-pct': `${(minInvRange/50000)*100}%`,
+                  '--filter-gradient': `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${(minInvRange/50000)*100}%, rgba(255,255,255,0.1) ${(minInvRange/50000)*100}%, rgba(255,255,255,0.1) 100%)`
                 }}
               />
             </div>
@@ -379,39 +441,45 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
           </table>
         </div>
 
+        {/* Deep Comparison Panel */}
+        <AnimatePresence>
+          {showComparison && (
+            <ComparisonDetailPanel
+              selectedInvestments={allInvestments.filter(i => selectedIds.includes(i.id))}
+              onBack={() => setShowComparison(false)}
+            />
+          )}
+        </AnimatePresence>
+
         <footer className="comparison-footer">
           {selectedIds.length > 0 ? (
             <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'fadeIn 0.3s ease-out' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', padding: '6px 16px', borderRadius: '20px', fontWeight: 600, fontSize: '0.85rem', boxShadow: '0 0 15px rgba(56,189,248,0.2)' }}>
-                  {selectedIds.length} Selected
+                <div className="selected-count-badge">
+                  <BarChart3 size={14}/> {selectedIds.length} Selected
                 </div>
-                <button 
-                  onClick={() => setSelectedIds([])}
-                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}
-                >
-                  Clear Selection
+                <button className="clear-selection-btn" onClick={() => { setSelectedIds([]); setShowComparison(false); }}>
+                  Clear All
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <button 
-                  onClick={() => alert(`Detailed comparison for ${selectedIds.length} investments coming soon!`)}
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', transition: 'all 0.2s' }}
-                  onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                  onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  className="compare-action-btn secondary"
+                  onClick={() => setShowComparison(!showComparison)}
+                  disabled={selectedIds.length < 2}
                 >
-                  Deep Compare
+                  <BarChart3 size={14}/>
+                  {showComparison ? 'Hide Comparison' : 'Deep Compare'}
                 </button>
-                <button 
+                <button
+                  className="compare-action-btn primary"
                   onClick={() => {
-                    alert(`Successfully added ${selectedIds.length} investments to your Portfolio Simulator!`);
                     setSelectedIds([]);
+                    setShowComparison(false);
                   }}
-                  style={{ background: 'linear-gradient(135deg, #38bdf8, #2563eb)', border: 'none', color: '#fff', padding: '8px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', boxShadow: '0 4px 15px rgba(56,189,248,0.4)', transition: 'all 0.2s' }}
-                  onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                  Add to Portfolio +
+                  <ArrowUpRight size={14}/>
+                  Add to Portfolio
                 </button>
               </div>
             </div>

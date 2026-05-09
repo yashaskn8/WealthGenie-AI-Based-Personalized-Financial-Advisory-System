@@ -355,19 +355,25 @@
   font-weight: 600;
 }
 
-/* ===== Custom Range Slider ===== */
+/* ===== Custom Range Slider (base reset only) ===== */
 input[type=range] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
   background: transparent;
-  height: 5px;
-  border-radius: 3px;
+  height: 20px;
   outline: none;
-  background: linear-gradient(to right, var(--accent-teal) var(--value, 0%), rgba(255, 255, 255, 0.06) var(--value, 0%));
 }
 
-input[type=range]::-webkit-slider-thumb {
+/* Dashboard-specific slider track & thumb (scoped to .dash-range) */
+.dash-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: linear-gradient(to right, var(--accent-teal) var(--value, 0%), rgba(255, 255, 255, 0.06) var(--value, 0%));
+  border-radius: 3px;
+}
+
+.dash-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   height: 16px;
@@ -378,10 +384,10 @@ input[type=range]::-webkit-slider-thumb {
   cursor: pointer;
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s var(--ease-premium), box-shadow 0.2s ease;
-  margin-top: -5.5px;
+  margin-top: -5px;
 }
 
-input[type=range]::-webkit-slider-thumb:hover {
+.dash-range::-webkit-slider-thumb:hover {
   transform: scale(1.2);
   box-shadow: 0 0 16px rgba(56, 189, 248, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -618,29 +624,78 @@ input[type=range]::-webkit-slider-thumb:hover {
 
 /* ===== Recommendation Cards ===== */
 .rec-card {
-  transition: transform 0.4s var(--ease-premium), box-shadow 0.4s ease, border-color 0.4s ease !important;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease, border-color 0.4s ease !important;
   position: relative;
 }
 
+/* Left accent bar — animated gradient */
 .rec-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; bottom: 0;
+  top: 12%; left: 0; bottom: 12%;
   width: 3px;
   background: linear-gradient(180deg, var(--accent-teal), var(--accent-violet));
-  border-radius: 3px 0 0 3px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  border-radius: 0 3px 3px 0;
+  opacity: 0.35;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .rec-card:hover {
-  transform: translateY(-6px) scale(1.01) !important;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.06) !important;
-  border-color: rgba(56, 189, 248, 0.15) !important;
+  transform: translateY(-8px) scale(1.015) !important;
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(56, 189, 248, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(56, 189, 248, 0.18) !important;
 }
 
 .rec-card:hover::before {
   opacity: 1;
+  top: 6%;
+  bottom: 6%;
+  width: 4px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+/* ===== Rec Card Top Glow ===== */
+.rec-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 5%; right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.25), rgba(139, 92, 246, 0.18), transparent);
+  opacity: 0.4;
+  transition: opacity 0.4s ease;
+}
+
+.rec-card:hover::after {
+  opacity: 1;
+}
+
+/* ===== Rec Card Grid Refinements ===== */
+.rec-card .stat-box {
+  background: linear-gradient(165deg, rgba(8, 12, 24, 0.7) 0%, rgba(5, 8, 18, 0.85) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.rec-card .stat-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 15%; right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  pointer-events: none;
+}
+
+.rec-card:hover .stat-box {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(165deg, rgba(12, 18, 32, 0.8) 0%, rgba(6, 10, 22, 0.9) 100%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== Holographic Card ===== */
@@ -783,31 +838,6 @@ input[type=range]::-webkit-slider-thumb:hover {
   color: #e2e8f0;
 }
 
-/* ===== Rec Card Top Glow ===== */
-.rec-card::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 10%; right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.2), rgba(139, 92, 246, 0.15), transparent);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-
-.rec-card:hover::after { opacity: 1; }
-
-/* ===== Rec Card Grid Refinements ===== */
-.rec-card .stat-box {
-  background: rgba(8, 12, 24, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  padding: 10px 12px;
-  transition: border-color 0.3s ease;
-}
-
-.rec-card:hover .stat-box {
-  border-color: rgba(255, 255, 255, 0.06);
-}
 
 /* ===== Pulse Dot ===== */
 @keyframes pulseDot {

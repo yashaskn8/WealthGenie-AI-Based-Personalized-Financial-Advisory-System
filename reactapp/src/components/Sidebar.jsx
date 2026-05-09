@@ -140,6 +140,9 @@ const Sidebar = ({ activePage, onNavigate, insightCount = 0 }) => {
               )}
             </div>
             {!collapsed && <span className="sidebar-item-label">Insights</span>}
+            {activePage === 'insights' && !collapsed && (
+              <div className="active-dot" />
+            )}
             {collapsed && hoveredItem === 'insights' && (
               <div className="sidebar-tooltip">Insights</div>
             )}
@@ -158,6 +161,9 @@ const Sidebar = ({ activePage, onNavigate, insightCount = 0 }) => {
               {activePage === 'help' && <div className="icon-glow" />}
             </div>
             {!collapsed && <span className="sidebar-item-label">Help / Tour</span>}
+            {activePage === 'help' && !collapsed && (
+              <div className="active-dot" />
+            )}
             {collapsed && hoveredItem === 'help' && (
               <div className="sidebar-tooltip">Help / Tour</div>
             )}

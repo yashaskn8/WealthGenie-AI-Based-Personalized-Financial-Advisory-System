@@ -524,14 +524,12 @@
 /* ─── Range Slider ──────────────────────────────────────────────── */
 .rebal-range {
   width: 100%;
-  height: 6px;
-  border-radius: 3px;
+  height: 20px;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
   cursor: pointer;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
   margin: 0;
 }
 
@@ -542,9 +540,11 @@
     to right,
     var(--thumb-color) 0%,
     var(--thumb-color) var(--rebal-pct, 0%),
-    transparent var(--rebal-pct, 0%)
+    rgba(255, 255, 255, 0.06) var(--rebal-pct, 0%),
+    rgba(255, 255, 255, 0.06) 100%
   );
-  box-shadow: 0 0 6px color-mix(in srgb, var(--thumb-color) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--thumb-color) 30%, transparent),
+              inset 0 1px 3px rgba(0,0,0,0.4);
 }
 
 .rebal-range::-webkit-slider-thumb {
