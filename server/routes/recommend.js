@@ -56,7 +56,8 @@ router.post('/', verifyJWT, async (req, res) => {
       income: profile.annualIncome,
       savings: profile.savings,
       risk: profile.riskCategory,
-      regime: profile.taxRegime
+      regime: profile.taxRegime,
+      horizon: profile.investmentHorizon
     })).digest('hex');
     const cacheKey = `recommendation:${profileHash}`;
     
@@ -81,7 +82,7 @@ router.post('/', verifyJWT, async (req, res) => {
     const instruments = picks.map(key => {
       const meta = INSTRUMENT_META[key] || INSTRUMENT_META['FD'];
       // nominalRate in INSTRUMENT_META is percentage; convert to decimal for calculator
-      const postTax = calculatePostTaxReturnSafe(meta.type, meta.nominalRate / 100, profile.annualIncome, profile.investment_horizon || 15, profile.taxRegime || 'new');
+      const postTax = calculatePostTaxReturnSafe(meta.type, meta.nominalRate / 100, profile.annualIncome, profile.investmentHorizon || 15, profile.taxRegime || 'new');
       return { ...meta, nominalReturn: meta.nominalRate, postTaxReturn: postTax.effectiveYield, effectiveYield: postTax.effectiveYield, taxNotes: postTax.notes };
     });
 
@@ -93,7 +94,7 @@ router.post('/', verifyJWT, async (req, res) => {
       taxSlab: marginalRate,
       riskCategory: profile.riskCategory,
       instruments: instruments.map(i => ({ name: i.name, type: i.type, postTaxReturn: i.postTaxReturn })),
-      horizon: 10,
+      horizon: profile.investmentHorizon || 15,
       shapExplanation: mlResult.explanation || null,
     });
 

@@ -123,7 +123,7 @@ function exportHealthScorecard(score, metrics, profile) {
   const cards = [
     { title: 'SAVINGS RATE', val: `${savingsRate}%`, c: [34,197,94] },
     { title: 'RISK APPETITE', val: profile.risk_appetite || 'Medium', c: [245,158,11] },
-    { title: 'HORIZON', val: `${profile.investment_horizon || 15} Years`, c: [139,92,246] },
+    { title: 'HORIZON', val: `${profile.investment_horizon || 15} ${(profile.investment_horizon || 15) === 1 ? 'Year' : 'Years'}`, c: [139,92,246] },
   ];
 
   cards.forEach((card, i) => {
@@ -338,8 +338,8 @@ function getTaxShieldContext(profile, recommendations) {
     }
     return {
       status: 'New Regime — limited deductions available',
-      explanation: 'Under New Regime, 80C and 80CCD(1) deductions are not available. Consider NPS 80CCD(1B) ₹50K extra contribution for additional tax benefit.',
-      score_context: 'Switch to Old Regime to unlock 80C savings if deductions exceed ₹75,000 standard deduction benefit.',
+      explanation: 'Under New Regime, 80C, 80CCD(1) and 80CCD(1B) deductions are not available. Only standard deduction (₹75K) applies.',
+      score_context: 'Switch to Old Regime to unlock 80C + 80CCD(1B) savings if deductions exceed ₹75,000 standard deduction benefit.',
     };
   }
   const elssAnnual = (recommendations || []).filter(r => (r.id || r.type) === 'ELSS').reduce((s, r) => s + (r.monthly_allocation || 0) * 12, 0);

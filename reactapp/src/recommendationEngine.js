@@ -269,18 +269,21 @@ export function computePostTaxReturn(inv, annualSavings, annualIncome, profile) 
 
     case "nps": {
       // NPS: Partial EET — 40% annuity taxed at slab
-      // Tax saving from 80CCD(1B) is reported SEPARATELY
+      // 80CCD(1B) deduction is available ONLY under old regime
+      const regime = profile?.taxRegime || 'new';
       const annuityFraction = 0.40;
       const blendedTaxDrag = annuityFraction * mr;
       const postTaxRate = rate * (1 - blendedTaxDrag);
-      const ccd1bDeduction = Math.min(50000, annualSavings);
+      const ccd1bDeduction = regime === 'old' ? Math.min(50000, annualSavings) : 0;
       const taxSaving = ccd1bDeduction * mr;
       return {
         postTaxRate: parseFloat(postTaxRate.toFixed(2)),
         taxSaving: Math.round(taxSaving),
         taxPaid: 0,
         marginalRate: mr,
-        npsNote: `80CCD(1B) deduction of ₹${ccd1bDeduction.toLocaleString("en-IN")} saves ₹${Math.round(taxSaving).toLocaleString("en-IN")} annually. This is SEPARATE from your ₹1.5L 80C limit. 60% lump sum at age 60 is tax-free.`,
+        npsNote: regime === 'old'
+          ? `80CCD(1B) deduction of ₹${ccd1bDeduction.toLocaleString("en-IN")} saves ₹${Math.round(taxSaving).toLocaleString("en-IN")} annually. This is SEPARATE from your ₹1.5L 80C limit. 60% lump sum at age 60 is tax-free.`
+          : `Under the new tax regime, 80CCD(1B) deduction is not available. However, 60% of your NPS corpus at age 60 is still tax-free. Consider old regime if you want the ₹50K extra deduction.`,
       };
     }
 
@@ -310,7 +313,7 @@ export function computePostTaxReturn(inv, annualSavings, annualIncome, profile) 
   }
 }
 
-// ─── STEP 3: SMART ELIGIBILITY FILTER (13 rules) ─────────────────
+// ─── STEP 3: SMART ELIGIBILITY FILTER (comprehensive rules) ──────
 export function getEligibleInvestments(profile) {
   const age = Number(profile.age) || 25;
   const income = Number(profile.monthly_income || profile.income) || 0;
@@ -322,16 +325,19 @@ export function getEligibleInvestments(profile) {
 
   let result = investmentDatabase.filter(inv => {
     const elig = inv.eligibility;
+
+    // ── BASIC ELIGIBILITY ──
     if (age < elig.minAge) return false;
     if (elig.maxAge !== null && age > elig.maxAge) return false;
     if (annualIncome < elig.minAnnualIncome) return false;
     if (savings < inv.minMonthlyInvestment) return false;
+    // Check minimum monthly savings requirement (was previously unchecked!)
+    if (elig.minMonthlySavings && savings < elig.minMonthlySavings) return false;
+
+    // ── INSTRUMENT-SPECIFIC RULES ──
     if (inv.id === "scss" && age < 60) return false;
-    // PMVVY: only for age 60+
     if (inv.id === "pmvvy" && age < 60) return false;
-    // NPS: exclude for age 60+ (PFRDA standard exit age)
     if (inv.id === "nps" && age >= 60) return false;
-    // Fix 3: SSY requires user to have declared a daughter under 10
     if (inv.id === "sukanya") {
       if (age < 18 || age > 40) return false;
       if (!profile.has_daughter_under_10) return false;
@@ -345,29 +351,57 @@ export function getEligibleInvestments(profile) {
     if (inv.id === "midcap_mf") {
       if (age > 50 || horizon < 7 || savings < 5000 || annualIncome < 600000) return false;
     }
-    if (inv.id === "nps" && horizon < 5) return false;
+
+    // ── HORIZON-AWARE LOCK-IN FILTER ──
+    const effectiveLockIn = (inv.maturity_type === 'age_based' && inv.maturity_age)
+      ? Math.max(0, inv.maturity_age - age)
+      : inv.lockIn;
+    if (effectiveLockIn > 0 && effectiveLockIn > horizon) return false;
+
+    // ── RISK-APPETITE GATING ──
     if (risk === "low" && inv.risk >= 4) return false;
+    // Low risk users with short horizons should avoid medium-risk equity instruments
+    if (risk === "low" && inv.risk >= 3 && horizon <= 5) return false;
     if (risk === "high" && inv.risk === 1 && horizon <= 3) return false;
+
+    // ── TAX-AWARE EXCLUSIONS ──
     if (inv.id === "elss" && mr === 0) return false;
     if (inv.id === "debt_mf" && mr === 0 && savings < 10000) return false;
+
     return true;
   });
 
-  // FIX 2.7 — Minimum eligible instruments fallback
-  if (result.length === 0) {
-    const fd = investmentDatabase.find(i => i.id === "fd");
-    const ppf = investmentDatabase.find(i => i.id === "ppf");
-    result = [fd, ppf].filter(Boolean);
-    result._fallbackNotice = "Your profile is very specific. Showing universal safe options. Adjust your profile to unlock more.";
-  } else if (result.length === 1) {
-    const fd = investmentDatabase.find(i => i.id === "fd");
-    const ppf = investmentDatabase.find(i => i.id === "ppf");
-    const ids = new Set(result.map(i => i.id));
-    if (!ids.has("fd") && fd) result.push(fd);
-    if (!ids.has("ppf") && ppf) result.push(ppf);
-  } else if (result.length === 2) {
-    const fd = investmentDatabase.find(i => i.id === "fd");
-    if (fd && !result.some(i => i.id === "fd")) result.push(fd);
+  // ── MINIMUM ELIGIBLE INSTRUMENTS FALLBACK ──
+  // Fallback instruments must still respect user's affordability and horizon
+  if (result.length < 3) {
+    const safeDefaults = investmentDatabase.filter(inv => {
+      // Only add instruments the user can actually afford
+      if (savings < inv.minMonthlyInvestment) return false;
+      if (inv.eligibility.minMonthlySavings && savings < inv.eligibility.minMonthlySavings) return false;
+      // Only add instruments that respect the horizon
+      const effectiveLockIn = (inv.maturity_type === 'age_based' && inv.maturity_age)
+        ? Math.max(0, inv.maturity_age - age)
+        : inv.lockIn;
+      if (effectiveLockIn > 0 && effectiveLockIn > horizon) return false;
+      // Only low-risk fallbacks
+      return inv.risk <= 2;
+    });
+
+    const existingIds = new Set(result.map(i => i.id));
+    for (const inv of safeDefaults) {
+      if (!existingIds.has(inv.id)) {
+        result.push(inv);
+        existingIds.add(inv.id);
+      }
+      if (result.length >= 3) break;
+    }
+
+    if (result.length === 0) {
+      // Absolute last resort — FD is the most universally accessible
+      const fd = investmentDatabase.find(i => i.id === "fd");
+      if (fd) result = [fd];
+      result._fallbackNotice = "Your profile is very specific. Showing the safest available option. Adjust your profile to unlock more instruments.";
+    }
   }
 
   return result;

@@ -14,14 +14,9 @@ export async function getMLPrediction(profileData) {
     }, { timeout: ML_TIMEOUT_MS });
     return res.data;
   } catch (err) {
-    console.warn('[MLClient] ML service unavailable:', err.message);
-    // Return structured fallback — do not crash the recommendation
-    return {
-      primary: null,
-      confidence_scores: {},
-      explanation: null,
-      fallback: true,
-    };
+    console.warn('[MLClient] ML service unavailable, using rule-based fallback:', err.message);
+    // Use rule-based fallback instead of returning null picks
+    return getRuleBasedFallback(profileData);
   }
 }
 
@@ -32,7 +27,7 @@ export async function checkMLHealth() {
   } catch { return null; }
 }
 
-function getRuleBasedFallback({ age, annual_income, risk_category }) {
+export function getRuleBasedFallback({ age, annual_income, risk_category }) {
   let primary, secondary, tertiary;
   const path = [`risk=${risk_category}`, `age=${age}`];
   if (risk_category === 'Aggressive') {

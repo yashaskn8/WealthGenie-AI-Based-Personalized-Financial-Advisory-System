@@ -1,15 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart3, Sliders, Activity, IndianRupee, TrendingUp, ShieldAlert, Layers } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import './RebalancerScreen.css';
 
 const RISK_WEIGHTS = {
-  'Very Low': 5, 'Low': 20, 'Medium-Low': 35, 'Medium': 50, 'High': 80, 'Very High': 95
+  'Very Low': 5, 'Low': 20, 'Low-Medium': 30, 'Medium-Low': 35, 'Medium': 50, 'High': 80, 'Very High': 95
 };
 
 const RISK_COLORS = {
-  'Very Low': '#10b981', 'Low': '#34d399', 'Medium-Low': '#fbbf24', 
+  'Very Low': '#10b981', 'Low': '#34d399', 'Low-Medium': '#a3e635', 'Medium-Low': '#fbbf24', 
   'Medium': '#f59e0b', 'High': '#ef4444', 'Very High': '#dc2626'
 };
 
@@ -21,26 +21,31 @@ const INSTRUMENT_ICONS = {
   'liquid_mf': 'LQ', 'sgb': 'SG', 'pmvvy': 'PM'
 };
 
+const buildAllocations = (recs, savings) => {
+  const allocs = {};
+  let sum = 0;
+  recs.forEach(inv => {
+    const pct = (inv.monthly_allocation / savings) * 100;
+    allocs[inv.id] = pct;
+    sum += pct;
+  });
+  if (sum > 0 && Math.abs(sum - 100) > 0.01) {
+    Object.keys(allocs).forEach(k => {
+      allocs[k] = (allocs[k] / sum) * 100;
+    });
+  }
+  return allocs;
+};
+
 const RebalancerScreen = ({ profile, recommendations, onSave }) => {
   const totalSavings = profile?.monthly_savings || 12000;
 
-  const [allocations, setAllocations] = useState(() => {
-    const allocs = {};
-    let sum = 0;
-    recommendations.forEach(inv => {
-      const pct = (inv.monthly_allocation / totalSavings) * 100;
-      allocs[inv.id] = pct;
-      sum += pct;
-    });
-    
-    // Auto-normalize initial state to 100% to prevent jump on first interaction
-    if (sum > 0 && Math.abs(sum - 100) > 0.01) {
-      Object.keys(allocs).forEach(k => {
-        allocs[k] = (allocs[k] / sum) * 100;
-      });
-    }
-    return allocs;
-  });
+  const [allocations, setAllocations] = useState(() => buildAllocations(recommendations, totalSavings));
+
+  // Sync allocations when recommendations or savings change
+  useEffect(() => {
+    setAllocations(buildAllocations(recommendations, totalSavings));
+  }, [recommendations, totalSavings]);
 
   const handleSliderChange = (id, newPct) => {
     const oldPct = allocations[id] || 0;

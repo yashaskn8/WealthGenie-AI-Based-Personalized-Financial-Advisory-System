@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown } from 'lucide-react';
@@ -8,8 +8,11 @@ import { formatINR, getMarginalRate, computePostTaxReturn } from './recommendati
 import './components/TaxScreen.css';
 
 const PostTaxAnalysis = ({ profile, recommendations }) => {
-  const [regime, setRegime] = useState('new');
+  const [regime, setRegime] = useState(profile?.taxRegime || 'new');
   const [inflationRate, setInflationRate] = useState(6.0);
+
+  // Sync regime when profile changes
+  useEffect(() => { setRegime(profile?.taxRegime || 'new'); }, [profile?.taxRegime]);
 
   // 1. Calculate Marginal Tax Rate using the recommendation engine's getMarginalRate
   const { marginalRate, effectiveRate } = useMemo(() => {
@@ -30,7 +33,9 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
       const gainAmount = Math.max(0, projectedValue - totalInvested);
 
       // Use recommendation engine's post-tax computation (consistent with backend logic)
-      const ptResult = computePostTaxReturn(inv, annualSavings, annualIncome, profile);
+      // Pass the toggled regime, not the profile's original regime
+      const profileWithRegime = { ...profile, taxRegime: regime };
+      const ptResult = computePostTaxReturn(inv, annualSavings, annualIncome, profileWithRegime);
       const nominalReturn = inv.expected_return_max || inv.rate || 0;
       const postTaxReturn = ptResult.postTaxRate || nominalReturn;
       const realReturn = computeRealReturn(postTaxReturn, inflationRate / 100);
@@ -54,7 +59,7 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
         realReturn,
       };
     });
-  }, [recommendations, profile, marginalRate, inflationRate]);
+  }, [recommendations, profile, marginalRate, inflationRate, regime]);
 
   return (
     <div className="tax-page">

@@ -13,6 +13,7 @@ const financialProfileSchema = new mongoose.Schema({
   riskDescription: { type: String },
   recommendedEquityAllocation: { type: Number },
   investableAmount: { type: Number },
+  investmentHorizon: { type: Number, default: 15 },
   createdAt: { type: Date, default: Date.now },
 });
 

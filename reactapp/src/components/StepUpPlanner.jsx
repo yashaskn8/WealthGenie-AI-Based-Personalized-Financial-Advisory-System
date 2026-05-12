@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { motion } from 'framer-motion';
 import { TrendingUp, Rocket, PiggyBank, ArrowUpRight, Wallet, Calendar, Target, BarChart3 } from 'lucide-react';
@@ -11,6 +11,10 @@ const StepUpPlanner = ({ profile }) => {
   const [stepUpPercent, setStepUpPercent] = useState(10);
   const [years, setYears] = useState(profile?.investment_horizon || 15);
   const [returnRate, setReturnRate] = useState(12);
+
+  // Sync local state when profile prop changes
+  useEffect(() => { setBaseSIP(profile?.monthly_savings || 12000); }, [profile?.monthly_savings]);
+  useEffect(() => { setYears(profile?.investment_horizon || 15); }, [profile?.investment_horizon]);
 
   const projections = useMemo(() => {
     return getStepUpProjectionData(baseSIP, returnRate, years, stepUpPercent);

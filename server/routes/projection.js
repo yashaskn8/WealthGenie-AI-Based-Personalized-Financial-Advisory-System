@@ -27,10 +27,9 @@ router.post('/', verifyJWT, async (req, res) => {
 
     // Build instrument list with post-tax rates
     const instList = (instruments || ['FD', 'ELSS', 'Equity_MF', 'Debt_MF']).map(key => {
-      const type = key.includes('_') ? key.split('_').slice(-1)[0] : key;
-      const nominalRate = RATE_LOOKUP[key] || RATE_LOOKUP[type] || 7.0;
-      const ptResult = calculatePostTaxReturn(key, nominalRate, marginalRate, 10, investAmount * 12);
-      return { name: key, type: key, postTaxRate: ptResult.effectiveYield / 100 };
+      const nominalRate = RATE_LOOKUP[key] || 7.0;
+      const ptResult = calculatePostTaxReturn(key, nominalRate / 100, profile.annualIncome, profile.investmentHorizon || 15, profile.taxRegime || 'new');
+      return { name: key, type: key, postTaxRate: ptResult.postTaxReturn };
     });
 
     const postTaxRates = {};

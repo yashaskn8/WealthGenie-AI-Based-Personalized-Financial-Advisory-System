@@ -10,8 +10,10 @@ export const profileSchema = Joi.object({
     .messages({ 'number.min': 'Monthly income must be at least ₹1,000' }),
   age: Joi.number().integer().min(18).max(80).required()
     .messages({ 'number.min': 'Age must be at least 18', 'number.max': 'Age must be at most 80' }),
-  monthly_savings: Joi.number().min(0).required(),
+  monthly_savings: Joi.number().min(500).required()
+    .messages({ 'number.min': 'Monthly savings must be at least ₹500' }),
   regime: Joi.string().valid('new', 'old').default('new'),
+  investment_horizon: Joi.number().integer().min(1).max(40).default(15),
 }).custom((value, helpers) => {
   if (value.monthly_savings > value.monthly_income) {
     return helpers.error('any.invalid', { message: 'Savings cannot exceed income' });

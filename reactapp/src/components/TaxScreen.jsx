@@ -13,6 +13,9 @@ const TaxScreen = ({ profile }) => {
   const [existing80C, setExisting80C] = useState('');
   const [existing80CCD, setExisting80CCD] = useState('');
 
+  // Sync regime when profile changes
+  useEffect(() => { setRegime(profile?.taxRegime || 'new'); }, [profile?.taxRegime]);
+
   // Fetch tax from backend API (authoritative source)
   const [baseTax, setBaseTax] = useState(null);
   const [oldRegimeTax, setOldRegimeTax] = useState(null);

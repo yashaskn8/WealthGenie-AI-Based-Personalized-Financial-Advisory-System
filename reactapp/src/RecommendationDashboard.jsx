@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, ReferenceLine } from 'recharts';
 import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap, Trophy, BarChart3, AlertCircle, Calendar, Target, Activity, Wallet, PiggyBank, Clock, HelpCircle } from 'lucide-react';
 import { investmentDatabase, RISK_COLORS, CHART_COLORS } from './investmentDatabase';
@@ -38,6 +38,15 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
   }, [isLoadingProp]);
   
   const [riskValue, setRiskValue] = useState(userProfile?.risk_appetite === 'High' ? 8 : userProfile?.risk_appetite === 'Medium' ? 6 : 3);
+
+  // Sync local state with profile prop changes (useState ignores updates after mount)
+  useEffect(() => {
+    setHorizon(userProfile?.investment_horizon || 15);
+  }, [userProfile?.investment_horizon]);
+
+  useEffect(() => {
+    setRiskValue(userProfile?.risk_appetite === 'High' ? 8 : userProfile?.risk_appetite === 'Medium' ? 6 : 3);
+  }, [userProfile?.risk_appetite]);
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedWhyCards, setExpandedWhyCards] = useState({});
   const [sortField, setSortField] = useState('');

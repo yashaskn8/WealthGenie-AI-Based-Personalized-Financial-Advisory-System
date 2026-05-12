@@ -9,6 +9,24 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
 // Restore token from localStorage on module load (survives page reload)
 let authToken = localStorage.getItem('wg_token') || null;
 
+// Track the current authenticated user
+let currentUser = (() => {
+  try { return JSON.parse(localStorage.getItem('wg_user') || 'null'); } catch { return null; }
+})();
+
+export function setUserInfo(user) {
+  currentUser = user;
+  if (user) {
+    localStorage.setItem('wg_user', JSON.stringify(user));
+  } else {
+    localStorage.removeItem('wg_user');
+  }
+}
+
+export function getUserInfo() {
+  return currentUser;
+}
+
 export function setAuthToken(token) {
   authToken = token;
   if (token) {
@@ -25,6 +43,7 @@ export function getAuthToken() {
 export function clearAuthToken() {
   authToken = null;
   localStorage.removeItem('wg_token');
+  setUserInfo(null);
 }
 
 async function request(method, path, data = null, options = {}) {
@@ -48,22 +67,25 @@ async function request(method, path, data = null, options = {}) {
 export async function register(name, email, password) {
   const data = await request('POST', '/auth/register', { name, email, password });
   if (data.token) setAuthToken(data.token);
+  if (data.user) setUserInfo(data.user);
   return data;
 }
 
 export async function login(email, password) {
   const data = await request('POST', '/auth/login', { email, password });
   if (data.token) setAuthToken(data.token);
+  if (data.user) setUserInfo(data.user);
   return data;
 }
 
 // ─── PROFILE ─────────────────────────────────────────────
-export async function buildProfile(monthlyIncome, age, monthlySavings, regime = 'new') {
+export async function buildProfile(monthlyIncome, age, monthlySavings, regime = 'new', investmentHorizon = 15) {
   return request('POST', '/profile/build', {
     monthly_income: monthlyIncome,
     age,
     monthly_savings: monthlySavings,
     regime,
+    investment_horizon: investmentHorizon,
   });
 }
 
@@ -137,6 +159,7 @@ export async function clearChatSession(sessionId) {
 // Default export for convenience
 const api = {
   register, login, setAuthToken, getAuthToken, clearAuthToken,
+  setUserInfo, getUserInfo,
   buildProfile, getRecommendations, getInstruments, getProjections,
   runMonteCarlo, createGoal, getGoals, deleteGoal, healthCheck,
   sendChatMessage, getChatHistory, clearChatSession,

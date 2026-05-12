@@ -34,11 +34,20 @@ const PROFILE_STORAGE_KEY = 'wealthgenie_user_profile';
 const ProfilePage = () => {
   const navigate = useNavigate();
 
-  // Try to load saved profile from localStorage
+  // Try to load saved profile from localStorage, scoped to the current user
   const savedProfile = useMemo(() => {
     try {
       const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Ensure the saved profile belongs to the current authenticated user
+      const currentUser = api.getUserInfo();
+      if (currentUser && parsed._userId && parsed._userId !== currentUser.id) {
+        // Different user — discard stale profile
+        localStorage.removeItem(PROFILE_STORAGE_KEY);
+        return null;
+      }
+      return parsed;
     } catch { return null; }
   }, []);
 
@@ -60,9 +69,9 @@ const ProfilePage = () => {
   };
 
   const userProfilePayload = useMemo(() => ({
-    age,
-    monthly_income: monthlyIncome,
-    monthly_savings: monthlySavings,
+    age: Number(age),
+    monthly_income: Number(monthlyIncome),
+    monthly_savings: Number(monthlySavings),
     risk_appetite: riskAppetite,
     investment_goals: investmentGoals,
     investment_horizon: horizon,
@@ -71,11 +80,40 @@ const ProfilePage = () => {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+
+    // ── Frontend validation (catch errors before API call) ──
+    const numAge = Number(age);
+    const numIncome = Number(monthlyIncome);
+    const numSavings = Number(monthlySavings);
+
+    if (!numAge || isNaN(numAge) || numAge < 18 || numAge > 80) {
+      alert('Please enter a valid age between 18 and 80.');
+      return;
+    }
+    if (!numIncome || isNaN(numIncome) || numIncome <= 0) {
+      alert('Please enter a valid monthly income.');
+      return;
+    }
+    if (!numSavings || isNaN(numSavings) || numSavings <= 0) {
+      alert('Please enter a valid monthly savings amount.');
+      return;
+    }
+    if (numSavings >= numIncome) {
+      alert('Monthly savings must be less than monthly income.');
+      return;
+    }
+    if (investmentGoals.length === 0) {
+      alert('Please select at least one investment goal.');
+      return;
+    }
+
     try {
-      const response = await api.buildProfile(monthlyIncome, age, monthlySavings, taxRegime);
+      const response = await api.buildProfile(numIncome, numAge, numSavings, taxRegime, horizon);
       console.log("Profile built:", response);
-      // Persist profile to localStorage
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(userProfilePayload));
+      // Persist profile to localStorage, scoped to the current user
+      const currentUser = api.getUserInfo();
+      const profileWithUser = { ...userProfilePayload, _userId: currentUser?.id || null };
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileWithUser));
       setIsComplete(true);
     } catch (err) {
       alert("Error saving profile: " + err.message);
@@ -91,7 +129,9 @@ const ProfilePage = () => {
     setInvestmentGoals(updatedProfile.investment_goals);
     setHorizon(updatedProfile.investment_horizon);
     setTaxRegime(updatedProfile.taxRegime);
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updatedProfile));
+    const currentUser = api.getUserInfo();
+    const profileWithUser = { ...updatedProfile, _userId: currentUser?.id || null };
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileWithUser));
   };
 
   if (isComplete) {
@@ -117,13 +157,13 @@ const ProfilePage = () => {
             <div className="pf-grid-2">
               <div className="pf-field">
                 <label>Age</label>
-                <input type="number" placeholder="32" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="100" />
+                <input type="number" placeholder="32" value={age} onChange={e => setAge(Number(e.target.value))} min="18" max="80" />
               </div>
               <div className="pf-field">
                 <label>Monthly Income (₹)</label>
                 <div className="pf-input-prefix">
                   <span className="prefix-symbol">₹</span>
-                  <input type="text" placeholder="6,500" value={monthlyIncome} onChange={e => setMonthlyIncome(e.target.value)} />
+                  <input type="text" placeholder="6,500" value={monthlyIncome} onChange={e => setMonthlyIncome(e.target.value.replace(/,/g, ''))} />
                 </div>
               </div>
             </div>
@@ -132,7 +172,7 @@ const ProfilePage = () => {
             <div className="pf-grid-2">
               <div className="pf-field">
                 <label>Monthly Savings Capacity</label>
-                <input type="text" placeholder="1,200" value={monthlySavings} onChange={e => setMonthlySavings(e.target.value)} />
+                <input type="text" placeholder="1,200" value={monthlySavings} onChange={e => setMonthlySavings(e.target.value.replace(/,/g, ''))} />
               </div>
               <div className="pf-field">
                 <label>Risk Appetite</label>
@@ -184,7 +224,7 @@ const ProfilePage = () => {
                 />
                 <div className="horizon-labels">
                   <span>1</span>
-                  <span className="horizon-value">{horizon} Years</span>
+                  <span className="horizon-value">{horizon} {horizon === 1 ? 'Year' : 'Years'}</span>
                   <span>30</span>
                 </div>
               </div>
@@ -226,17 +266,28 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
   const [backendRecs, setBackendRecs] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initial local recommendations as baseline
-  const localRecommendations = generateRecommendations(userProfile);
-  const eligibleInvestments = getEligibleInvestments(userProfile);
+  // Stable serialized key — changes ONLY when profile data changes, not on every render
+  const profileKey = useMemo(() => JSON.stringify({
+    a: userProfile.age, i: userProfile.monthly_income, s: userProfile.monthly_savings,
+    r: userProfile.risk_appetite, g: userProfile.investment_goals,
+    h: userProfile.investment_horizon, t: userProfile.taxRegime,
+  }), [userProfile.age, userProfile.monthly_income, userProfile.monthly_savings,
+       userProfile.risk_appetite, userProfile.investment_goals,
+       userProfile.investment_horizon, userProfile.taxRegime]);
+
+  // Memoize local recommendations — only recomputes when profile key changes
+  const localRecommendations = useMemo(() => generateRecommendations(userProfile), [profileKey]);
+  const eligibleInvestments = useMemo(() => getEligibleInvestments(userProfile), [profileKey]);
 
   useEffect(() => {
     const fetchBackendData = async () => {
       try {
         setIsLoading(true);
-        // Assuming we have a way to get the latest profile ID or we fetch it
-        // For simplicity, we'll fetch recommendations (backend will handle finding the profile)
-        const profileResponse = await api.buildProfile(userProfile.monthly_income, userProfile.age, userProfile.monthly_savings, userProfile.taxRegime);
+        setBackendRecs(null); // Clear stale data immediately
+        const profileResponse = await api.buildProfile(
+          userProfile.monthly_income, userProfile.age, userProfile.monthly_savings,
+          userProfile.taxRegime || 'new', userProfile.investment_horizon || 15
+        );
         const recResponse = await api.getRecommendations(profileResponse.profileId);
         setBackendRecs(recResponse);
       } catch (err) {
@@ -246,7 +297,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
       }
     };
     fetchBackendData();
-  }, [userProfile]);
+  }, [profileKey]);
 
   // Merge backend data with local recommendations for display
   const recommendations = useMemo(() => {
@@ -546,6 +597,8 @@ function AuthPage() {
     setIsRegistering(true);
     try {
       await api.register(regName, regEmail, regPassword);
+      // Clear any stale financial profile from a previous user session
+      localStorage.removeItem(PROFILE_STORAGE_KEY);
       setIsRegistering(false);
       setShowPopup(true);
     } catch (err) {
@@ -620,7 +673,7 @@ function AuthPage() {
             </div>
 
             <div className={`form-view ${activeView === 'register' ? 'active' : 'hidden'}`} id="register-view">
-              <form id="register-form" onSubmit={handleRegisterSubmit} noValidate>
+              <form id="register-form" onSubmit={handleRegisterSubmit} noValidate autoComplete="off">
                 <div className="input-group">
                   <label htmlFor="reg-name">Full Name</label>
                   <input
@@ -630,6 +683,7 @@ function AuthPage() {
                     value={regName}
                     onChange={(e) => { setRegName(e.target.value); setRegErrors((prev) => ({ ...prev, name: '' })); }}
                     className={regErrors.name ? 'input-error' : ''}
+                    autoComplete="off"
                   />
                   {regErrors.name && <span className="error-msg">{regErrors.name}</span>}
                 </div>
@@ -642,6 +696,7 @@ function AuthPage() {
                     value={regEmail}
                     onChange={(e) => { setRegEmail(e.target.value); setRegErrors((prev) => ({ ...prev, email: '' })); }}
                     className={regErrors.email ? 'input-error' : ''}
+                    autoComplete="off"
                   />
                   {regErrors.email && <span className="error-msg">{regErrors.email}</span>}
                 </div>
@@ -658,6 +713,7 @@ function AuthPage() {
                       setRegErrors((prev) => ({ ...prev, mobile: '' }));
                     }}
                     className={regErrors.mobile ? 'input-error' : ''}
+                    autoComplete="off"
                   />
                   {regErrors.mobile && <span className="error-msg">{regErrors.mobile}</span>}
                 </div>
@@ -671,6 +727,7 @@ function AuthPage() {
                       value={regPassword}
                       onChange={(e) => { setRegPassword(e.target.value); setRegErrors((prev) => ({ ...prev, password: '' })); }}
                       className={regErrors.password ? 'input-error' : ''}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
@@ -710,6 +767,7 @@ function AuthPage() {
                       value={regConfirmPassword}
                       onChange={(e) => { setRegConfirmPassword(e.target.value); setRegErrors((prev) => ({ ...prev, confirmPassword: '' })); }}
                       className={regErrors.confirmPassword ? 'input-error' : ''}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"

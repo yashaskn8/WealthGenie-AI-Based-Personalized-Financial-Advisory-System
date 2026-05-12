@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie } from 'recharts';
 import { formatINR } from '../utils/indianNumberFormat';
@@ -12,6 +12,9 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
   const [calcMode, setCalcMode] = useState('SIP');
   const [calcAmount, setCalcAmount] = useState(investment?.monthly_allocation || 5000);
   const [calcYears, setCalcYears] = useState(horizon || 15);
+
+  // Sync calcYears when profile horizon changes
+  useEffect(() => { setCalcYears(horizon || 15); }, [horizon]);
   const [calcReturn, setCalcReturn] = useState(
     investment ? ((investment.expected_return_min + investment.expected_return_max) / 2) : 10
   );

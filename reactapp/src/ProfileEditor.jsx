@@ -19,7 +19,7 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
     : 0;
 
   const profileFields = [
-    { key: 'age', label: 'Age', icon: <Clock size={20} color="#94a3b8" />, type: 'number', min: 18, max: 100 },
+    { key: 'age', label: 'Age', icon: <Clock size={20} color="#94a3b8" />, type: 'number', min: 18, max: 80 },
     { key: 'monthly_income', label: 'Monthly Income', icon: <Banknote size={20} color="#34d399" />, type: 'currency' },
     { key: 'monthly_savings', label: 'Monthly Savings', icon: <Wallet size={20} color="#38bdf8" />, type: 'currency' },
     { key: 'risk_appetite', label: 'Risk Appetite', icon: <Scale size={20} color="#fbbf24" />, type: 'risk' },
@@ -38,9 +38,30 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
   };
 
   const handleSave = async () => {
+    const numIncome = Number(draft.monthly_income);
+    const numSavings = Number(draft.monthly_savings);
+    const numAge = Number(draft.age);
+
+    if (!numAge || numAge < 18 || numAge > 80) {
+      alert('Age must be between 18 and 80.');
+      return;
+    }
+    if (!numIncome || numIncome <= 0) {
+      alert('Please enter a valid monthly income.');
+      return;
+    }
+    if (!numSavings || numSavings < 500) {
+      alert('Monthly savings must be at least ₹500.');
+      return;
+    }
+    if (numSavings >= numIncome) {
+      alert('Monthly savings must be less than monthly income.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await api.buildProfile(draft.monthly_income, draft.age, draft.monthly_savings, draft.taxRegime);
+      await api.buildProfile(numIncome, numAge, numSavings, draft.taxRegime || 'new', draft.investment_horizon || 15);
       onProfileUpdate(draft);
       setIsEditing(false);
       setShowSaved(true);
@@ -79,7 +100,16 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
           value={val}
           min={field.min}
           max={field.max}
-          onChange={e => setDraft(prev => ({ ...prev, [field.key]: Number(e.target.value) }))}
+          onChange={e => {
+            let raw = e.target.value;
+            // Strip leading zeros (prevents "088")
+            if (raw.length > 1 && raw.startsWith('0')) raw = raw.replace(/^0+/, '') || '0';
+            let num = Number(raw);
+            // Clamp to min/max if defined
+            if (field.max !== undefined && num > field.max) num = field.max;
+            if (field.min !== undefined && num < field.min && raw !== '') num = Math.max(0, num);
+            setDraft(prev => ({ ...prev, [field.key]: num }));
+          }}
           style={{
             background: 'rgba(15, 23, 42, 0.6)',
             border: '1px solid rgba(56, 189, 248, 0.3)',
@@ -160,6 +190,8 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
     }
 
     if (field.type === 'slider') {
+      const pct = ((val - field.min) / (field.max - field.min)) * 100;
+      const unitLabel = field.suffix ? (val === 1 ? field.suffix.replace(/s$/, '') : field.suffix) : '';
       return (
         <div>
           <input
@@ -171,12 +203,15 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
             style={{
               width: '100%',
               accentColor: '#38bdf8',
+              background: `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${pct}%, rgba(255,255,255,0.08) ${pct}%, rgba(255,255,255,0.08) 100%)`,
+              borderRadius: 6,
+              height: 6,
             }}
             className="tax-slider"
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginTop: 6 }}>
             <span>{field.min}</span>
-            <span style={{ color: '#38bdf8', fontWeight: 700 }}>{val}{field.suffix || ''}</span>
+            <span style={{ color: '#38bdf8', fontWeight: 700 }}>{val}{unitLabel}</span>
             <span>{field.max}</span>
           </div>
         </div>

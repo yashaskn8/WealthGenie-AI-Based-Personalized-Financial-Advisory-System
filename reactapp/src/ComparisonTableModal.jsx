@@ -37,6 +37,7 @@ const INVESTMENT_ICONS = {
 const RISK_LABEL_TO_LEVEL = {
   'Very Low': 15,
   'Low': 30,
+  'Low-Medium': 40,
   'Medium-Low': 45,
   'Medium': 60,
   'High': 80,
@@ -237,9 +238,13 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
       if (filterTax && !hasTax) return false;
       const minInv = inv.minMonthlyInvestment || inv.min_investment_inr || 0;
       if (minInv > minInvRange) return false;
+      // Apply risk tolerance filter — map risk labels to numeric %
+      const riskLbl = inv.riskLabel || inv.risk_level || 'Medium';
+      const riskPct = RISK_LABEL_TO_LEVEL[riskLbl] || 50;
+      if (riskPct > riskRange) return false;
       return true;
     });
-  }, [allInvestments, filterCategory, filterTax, minInvRange]);
+  }, [allInvestments, filterCategory, filterTax, minInvRange, riskRange]);
 
   if (!isOpen) return null;
 
