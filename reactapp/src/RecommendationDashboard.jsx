@@ -951,10 +951,11 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             
             <div className="panel-card" style={{
-              padding: 20, 
+              padding: 22, 
               borderTop: '2px solid transparent',
               borderImage: 'linear-gradient(90deg, #38bdf8, #8b5cf6, #dfbd69) 1',
-              position: 'relative'
+              position: 'relative',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.04), inset 0 1px 0 rgba(255,255,255,0.08)'
             }}>
               <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14}}>
                 {(() => {
@@ -1017,20 +1018,28 @@ const RecommendationDashboard = ({ userProfile, recommendations, onExploreAll, o
             </div>
 
             <div className="panel-card" style={{padding: 18}}>
-              <div className="panel-title" style={{marginBottom: 12, fontSize: '0.65rem'}}>
+              <div className="panel-title" style={{marginBottom: 14, fontSize: '0.65rem'}}>
                 {(userProfile?.investment_goals || [])[0] === 'Emergency Fund'
                   ? 'BENCHMARK — VS. SAFE ALTERNATIVES'
                   : 'BENCHMARK — VS. MARKET'}
               </div>
-              <div style={{height: 150, marginLeft: -12, minWidth: 0}}>
+              <div style={{height: 160, marginLeft: -12, minWidth: 0}}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={benchMarkData} layout="vertical" margin={{top: 0, right: 36, left: 0, bottom: 0}}>
+                  <BarChart data={benchMarkData} layout="vertical" margin={{top: 0, right: 40, left: 0, bottom: 0}}>
+                    <defs>
+                      {benchMarkData.map((entry, i) => (
+                        <linearGradient key={`bgrad-${i}`} id={`barGrad-${i}`} x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor={entry.fill} stopOpacity={0.7} />
+                          <stop offset="100%" stopColor={entry.fill} stopOpacity={1} />
+                        </linearGradient>
+                      ))}
+                    </defs>
                     <XAxis type="number" tick={{fill: '#546178', fontSize: 9}} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 500}} width={90} />
-                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.03)'}} formatter={(val) => `${val}% CAGR`} contentStyle={{background: 'rgba(8, 13, 28, 0.95)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 10, backdropFilter: 'blur(20px)', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)', fontSize: '0.75rem'}} itemStyle={{color: '#f8fafc'}}/>
-                    <Bar dataKey="value" barSize={8} radius={[0,4,4,0]} label={{ position: 'right', fill: '#94a3b8', fontSize: 10, fontWeight: 600, formatter: (v) => `${v}%` }}>
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 600}} width={90} />
+                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.03)'}} formatter={(val) => `${val}% CAGR`} contentStyle={{background: 'rgba(8, 13, 28, 0.96)', border: '1px solid rgba(56, 189, 248, 0.15)', borderRadius: 12, backdropFilter: 'blur(24px)', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)', fontSize: '0.78rem'}} itemStyle={{color: '#f8fafc'}}/>
+                    <Bar dataKey="value" barSize={10} radius={[0,6,6,0]} label={{ position: 'right', fill: '#94a3b8', fontSize: 11, fontWeight: 700, formatter: (v) => `${v}%` }}>
                       {benchMarkData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                        <Cell key={`cell-${index}`} fill={`url(#barGrad-${index})`} />
                       ))}
                     </Bar>
                   </BarChart>

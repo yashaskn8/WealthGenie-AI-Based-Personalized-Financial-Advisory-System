@@ -350,7 +350,7 @@ function getTaxShieldContext(profile, recommendations) {
 }
 
 /* ── Score History Panel (profile-aware, dynamic dates) ───────── */
-const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
+const ScoreHistoryPanel = ({ currentScore, profile, subScores, recommendations }) => {
   const savingsRate = ((profile?.monthly_savings || 0) / (profile?.monthly_income || 1)) * 100;
   const goalCount = (profile?.investment_goals || []).length;
   const horizon = profile?.investment_horizon || 10;
@@ -362,19 +362,50 @@ const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
 
   const weakest = subScores?.reduce((min, s) => s.val < min.val ? s : min, subScores[0]);
   const pointsToExcellent = Math.max(0, 80 - currentScore);
-  const improvement = currentScore - Math.max(20, baseScore);
 
-  // Dynamic dates relative to current date
+  // Determine account age from localStorage signup timestamp
   const now = new Date();
   const fmt = (d) => d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-  const d1 = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  const d2 = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const history = [
-    { date: fmt(d1), score: Math.max(20, baseScore), label: 'Profile created', stage: 'baseline' },
-    { date: fmt(d2), score: Math.max(baseScore + 1, goalsAddedScore), label: `${goalCount} goal${goalCount !== 1 ? 's' : ''} configured`, stage: 'goals' },
-    { date: fmt(now), score: currentScore, label: 'Current', stage: 'current' },
-  ];
+  // Check how old the account is — use wg_user creation time if available
+  let accountAgeDays = 0;
+  try {
+    const userData = JSON.parse(localStorage.getItem('wg_user') || '{}');
+    if (userData.createdAt) {
+      accountAgeDays = Math.floor((now - new Date(userData.createdAt)) / (1000 * 60 * 60 * 24));
+    } else if (userData.iat) {
+      // JWT issued-at timestamp (seconds)
+      accountAgeDays = Math.floor((now / 1000 - userData.iat) / 86400);
+    }
+  } catch { /* ignore parse errors */ }
+
+  // Build history based on ACTUAL account age — not fabricated dates
+  const history = [];
+
+  if (accountAgeDays >= 7) {
+    // Account is at least a week old — show full 3-step progression
+    const d1 = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const d2 = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    history.push(
+      { date: fmt(d1), score: Math.max(20, baseScore), label: 'Profile created', stage: 'baseline' },
+      { date: fmt(d2), score: Math.max(baseScore + 1, goalsAddedScore), label: `${goalCount} goal${goalCount !== 1 ? 's' : ''} configured`, stage: 'goals' },
+      { date: fmt(now), score: currentScore, label: 'Current', stage: 'current' },
+    );
+  } else if (accountAgeDays >= 1) {
+    // Account is 1–6 days old — show 2 entries
+    const d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - accountAgeDays);
+    history.push(
+      { date: fmt(d1), score: Math.max(20, baseScore), label: 'Profile created', stage: 'baseline' },
+      { date: fmt(now), score: currentScore, label: 'Current', stage: 'current' },
+    );
+  } else {
+    // Brand new account (< 24 hours) — single entry only
+    history.push(
+      { date: fmt(now), score: currentScore, label: 'Profile created — just now', stage: 'current' },
+    );
+  }
+
+  const improvement = history.length > 1 ? currentScore - history[0].score : 0;
 
   return (
     <div className="score-history-panel glass-panel">
@@ -399,10 +430,10 @@ const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
       <div className="history-note">
         <div className="note-badge"><Sparkles size={12} /> AI Insight</div>
         <p>
-          +{improvement} points since profile creation.
-          {pointsToExcellent > 0
-            ? ` Need ${pointsToExcellent} more for "Excellent" (≥80) — focus on ${weakest?.label || 'lowest metric'} (${Math.round(weakest?.val || 0)}/100).`
-            : " You've reached Excellent status!"}
+          {history.length === 1
+            ? `Welcome! Your starting score is ${currentScore}/100.${pointsToExcellent > 0 ? ` Set investment goals and build your portfolio to improve — focus on ${weakest?.label || 'your weakest metric'} first.` : " You've reached Excellent status!"}`
+            : `+${improvement} points since profile creation.${pointsToExcellent > 0 ? ` Need ${pointsToExcellent} more for "Excellent" (≥80) — focus on ${weakest?.label || 'lowest metric'} (${Math.round(weakest?.val || 0)}/100).` : " You've reached Excellent status!"}`
+          }
         </p>
       </div>
     </div>
@@ -693,7 +724,7 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
           </motion.button>
         </div>
 
-        <ScoreHistoryPanel currentScore={score} profile={profile} subScores={subScores} />
+        <ScoreHistoryPanel currentScore={score} profile={profile} subScores={subScores} recommendations={recommendations} />
         <PeerComparisonPanel score={score} profile={profile} subScores={subScores} />
       </div>
 
