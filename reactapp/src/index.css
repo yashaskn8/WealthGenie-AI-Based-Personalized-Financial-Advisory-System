@@ -197,12 +197,14 @@ body::after {
 }
 
 /* ── Global Range Slider Overrides (Premium, centered, 16px Medium Thumb) ── */
+/* NOTE: Track background is NOT set here — each component defines its own   */
+/* fill gradient using its own CSS variable (--value, --rebal-pct, etc.)     */
 input[type="range"] {
   -webkit-appearance: none !important;
   appearance: none !important;
   width: 100% !important;
   height: 20px !important;
-  background: transparent !important;
+  background: transparent;  /* no !important — inline gradient fills must override */
   outline: none !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -211,14 +213,13 @@ input[type="range"] {
   cursor: pointer !important;
 }
 
-/* Chrome / Safari / Edge Track */
+/* Chrome / Safari / Edge Track — layout only, NO background */
 input[type="range"]::-webkit-slider-runnable-track {
-  width: 100% !important;
-  height: 4px !important;
-  background: linear-gradient(to right, var(--accent-primary, #38bdf8) var(--value, 0%), rgba(255, 255, 255, 0.08) var(--value, 0%)) !important;
-  border-radius: 2px !important;
-  border: none !important;
-  box-sizing: border-box !important;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+  box-sizing: border-box;
 }
 
 /* Chrome / Safari / Edge Thumb */
@@ -233,7 +234,7 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer !important;
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4) !important;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease !important;
-  margin-top: -6px !important; /* Center centering: (4px track - 16px thumb)/2 = -6px */
+  margin-top: -6px !important;
   box-sizing: border-box !important;
 }
 
@@ -242,14 +243,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
   box-shadow: 0 0 14px rgba(56, 189, 248, 0.7), 0 2px 8px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* Firefox Track */
+/* Firefox Track — layout only, NO background */
 input[type="range"]::-moz-range-track {
-  width: 100% !important;
-  height: 4px !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-radius: 2px !important;
-  border: none !important;
-  box-sizing: border-box !important;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  border: none;
+  box-sizing: border-box;
 }
 
 /* Firefox Thumb */
