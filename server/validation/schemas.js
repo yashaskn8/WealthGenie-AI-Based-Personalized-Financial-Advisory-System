@@ -28,16 +28,22 @@ export const loginSchema = Joi.object({
 // ── Profile Schema ─────────────────────────────────────────────────
 export const profileSchema = Joi.object({
   monthly_income: Joi.number().min(1000).max(100000000).required()
-    .messages({ 'number.min': 'Monthly income must be at least ₹1,000' }),
+    .messages({
+      'number.min': 'Monthly income must be at least ₹1,000',
+      'number.max': 'Monthly income cannot exceed ₹10,00,00,000',
+    }),
   age: Joi.number().integer().min(18).max(80).required()
     .messages({ 'number.min': 'Age must be at least 18', 'number.max': 'Age must be at most 80' }),
-  monthly_savings: Joi.number().min(0).required()
-    .messages({ 'number.min': 'Monthly savings cannot be negative' }),
+  monthly_savings: Joi.number().min(500).max(100000000).required()
+    .messages({
+      'number.min': 'Monthly savings must be at least ₹500',
+      'number.max': 'Monthly savings cannot exceed ₹10,00,00,000',
+    }),
   regime: Joi.string().valid('new', 'old').default('new'),
   investment_horizon: Joi.number().integer().min(1).max(40).default(15),
 }).custom((value, helpers) => {
   if (value.monthly_savings >= value.monthly_income) {
-    return helpers.error('any.custom', { message: 'Savings must be less than income' });
+    return helpers.error('any.custom', { message: 'Monthly savings (₹' + value.monthly_savings.toLocaleString('en-IN') + ') must be less than monthly income (₹' + value.monthly_income.toLocaleString('en-IN') + ')' });
   }
   return value;
 });
@@ -75,8 +81,11 @@ export const monteCarloSchema = Joi.object({
 // ── Goal Schema ────────────────────────────────────────────────────
 export const goalSchema = Joi.object({
   goal_name: Joi.string().trim().min(2).max(100).required(),
-  target_amount: Joi.number().min(1000).required()
-    .messages({ 'number.min': 'Target amount must be at least ₹1,000' }),
+  target_amount: Joi.number().min(1000).max(10000000000).required()
+    .messages({
+      'number.min': 'Target amount must be at least ₹1,000',
+      'number.max': 'Target amount cannot exceed ₹1,000 Crores',
+    }),
   target_date: Joi.date().iso().required()
     .custom((value, helpers) => {
       // Enforce 6-month minimum horizon for meaningful projections
@@ -90,7 +99,7 @@ export const goalSchema = Joi.object({
     .messages({
       'date.min': 'Target date must be at least 6 months from today for meaningful projections',
     }),
-  current_savings: Joi.number().min(0).default(0),
+  current_savings: Joi.number().min(0).max(10000000000).default(0),
   profileId: objectId.optional(),
 });
 

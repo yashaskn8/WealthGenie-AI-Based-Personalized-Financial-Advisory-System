@@ -158,8 +158,16 @@ export async function getLiveInstrumentParams(userPostTaxFDRate) {
 
   // Use live Nifty stats as base for equity instruments
   // Apply 20% haircut on return for conservatism
-  const equityMean = niftyStats.annualised_return * 0.8;
-  const equityVol = niftyStats.annualised_volatility;
+  const rawEquityMean = niftyStats.annualised_return * 0.8;
+  // Floor: equity return should never go below 6% for long-term projections
+  // even during short-term drawdowns, to avoid misleadingly pessimistic projections.
+  // Ceiling: cap at 25% to prevent euphoria-driven over-projection.
+  const equityMean = Math.max(0.06, Math.min(rawEquityMean, 0.25));
+  const equityVol = Math.max(0.05, niftyStats.annualised_volatility); // vol floor for numerical stability
+
+  if (rawEquityMean !== equityMean) {
+    console.warn(`[MarketData] Equity mean clamped: raw=${(rawEquityMean*100).toFixed(1)}%, used=${(equityMean*100).toFixed(1)}%`);
+  }
 
   const params = {
     ELSS:       { mean: equityMean,          stdDev: equityVol,         source: 'live' },
@@ -172,6 +180,9 @@ export async function getLiveInstrumentParams(userPostTaxFDRate) {
     PPF:        { mean: 0.071,               stdDev: 0.003,             source: 'static' },
     NPS:        { mean: equityMean * 0.85,   stdDev: equityVol * 0.7,   source: 'live' },
     Gold:       { mean: 0.09,                stdDev: 0.15,              source: 'static' },
+    SGB:        { mean: 0.105,               stdDev: 0.14,              source: 'static' },
+    Liquid_MF:  { mean: 0.065,               stdDev: 0.005,             source: 'static' },
+    Arbitrage_MF: { mean: 0.07,              stdDev: 0.02,              source: 'static' },
   };
 
   await setCache(cacheKey, params, CACHE_TTL.LIVE_PARAMS);

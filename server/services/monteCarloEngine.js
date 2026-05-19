@@ -95,6 +95,24 @@ export function runMonteCarlo({
   if (!Number.isFinite(postTaxAnnualReturn)) postTaxAnnualReturn = 0.08;
   if (!Number.isFinite(annualVolatility) || annualVolatility < 0) annualVolatility = 0.05;
 
+  // Cap simulations to prevent resource exhaustion (DoS vector)
+  simulations = Math.min(Math.max(simulations, 100), 50000);
+
+  // Warn on negative post-tax returns (possible during extreme market conditions)
+  if (postTaxAnnualReturn < 0) {
+    console.warn(
+      `[MC] Negative post-tax return: ${(postTaxAnnualReturn*100).toFixed(2)}%. `
+      + `Simulation will proceed but projections may show capital erosion.`
+    );
+  }
+
+  // Clamp volatility to sane range: 0.1% to 60%
+  // Very high volatility causes numerical instability in GBM
+  if (annualVolatility > 0.60) {
+    console.warn(`[MC] Extreme volatility ${(annualVolatility*100).toFixed(1)}% clamped to 60%.`);
+    annualVolatility = 0.60;
+  }
+
   const yearsArray = [];
   for (let y = 1; y <= years; y++) yearsArray.push(y);
 

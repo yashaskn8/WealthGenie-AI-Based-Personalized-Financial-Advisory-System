@@ -39,12 +39,20 @@ router.post('/', verifyJWT, validate(projectionSchema), asyncHandler(async (req,
   const investAmount = monthly_investment || profile.savings;
   const projYears = years || [5, 10, 15, 20];
 
+  // Guard: reject zero or negative investment amounts instead of producing misleading flat-line projections
+  if (!Number.isFinite(investAmount) || investAmount <= 0) {
+    throw createError(400,
+      `Invalid investment amount: ${investAmount} (monthly_investment: ${monthly_investment}, profile.savings: ${profile.savings})`,
+      'Monthly investment amount must be greater than zero.'
+    );
+  }
+
   // Build instrument list with post-tax rates
   const instKeys = instruments || ['FD', 'ELSS', 'Equity_MF', 'Debt_MF'];
   const instList = instKeys.map(key => {
     const nominalRate = RATE_LOOKUP[key];
     if (nominalRate === undefined) {
-      console.warn(`[Projection] Unknown instrument key: '${key}'. Using 7.0% default.`);
+      console.warn(`[Projection] Unknown instrument key: '${key}'. Using 7.0% default. Add this key to RATE_LOOKUP.`);
     }
     const safeRate = nominalRate ?? 7.0;
     const ptResult = calculatePostTaxReturnSafe(
@@ -54,6 +62,13 @@ router.post('/', verifyJWT, validate(projectionSchema), asyncHandler(async (req,
       profile.investmentHorizon || 15,
       profile.taxRegime || 'new'
     );
+
+    // Invariant check: post-tax rate should not exceed nominal rate
+    if (ptResult.effectiveYield > safeRate + 0.01) {
+      console.error(`[Projection INVARIANT] ${key}: effectiveYield ${ptResult.effectiveYield}% exceeds nominal ${safeRate}%. Clamping.`);
+      ptResult.effectiveYield = safeRate;
+    }
+
     return { name: key, type: key, postTaxRate: ptResult.effectiveYield };
   });
 

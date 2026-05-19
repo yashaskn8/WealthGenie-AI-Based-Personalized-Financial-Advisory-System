@@ -23,9 +23,10 @@ export function buildSystemPrompt(user, profile, recommendation, marketData, goa
     `${inst.name} (${inst.type}): Post-Tax Return ${inst.postTaxReturn}%`
   ).join('\n');
 
-  const totalAllocated = instruments.reduce((sum, inst) => sum + (inst.allocation || 0), 0);
-  const equityPct = instruments.filter(i => ['Equity MF', 'ELSS', 'Index Fund', 'equity'].includes(i.type)).reduce((s, i) => s + (i.allocation || 0), 0);
-  const debtPct = instruments.filter(i => ['Debt MF', 'FD', 'PPF', 'debt', 'Gold Bond'].includes(i.type)).reduce((s, i) => s + (i.allocation || 0), 0);
+  // Use risk profiler's recommended allocation (always populated) instead of
+  // inst.allocation which is never set in the recommendation flow (always 0).
+  const equityPct = profile.recommendedEquityAllocation || 50;
+  const debtPct = 100 - equityPct;
 
   // Debug: log what data the AI will see
   console.log(`[Prompt] Profile → income: ${monthlyIncome}/mo, annual: ${annualIncome}, savings: ${monthlySavings}/mo, risk: ${profile.riskCategory}, age: ${profile.age}, horizon: ${investmentHorizon}yrs`);

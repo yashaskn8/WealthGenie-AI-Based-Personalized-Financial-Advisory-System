@@ -147,12 +147,20 @@ export function generateProjections(
       rate = 0;
     }
 
-    const data = labels.map(y => Math.round(sipFV(monthlyInvestment, rate, y)));
+    // CRITICAL: postTaxRates values come from effectiveYield which is in PERCENTAGE (e.g. 6.5 for 6.5%).
+    // sipFV expects a DECIMAL rate (e.g. 0.065). Convert here.
+    const decimalRate = rate > 1 ? rate / 100 : rate;
+
+    if (decimalRate === 0) {
+      console.warn(`[Projection] Zero effective rate for ${inst.name}. Chart will show flat-line (no growth).`);
+    }
+
+    const data = labels.map(y => Math.round(sipFV(monthlyInvestment, decimalRate, y)));
 
     return {
       name: inst.name,
       type: inst.type || 'Unknown',
-      postTaxRate: parseFloat((rate * 100).toFixed(2)),
+      postTaxRate: parseFloat((decimalRate * 100).toFixed(2)),
       data,
     };
   });

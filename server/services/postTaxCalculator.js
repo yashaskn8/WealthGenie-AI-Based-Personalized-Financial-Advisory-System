@@ -166,11 +166,9 @@ export function calculatePostTaxReturn(
       }
     }
 
-    case 'Liquid_MF':
-    case 'Arbitrage_MF': {
+    case 'Liquid_MF': {
       // Debt-category taxation post Finance Act 2023.
-      // All gains taxed at marginal slab rate.
-      // No distinction for holding period.
+      // All gains taxed at marginal slab rate regardless of holding period.
       const postTax = nominalRate * (1 - marginalRate);
       return validatePostTaxResult({
         postTaxReturn: round4(postTax),
@@ -181,6 +179,36 @@ export function calculatePostTaxReturn(
              + 'T+1 redemption. No exit load after 7 days. '
              + 'Ideal for emergency fund core holding.',
       }, nominalRate, 'Liquid_MF');
+    }
+
+    case 'Arbitrage_MF': {
+      // Arbitrage funds are classified as EQUITY by SEBI (≥65% equity derivatives).
+      // Tax treatment follows equity mutual fund rules, NOT debt.
+      // STCG (<1yr): 20% flat | LTCG (≥1yr): 12.5% on gains above ₹1.25L
+      if (holdingYears < 1) {
+        const stcgRate = 0.20;
+        const postTax = nominalRate * (1 - stcgRate);
+        return validatePostTaxResult({
+          postTaxReturn: round4(postTax),
+          effectiveYield: round4(postTax * 100),
+          taxType: 'STCG (20% flat, equity-classified arbitrage)',
+          taxRate: stcgRate,
+          notes: 'Arbitrage MFs are SEBI-classified equity. '
+               + 'STCG at 20% for holdings under 1 year.',
+        }, nominalRate, 'Arbitrage_MF');
+      } else {
+        const ltcgRate = 0.125;
+        const postTax = nominalRate * (1 - ltcgRate);
+        return validatePostTaxResult({
+          postTaxReturn: round4(postTax),
+          effectiveYield: round4(postTax * 100),
+          taxType: 'LTCG (12.5%, equity-classified arbitrage)',
+          taxRate: ltcgRate,
+          notes: 'Arbitrage MFs are SEBI-classified equity (≥65% equity derivatives). '
+               + 'LTCG at 12.5% on gains above ₹1.25L/year. '
+               + 'Lower effective tax than debt MFs for most investors.',
+        }, nominalRate, 'Arbitrage_MF');
+      }
     }
 
     case 'Debt_MF': {

@@ -26,6 +26,7 @@ const INSTRUMENT_META = {
   SGB:       { name: 'Sovereign Gold Bond',   type: 'SGB',       nominalRate: 10.5,  riskLevel: 'Low-Medium', lockIn: 8, tags: ['Gold', 'Tax Exempt'] },
   'G-Sec':   { name: 'Government Security',   type: 'G-Sec',     nominalRate: 7.2,   riskLevel: 'Very Low',   lockIn: 0, tags: ['Sovereign', 'Gilt'] },
   Liquid_MF: { name: 'Liquid Mutual Fund',    type: 'Liquid_MF', nominalRate: 7.0,   riskLevel: 'Low',        lockIn: 0, tags: ['Emergency Fund', 'T+1'] },
+  Arbitrage_MF: { name: 'Arbitrage Mutual Fund', type: 'Arbitrage_MF', nominalRate: 7.5, riskLevel: 'Low', lockIn: 0, tags: ['Low Volatility', 'Equity Taxed'] },
 };
 
 const INSTRUMENT_KEY_MAP = {
