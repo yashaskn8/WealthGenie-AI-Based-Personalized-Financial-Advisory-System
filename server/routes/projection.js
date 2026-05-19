@@ -6,15 +6,11 @@ import FinancialProfile from '../models/FinancialProfile.js';
 import { generateProjections } from '../services/projectionEngine.js';
 import { calculatePostTaxReturnSafe } from '../services/postTaxCalculator.js';
 import { computeXIRR, computeSIPXIRR } from '../services/xirrCalculator.js';
+import { buildRateLookup } from '../services/instrumentConstants.js';
 
 const router = Router();
 
-const RATE_LOOKUP = {
-  FD: 7.25, ELSS: 13.5, Equity_MF: 12.5, ETF: 12.5,
-  Debt_MF: 7.5, RBI_Bond: 8.05, 'G-Sec': 7.2,
-  PPF: 7.1, NPS: 10, Gold: 9, SGB: 10.5,
-  Liquid_MF: 7.0, Arbitrage_MF: 7.5,
-};
+const RATE_LOOKUP = buildRateLookup();
 
 /**
  * POST /api/projection [Protected]

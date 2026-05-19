@@ -10,24 +10,22 @@ import { getTaxSlab } from '../services/taxEngine.js';
 import { generateAdvisory } from '../services/geminiService.js';
 import crypto from 'crypto';
 import { getCache, setCache } from '../config/redis.js';
+import { INSTRUMENT_PARAMS, RISK_FREE_RATE, DISCLAIMER } from '../services/instrumentConstants.js';
 
 const router = Router();
 
-const INSTRUMENT_META = {
-  ELSS:      { name: 'ELSS Mutual Fund',    type: 'ELSS',      nominalRate: 13.5,  riskLevel: 'High',       lockIn: 3, tags: ['Tax Saving', '80C'] },
-  Equity_MF: { name: 'Equity Mutual Fund',   type: 'Equity_MF', nominalRate: 12.5,  riskLevel: 'High',       lockIn: 0, tags: ['Wealth Growth'] },
-  ETF:       { name: 'Nifty 50 ETF',         type: 'ETF',       nominalRate: 12.5,  riskLevel: 'Medium',     lockIn: 0, tags: ['Passive', 'Low Cost'] },
-  FD:        { name: 'Bank Fixed Deposit',    type: 'FD',        nominalRate: 7.25,  riskLevel: 'Low',        lockIn: 0, tags: ['Guaranteed', 'DICGC Insured'] },
-  RBI_Bond:  { name: 'RBI Savings Bond',      type: 'RBI_Bond',  nominalRate: 8.05,  riskLevel: 'Very Low',   lockIn: 7, tags: ['Sovereign'] },
-  Debt_MF:   { name: 'Debt Mutual Fund',      type: 'Debt_MF',   nominalRate: 7.5,   riskLevel: 'Low-Medium', lockIn: 0, tags: ['Liquid'] },
-  PPF:       { name: 'Public Provident Fund', type: 'PPF',       nominalRate: 7.1,   riskLevel: 'Very Low',   lockIn: 15, tags: ['EEE', 'Tax Free', '80C'] },
-  NPS:       { name: 'National Pension System',type: 'NPS',      nominalRate: 10.0,  riskLevel: 'Medium',     lockIn: 60, tags: ['Retirement', '80CCD'] },
-  Gold:      { name: 'Gold ETF',              type: 'Gold',      nominalRate: 9.0,   riskLevel: 'Medium',     lockIn: 0, tags: ['Hedge', 'Inflation'] },
-  SGB:       { name: 'Sovereign Gold Bond',   type: 'SGB',       nominalRate: 10.5,  riskLevel: 'Low-Medium', lockIn: 8, tags: ['Gold', 'Tax Exempt'] },
-  'G-Sec':   { name: 'Government Security',   type: 'G-Sec',     nominalRate: 7.2,   riskLevel: 'Very Low',   lockIn: 0, tags: ['Sovereign', 'Gilt'] },
-  Liquid_MF: { name: 'Liquid Mutual Fund',    type: 'Liquid_MF', nominalRate: 7.0,   riskLevel: 'Low',        lockIn: 0, tags: ['Emergency Fund', 'T+1'] },
-  Arbitrage_MF: { name: 'Arbitrage Mutual Fund', type: 'Arbitrage_MF', nominalRate: 7.5, riskLevel: 'Low', lockIn: 0, tags: ['Low Volatility', 'Equity Taxed'] },
-};
+// Build INSTRUMENT_META from centralized constants for backward compatibility
+const INSTRUMENT_META = {};
+for (const [key, params] of Object.entries(INSTRUMENT_PARAMS)) {
+  INSTRUMENT_META[key] = {
+    name: params.name,
+    type: key,
+    nominalRate: params.nominalRate,
+    riskLevel: params.riskLevel,
+    lockIn: params.lockIn,
+    tags: params.tags,
+  };
+}
 
 const INSTRUMENT_KEY_MAP = {
   'Public_Provident_Fund': 'PPF',
@@ -51,7 +49,7 @@ function normaliseConfidenceScores(rawScores) {
   return normalised;
 }
 
-const DISCLAIMER = 'WealthGenie provides AI-generated investment analysis for educational and informational purposes only. It does not constitute registered investment advice under SEBI (Investment Advisers) Regulations, 2013. Past returns are not indicative of future performance. Please consult a SEBI-registered investment adviser before making investment decisions. Mutual fund investments are subject to market risks.';
+// DISCLAIMER and RISK_FREE_RATE imported from instrumentConstants.js
 
 /**
  * POST /api/recommend [Protected]
@@ -107,7 +105,7 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
 
   // Calculate post-tax returns for each recommended instrument
   // Also compute portfolio-level analytics (Sharpe ratio, allocation weights)
-  const RISK_FREE_RATE = 0.065; // FD benchmark — the risk-free alternative
+  // RISK_FREE_RATE imported from instrumentConstants.js
 
   const instruments = picks.map((key, idx) => {
     const meta = INSTRUMENT_META[key];
@@ -124,14 +122,8 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
     );
 
     // Sharpe ratio = (return - risk_free_rate) / volatility
-    // Uses static volatility estimates for each instrument type
-    const VOLATILITY_MAP = {
-      ELSS: 0.18, Equity_MF: 0.18, ETF: 0.16, FD: 0.005,
-      RBI_Bond: 0.002, Debt_MF: 0.03, PPF: 0.003, NPS: 0.12,
-      Gold: 0.15, SGB: 0.14, 'G-Sec': 0.01, Liquid_MF: 0.005,
-      Arbitrage_MF: 0.02,
-    };
-    const vol = VOLATILITY_MAP[safeMeta.type] || 0.10;
+    // Volatility from centralized instrumentConstants.js
+    const vol = INSTRUMENT_PARAMS[safeMeta.type]?.volatility || 0.10;
     const postTaxDecimal = (postTax.effectiveYield || 0) / 100;
     const sharpeRatio = vol > 0.001
       ? parseFloat(((postTaxDecimal - RISK_FREE_RATE) / vol).toFixed(2))
@@ -152,12 +144,20 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
     };
   });
 
-  // Normalise allocation weights to sum to exactly 1.0
+  // Normalise allocation weights to sum to EXACTLY 1.0
+  // Individual rounding can cause 0.33+0.33+0.33=0.99 — fix by adjusting largest weight
   const totalWeight = instruments.reduce((s, i) => s + i.allocationWeight, 0);
   if (totalWeight > 0) {
     instruments.forEach(i => {
-      i.allocationWeight = parseFloat((i.allocationWeight / totalWeight).toFixed(2));
+      i.allocationWeight = parseFloat((i.allocationWeight / totalWeight).toFixed(4));
     });
+    // Absorb rounding residual into the largest-weight instrument
+    const roundedSum = instruments.reduce((s, i) => s + i.allocationWeight, 0);
+    const residual = parseFloat((1.0 - roundedSum).toFixed(4));
+    if (residual !== 0 && instruments.length > 0) {
+      const maxIdx = instruments.reduce((mi, w, i, arr) => w.allocationWeight > arr[mi].allocationWeight ? i : mi, 0);
+      instruments[maxIdx].allocationWeight = parseFloat((instruments[maxIdx].allocationWeight + residual).toFixed(4));
+    }
   }
 
   // Portfolio-level expected yield (weighted average of post-tax returns)

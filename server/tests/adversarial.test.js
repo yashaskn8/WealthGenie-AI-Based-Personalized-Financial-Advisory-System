@@ -8,10 +8,14 @@ import { computeTax, compareTaxRegimes, getTaxSlab }
   from '../services/taxEngine.js';
 import { calculatePostTaxReturn, calculatePostTaxReturnSafe, validatePostTaxResult }
   from '../services/postTaxCalculator.js';
-import { runMonteCarlo, computeGoalProbability, reverseSIP }
+import { runMonteCarlo, computeGoalProbability, reverseSIP, getInstrumentVolatility }
   from '../services/monteCarloEngine.js';
 import { getRiskProfile, encodeRiskCategory }
   from '../services/riskProfiler.js';
+import { INSTRUMENT_PARAMS, CESS_RATE, RISK_FREE_RATE, buildRateLookup, getNominalRate, getVolatility, DISCLAIMER }
+  from '../services/instrumentConstants.js';
+import { sipFV, lumpSumFV, computeCAGR, realReturn }
+  from '../services/projectionEngine.js';
 
 // ═══════════════════════════════════════════════════════════
 // 1. TAX ENGINE — ADVERSARIAL INPUTS
@@ -555,5 +559,169 @@ describe('Post-Tax — Gold STCG uses Slab Rate (not 20%)', () => {
   test('Gold ETF long-term: still LTCG at 12.5%', () => {
     const result = calculatePostTaxReturn('Gold', 0.09, 1500000, 3, 'new');
     expect(result.taxRate).toBe(0.125);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// 10. CENTRALIZED CONSTANTS — RATE CONSISTENCY (NO DRIFT)
+// ═══════════════════════════════════════════════════════════
+describe('Centralized Constants — Rate Consistency', () => {
+  test('INSTRUMENT_PARAMS has all 13 instruments', () => {
+    const expected = [
+      'FD', 'ELSS', 'Equity_MF', 'ETF', 'Debt_MF', 'RBI_Bond',
+      'G-Sec', 'PPF', 'NPS', 'Gold', 'SGB', 'Liquid_MF', 'Arbitrage_MF',
+    ];
+    for (const key of expected) {
+      expect(INSTRUMENT_PARAMS[key]).toBeDefined();
+      expect(INSTRUMENT_PARAMS[key].nominalRate).toBeGreaterThan(0);
+      expect(INSTRUMENT_PARAMS[key].volatility).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  test('buildRateLookup() produces same rates as INSTRUMENT_PARAMS', () => {
+    const lookup = buildRateLookup();
+    for (const [key, params] of Object.entries(INSTRUMENT_PARAMS)) {
+      expect(lookup[key]).toBe(params.nominalRate);
+    }
+  });
+
+  test('getNominalRate returns correct rates and defaults for unknowns', () => {
+    expect(getNominalRate('FD')).toBe(7.25);
+    expect(getNominalRate('ELSS')).toBe(13.5);
+    expect(getNominalRate('NONEXISTENT')).toBe(7.0); // safe default
+  });
+
+  test('getVolatility returns correct volatility and defaults for unknowns', () => {
+    expect(getVolatility('FD')).toBe(0.005);
+    expect(getVolatility('Equity_MF')).toBe(0.18);
+    expect(getVolatility('NONEXISTENT')).toBe(0.10); // safe default
+  });
+
+  test('MC getInstrumentVolatility reads from centralized constants', () => {
+    // After centralization, MC params should derive from INSTRUMENT_PARAMS
+    const elss = getInstrumentVolatility('ELSS');
+    expect(elss.mean).toBeCloseTo(INSTRUMENT_PARAMS.ELSS.nominalRate / 100, 4);
+    expect(elss.stdDev).toBe(INSTRUMENT_PARAMS.ELSS.volatility);
+  });
+
+  test('CESS_RATE is exactly 0.04 (4%)', () => {
+    expect(CESS_RATE).toBe(0.04);
+  });
+
+  test('RISK_FREE_RATE is exactly 0.065 (6.5%)', () => {
+    expect(RISK_FREE_RATE).toBe(0.065);
+  });
+
+  test('DISCLAIMER is a non-empty string containing SEBI', () => {
+    expect(typeof DISCLAIMER).toBe('string');
+    expect(DISCLAIMER.length).toBeGreaterThan(50);
+    expect(DISCLAIMER).toContain('SEBI');
+  });
+
+  test('all nominalRates are in valid range (1% - 30%)', () => {
+    for (const [key, params] of Object.entries(INSTRUMENT_PARAMS)) {
+      expect(params.nominalRate).toBeGreaterThanOrEqual(1);
+      expect(params.nominalRate).toBeLessThanOrEqual(30);
+    }
+  });
+
+  test('all volatilities are in valid range (0 - 0.50)', () => {
+    for (const [key, params] of Object.entries(INSTRUMENT_PARAMS)) {
+      expect(params.volatility).toBeGreaterThanOrEqual(0);
+      expect(params.volatility).toBeLessThanOrEqual(0.50);
+    }
+  });
+
+  test('equity instruments have higher volatility than debt instruments', () => {
+    expect(getVolatility('Equity_MF')).toBeGreaterThan(getVolatility('Debt_MF'));
+    expect(getVolatility('ELSS')).toBeGreaterThan(getVolatility('FD'));
+    expect(getVolatility('ETF')).toBeGreaterThan(getVolatility('Liquid_MF'));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// 11. PROJECTION ENGINE — MATHEMATICAL INVARIANTS
+// ═══════════════════════════════════════════════════════════
+describe('Projection Engine — Mathematical Invariants', () => {
+  test('sipFV with zero rate = simple sum of payments', () => {
+    const monthly = 10000;
+    const years = 5;
+    const result = sipFV(monthly, 0, years);
+    expect(result).toBeCloseTo(monthly * years * 12, 0);
+  });
+
+  test('sipFV is monotonically increasing with rate', () => {
+    const monthly = 10000;
+    const years = 10;
+    const fv5 = sipFV(monthly, 0.05, years);
+    const fv10 = sipFV(monthly, 0.10, years);
+    const fv15 = sipFV(monthly, 0.15, years);
+    expect(fv10).toBeGreaterThan(fv5);
+    expect(fv15).toBeGreaterThan(fv10);
+  });
+
+  test('lumpSumFV doubles at ~72/rate rule', () => {
+    // Rule of 72: money doubles in ~72/rate years
+    const result = lumpSumFV(100000, 0.10, 7.2);
+    expect(result).toBeGreaterThan(190000);
+    expect(result).toBeLessThan(210000);
+  });
+
+  test('lumpSumFV with negative rate → capital erosion', () => {
+    const result = lumpSumFV(100000, -0.10, 5);
+    expect(result).toBeLessThan(100000);
+    expect(result).toBeGreaterThan(0);
+  });
+
+  test('lumpSumFV rejects invalid inputs gracefully', () => {
+    expect(lumpSumFV(0, 0.10, 5)).toBe(0);
+    expect(lumpSumFV(-1000, 0.10, 5)).toBe(0);
+    expect(lumpSumFV(1000, NaN, 5)).toBe(0);
+    expect(lumpSumFV(1000, 0.10, 0)).toBe(0);
+  });
+
+  test('sipFV rejects invalid inputs gracefully', () => {
+    expect(sipFV(0, 0.10, 5)).toBe(0);
+    expect(sipFV(-1000, 0.10, 5)).toBe(0);
+    expect(sipFV(1000, NaN, 5)).toBe(0);
+    expect(sipFV(1000, 0.10, 0)).toBe(0);
+  });
+
+  test('computeCAGR is inverse of lumpSumFV', () => {
+    const pv = 100000;
+    const rate = 0.12;
+    const years = 10;
+    const fv = lumpSumFV(pv, rate, years);
+    const cagr = computeCAGR(pv, fv, years);
+    expect(cagr).toBeCloseTo(rate, 6);
+  });
+
+  test('realReturn: Fisher equation identity', () => {
+    // (1+real)(1+inflation) = (1+nominal)
+    const nominal = 0.12;
+    const inflation = 0.06;
+    const real = realReturn(nominal, inflation);
+    expect((1 + real) * (1 + inflation)).toBeCloseTo(1 + nominal, 10);
+  });
+
+  test('realReturn with zero inflation = nominal', () => {
+    expect(realReturn(0.10, 0)).toBeCloseTo(0.10, 10);
+  });
+
+  test('realReturn with inflation > nominal → negative real return', () => {
+    const result = realReturn(0.05, 0.07);
+    expect(result).toBeLessThan(0);
+  });
+
+  test('reverseSIP is inverse of sipFV', () => {
+    const monthly = 10000;
+    const rate = 0.10;
+    const years = 10;
+    const target = sipFV(monthly, rate, years);
+    // reverseSIP from projectionEngine, not monteCarloEngine (they differ slightly)
+    // The MC reverseSIP uses annuity-due; projectionEngine sipFV also uses annuity-due
+    // So they should be consistent within rounding
+    const computedSIP = reverseSIP(target, rate, years, 0);
+    expect(computedSIP).toBeCloseTo(monthly, -1); // within ₹10
   });
 });

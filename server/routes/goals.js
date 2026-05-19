@@ -97,8 +97,23 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
     );
   }
 
+  // Duplicate goal name check — prevent data confusion
+  const existingGoal = await Goal.findOne({
+    userId: req.user.userId,
+    goal_name: { $regex: new RegExp(`^${goal_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+  }).lean();
+  if (existingGoal) {
+    throw createError(409,
+      `Duplicate goal name: "${goal_name}" for user ${req.user.userId}`,
+      `A goal named "${goal_name}" already exists. Use a different name.`
+    );
+  }
+
   const msRemaining = targetDateObj - now;
-  const yearsRemaining = Math.max(1, Math.round(msRemaining / (365.25 * 24 * 60 * 60 * 1000)));
+  // Use FRACTIONAL years for MC/SIP precision (not Math.round which has ±6 month error).
+  // Floor to 0.5 resolution: 7 months → 0.5, 18 months → 1.5, 30 months → 2.5
+  const rawYears = msRemaining / (365.25 * 24 * 60 * 60 * 1000);
+  const yearsRemaining = Math.max(0.5, Math.floor(rawYears * 2) / 2);
 
   // Guard: if yearsRemaining is somehow NaN (invalid date), reject
   if (!Number.isFinite(yearsRemaining)) {

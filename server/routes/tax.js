@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { asyncHandler, createError } from '../middleware/errorHandler.js';
 import { validateQuery, taxComputeSchema, taxCompareSchema } from '../validation/schemas.js';
 import { computeTax, compareTaxRegimes } from '../services/taxEngine.js';
+import { CESS_RATE } from '../services/instrumentConstants.js';
 
-const CESS_RATE = 0.04; // 4% Health & Education Cess (must match taxEngine.js)
 const router = Router();
 
 /**

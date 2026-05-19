@@ -1,3 +1,5 @@
+import { CESS_RATE } from './instrumentConstants.js';
+
 /**
  * WealthGenie Tax Engine — FY2025-26 Indian Income Tax Calculator
  * Supports both New Tax Regime (default) and Old Tax Regime.
@@ -23,7 +25,7 @@ const OLD_REGIME_SLABS = [
   { min: 1000000,  max: Infinity, rate: 0.30 },
 ];
 
-const CESS_RATE = 0.04; // 4% Health & Education Cess
+// CESS_RATE imported from instrumentConstants.js (single source of truth)
 
 /**
  * Calculate tax from slab structure.

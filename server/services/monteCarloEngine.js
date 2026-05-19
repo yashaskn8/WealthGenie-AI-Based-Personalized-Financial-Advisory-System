@@ -14,22 +14,16 @@
  *   terminal wealth E[S(T)] = S(0) × exp(μT).
  */
 
+import { INSTRUMENT_PARAMS as CENTRAL_PARAMS } from './instrumentConstants.js';
+
 // ─── INSTRUMENT VOLATILITY CONSTANTS ─────────────────────────────────
-const INSTRUMENT_PARAMS = {
-  ELSS:         { mean: 0.12,   stdDev: 0.18  },
-  Equity_MF:    { mean: 0.12,   stdDev: 0.18  },
-  ETF:          { mean: 0.11,   stdDev: 0.16  },
-  Debt_MF:      { mean: 0.07,   stdDev: 0.03  },
-  FD:           { mean: 0.065,  stdDev: 0.005 },
-  RBI_Bond:     { mean: 0.08,   stdDev: 0.002 },
-  'G-Sec':      { mean: 0.075,  stdDev: 0.01  },
-  PPF:          { mean: 0.071,  stdDev: 0.003 },
-  NPS:          { mean: 0.10,   stdDev: 0.12  },
-  Gold:         { mean: 0.09,   stdDev: 0.15  },
-  SGB:          { mean: 0.105,  stdDev: 0.14  },  // Gold price + 2.5% coupon
-  Liquid_MF:    { mean: 0.065,  stdDev: 0.005 },  // Near-zero volatility
-  Arbitrage_MF: { mean: 0.07,   stdDev: 0.02  },  // Low vol arbitrage strategy
-};
+// Build MC-compatible {mean, stdDev} map from centralized constants.
+// mean = nominalRate / 100 (convert percentage to decimal)
+// stdDev = volatility (already decimal)
+const INSTRUMENT_PARAMS = {};
+for (const [key, p] of Object.entries(CENTRAL_PARAMS)) {
+  INSTRUMENT_PARAMS[key] = { mean: p.nominalRate / 100, stdDev: p.volatility };
+}
 
 /**
  * Halton low-discrepancy sequence generator.
