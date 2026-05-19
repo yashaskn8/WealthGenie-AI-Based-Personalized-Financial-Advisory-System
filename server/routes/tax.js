@@ -3,6 +3,7 @@ import { asyncHandler, createError } from '../middleware/errorHandler.js';
 import { validateQuery, taxComputeSchema, taxCompareSchema } from '../validation/schemas.js';
 import { computeTax, compareTaxRegimes } from '../services/taxEngine.js';
 
+const CESS_RATE = 0.04; // 4% Health & Education Cess (must match taxEngine.js)
 const router = Router();
 
 /**
@@ -34,6 +35,7 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
   }
 
   const { newRegime, oldRegime, recommended } = compareTaxRegimes(income);
+  const saving = Math.abs(newRegime.taxAmount - oldRegime.taxAmount);
 
   res.json({
     income,
@@ -43,6 +45,9 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
       rebate_applied: newRegime.rebateApplied,
       taxable_income: newRegime.taxableIncome,
       standard_deduction: newRegime.standardDeduction,
+      marginal_relief_applied: newRegime.marginalReliefApplied || false,
+      marginal_relief_amount: newRegime.marginalReliefAmount || 0,
+      cess: Math.round(newRegime.taxAmount * CESS_RATE / (1 + CESS_RATE)),
     },
     old_regime: {
       tax: oldRegime.taxAmount,
@@ -50,9 +55,13 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
       rebate_applied: oldRegime.rebateApplied,
       taxable_income: oldRegime.taxableIncome,
       standard_deduction: oldRegime.standardDeduction,
+      marginal_relief_applied: oldRegime.marginalReliefApplied || false,
+      marginal_relief_amount: oldRegime.marginalReliefAmount || 0,
+      cess: Math.round(oldRegime.taxAmount * CESS_RATE / (1 + CESS_RATE)),
     },
     recommended_regime: recommended,
-    saving: Math.abs(newRegime.taxAmount - oldRegime.taxAmount),
+    saving,
+    saving_pct: income > 0 ? parseFloat(((saving / income) * 100).toFixed(2)) : 0,
     saving_with: recommended,
   });
 }));

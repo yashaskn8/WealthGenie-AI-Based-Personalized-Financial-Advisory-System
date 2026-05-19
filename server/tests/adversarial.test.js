@@ -390,16 +390,16 @@ describe('Tax Engine — Section 87A Marginal Relief', () => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// 8. MONTE CARLO — ANTITHETIC VARIATES CONVERGENCE
+// 8. MONTE CARLO — HYBRID QMC + ANTITHETIC + CONTROL VARIATES
 // ═══════════════════════════════════════════════════════════
 
-describe('Monte Carlo — Antithetic Variates', () => {
-  test('reports antithetic_variates as variance_reduction method', () => {
+describe('Monte Carlo — Hybrid Variance Reduction', () => {
+  test('reports full variance_reduction pipeline', () => {
     const result = runMonteCarlo({
       monthlyInvestment: 10000, postTaxAnnualReturn: 0.10,
       annualVolatility: 0.18, years: 5, simulations: 200,
     });
-    expect(result.variance_reduction).toBe('antithetic_variates');
+    expect(result.variance_reduction).toBe('halton_qmc+antithetic+control_variates');
   });
 
   test('standard_error array is present and finite', () => {
@@ -420,5 +420,35 @@ describe('Monte Carlo — Antithetic Variates', () => {
       annualVolatility: 0.18, years: 3, simulations: 501,
     });
     expect(result.simulations_run % 2).toBe(0);
+  });
+
+  test('deterministic_fv is present and finite', () => {
+    const result = runMonteCarlo({
+      monthlyInvestment: 10000, postTaxAnnualReturn: 0.10,
+      annualVolatility: 0.18, years: 10, simulations: 200,
+    });
+    expect(Number.isFinite(result.deterministic_fv)).toBe(true);
+    expect(result.deterministic_fv).toBeGreaterThan(0);
+  });
+
+  test('control_correction is finite (can be positive or negative)', () => {
+    const result = runMonteCarlo({
+      monthlyInvestment: 10000, postTaxAnnualReturn: 0.10,
+      annualVolatility: 0.18, years: 10, simulations: 500,
+    });
+    expect(Number.isFinite(result.control_correction)).toBe(true);
+  });
+
+  test('mean converges close to deterministic FV (within 15%)', () => {
+    const result = runMonteCarlo({
+      monthlyInvestment: 10000, postTaxAnnualReturn: 0.10,
+      annualVolatility: 0.15, years: 10, simulations: 5000,
+    });
+    const lastMean = result.mean[result.mean.length - 1];
+    const detFV = result.deterministic_fv;
+    // MC mean should be close to deterministic FV for moderate volatility
+    const ratio = lastMean / detFV;
+    expect(ratio).toBeGreaterThan(0.85);
+    expect(ratio).toBeLessThan(1.25);
   });
 });

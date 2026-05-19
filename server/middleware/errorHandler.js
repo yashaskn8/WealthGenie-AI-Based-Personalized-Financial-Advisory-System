@@ -4,6 +4,8 @@
  * Never exposes internal error messages or stack traces to clients.
  */
 
+import crypto from 'crypto';
+
 const ERROR_CATEGORIES = {
   VALIDATION: 'VALIDATION_ERROR',
   AUTH: 'AUTH_ERROR',
@@ -49,9 +51,29 @@ const CLIENT_MESSAGES = {
   [ERROR_CATEGORIES.UNKNOWN]: 'An unexpected error occurred.',
 };
 
+/**
+ * Generate a request fingerprint for audit trails.
+ * Hashes IP + User-Agent to create a pseudonymous identifier
+ * for correlating suspicious activity without storing PII.
+ */
+function getRequestFingerprint(req) {
+  const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+  const ua = req.headers['user-agent'] || 'unknown';
+  try {
+    return crypto.createHash('sha256').update(`${ip}:${ua}`).digest('hex').substring(0, 12);
+  } catch {
+    return 'no-fingerprint';
+  }
+}
+
 export function errorHandler(err, req, res, _next) {
   const category = categoriseError(err);
   const status = err.status || err.statusCode || 500;
+
+  // Response time tracking (if start time was recorded)
+  const responseTimeMs = req._startTime
+    ? Date.now() - req._startTime
+    : null;
 
   // Structured JSON log — easy to grep in production
   const logEntry = {
@@ -62,8 +84,17 @@ export function errorHandler(err, req, res, _next) {
     path: req.originalUrl || req.path,
     userId: req.user?.userId || 'anonymous',
     requestId: req.headers['x-request-id'] || null,
+    responseTimeMs,
     message: err.message,
   };
+
+  // Security-specific logging for auth failures
+  if (category === ERROR_CATEGORIES.AUTH || status === 401 || status === 403) {
+    logEntry.securityEvent = true;
+    logEntry.ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    logEntry.userAgent = (req.headers['user-agent'] || 'unknown').substring(0, 100);
+    console.warn(`[SECURITY] Auth failure: ${req.method} ${req.originalUrl} from ${logEntry.ip}`);
+  }
 
   // Only include stack traces in development
   if (process.env.NODE_ENV === 'development') {

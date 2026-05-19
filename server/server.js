@@ -50,6 +50,15 @@ app.use((req, res, next) => {
   req.headers['x-request-id'] =
     req.headers['x-request-id'] || crypto.randomUUID();
   res.setHeader('X-Request-ID', req.headers['x-request-id']);
+  // Response time tracking for performance monitoring
+  req._startTime = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - req._startTime;
+    // Log slow requests (>3s) for investigation
+    if (duration > 3000) {
+      console.warn(`[PERF] Slow request: ${req.method} ${req.originalUrl} took ${duration}ms`);
+    }
+  });
   next();
 });
 
@@ -85,14 +94,32 @@ app.use('/api/market', marketRoutes);
 app.use('/api/tax', taxRoutes);
 app.use('/api/chat', chatRoutes);
 
-// ── Health Check ─────────────────────────────────────────────────
+// ── Health Check ─────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
+  const memUsage = process.memoryUsage();
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    service: 'WealthGenie API v2.2',
+    service: 'WealthGenie API v3.0',
     uptime_seconds: Math.round(process.uptime()),
-    features: ['SHAP', 'MonteCarlo', 'GoalPlanner', 'LiveMarketData', 'TaxCompare', 'PostTaxCalc', 'RateLimiting', 'GenieChat'],
+    node_version: process.version,
+    memory: {
+      rss_mb: Math.round(memUsage.rss / 1048576),
+      heap_used_mb: Math.round(memUsage.heapUsed / 1048576),
+      heap_total_mb: Math.round(memUsage.heapTotal / 1048576),
+    },
+    engines: {
+      tax: 'FY2025-26 (Section 87A marginal relief + surcharge marginal relief)',
+      monte_carlo: 'Halton QMC + Antithetic Variates + Control Variates',
+      risk_profiler: '3-Factor Model (Age + Income + Horizon)',
+      projections: 'Real + Nominal (Fisher Equation inflation adjustment)',
+      post_tax: 'FY2025-26 LTCG/STCG/EEE compliance',
+    },
+    features: [
+      'SHAP', 'MonteCarlo-QMC', 'GoalPlanner', 'LiveMarketData',
+      'TaxCompare', 'PostTaxCalc', 'RateLimiting', 'GenieChat',
+      'SharpeRatio', 'PortfolioAllocation', 'VarianceReduction',
+    ],
   });
 });
 
@@ -129,7 +156,7 @@ const start = async () => {
   // Start market data cron jobs (non-blocking)
   startMarketDataRefreshJobs();
 
-  server = app.listen(PORT, () => console.log(`WealthGenie API v2.2 running on port ${PORT}`));
+  server = app.listen(PORT, () => console.log(`WealthGenie API v3.0 running on port ${PORT}`));
 };
 
 // ── Graceful Shutdown ────────────────────────────────────────────
