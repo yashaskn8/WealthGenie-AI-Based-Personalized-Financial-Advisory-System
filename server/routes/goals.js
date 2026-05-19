@@ -113,15 +113,30 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
   // Get volatility params for the recommended instrument
   const vol = getInstrumentVolatility(recommendedInstrument);
 
-  // Compute required monthly SIP using reverse formula
-  const rawSIP = reverseSIP(target_amount, vol.mean, yearsRemaining, current_savings || 0);
+  // Compute post-tax adjusted rate if profile is available
+  let postTaxRate = vol.mean;
+  if (profile) {
+    try {
+      const { calculatePostTaxReturn } = await import('../services/postTaxCalculator.js');
+      const ptResult = calculatePostTaxReturn(
+        recommendedInstrument, vol.mean,
+        profile.annualIncome || (profile.income * 12),
+        yearsRemaining, profile.taxRegime || 'new'
+      );
+      postTaxRate = ptResult.postTaxReturn;
+    } catch (_) {
+      // Fallback to pre-tax if post-tax calc fails
+    }
+  }
+
+  // Compute required monthly SIP using reverse formula with POST-TAX rate
+  const rawSIP = reverseSIP(target_amount, postTaxRate, yearsRemaining, current_savings || 0);
   const requiredSIP = Math.max(500, Math.round(Number.isFinite(rawSIP) ? rawSIP : 5000));
 
-
-  // Run Monte Carlo with the required SIP
+  // Run Monte Carlo with the required SIP and POST-TAX rate
   const mcResult = runMonteCarloWithGoal({
     monthlyInvestment: requiredSIP,
-    postTaxAnnualReturn: vol.mean,
+    postTaxAnnualReturn: postTaxRate,
     annualVolatility: vol.stdDev,
     years: yearsRemaining,
     simulations: 5000,
@@ -129,7 +144,6 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
   });
 
   // ── Self-check invariants on Monte Carlo output ──
-  // These catch engine bugs before they reach the database.
   if (mcResult.goal_probability !== null) {
     if (!Number.isFinite(mcResult.goal_probability) || mcResult.goal_probability < 0 || mcResult.goal_probability > 1) {
       console.error(`[Goals INVARIANT] goal_probability out of bounds: ${mcResult.goal_probability}. Clamping.`);
@@ -138,20 +152,25 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
   }
   const lastIdx = mcResult.p50.length - 1;
   if (lastIdx >= 0 && mcResult.p10[lastIdx] > mcResult.p90[lastIdx]) {
-    console.error('[Goals INVARIANT] p10 > p90 — Monte Carlo band inversion detected. This should never happen.');
+    console.error('[Goals INVARIANT] p10 > p90 — Monte Carlo band inversion detected.');
   }
 
-  // Determine gap and status
+  // Determine status using PROBABILITY-BASED classification (more accurate than SIP gap)
   const userMonthlySavings = profile?.savings || 10000;
   const gap = requiredSIP - userMonthlySavings;
 
   let status;
-  if (gap <= 0) {
-    status = 'on_track';
-  } else if (gap <= userMonthlySavings * 0.25) {
-    status = 'at_risk';
+  const prob = mcResult.goal_probability;
+  if (prob !== null && prob !== undefined) {
+    // Probability-based: most accurate since it accounts for volatility
+    if (prob >= 0.65) status = 'on_track';
+    else if (prob >= 0.35) status = 'at_risk';
+    else status = 'off_track';
   } else {
-    status = 'off_track';
+    // Fallback to SIP gap analysis
+    if (gap <= 0) status = 'on_track';
+    else if (gap <= userMonthlySavings * 0.25) status = 'at_risk';
+    else status = 'off_track';
   }
 
   // Generate Gemini advice for this goal

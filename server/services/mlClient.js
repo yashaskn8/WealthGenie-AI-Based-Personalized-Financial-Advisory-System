@@ -27,40 +27,85 @@ export async function checkMLHealth() {
   } catch { return null; }
 }
 
-export function getRuleBasedFallback({ age, annual_income, risk_category }) {
+export function getRuleBasedFallback({ age, annual_income, monthly_savings, risk_category }) {
   const safeAge = Number(age) || 30;
   const safeIncome = Number(annual_income) || 600000;
+  const safeSavings = Number(monthly_savings) || 10000;
   const safeRisk = risk_category || 'Moderate';
 
   let primary, secondary, tertiary;
   const path = [`risk=${safeRisk}`, `age=${safeAge}`, `income=${safeIncome}`];
 
+  // Income tier affects instrument selection:
+  // High income (>20L): tax-efficient instruments (SGB, NPS, ELSS)
+  // Mid income (5-20L): balanced growth (ETF, Equity_MF)
+  // Low income (<5L): safety-first (PPF, FD, Debt_MF)
+  const isHighIncome = safeIncome >= 2000000;
+  const isMidIncome = safeIncome >= 500000 && safeIncome < 2000000;
+  const isYoung = safeAge < 35;
+  const isSenior = safeAge >= 55;
+
   if (safeRisk === 'Aggressive') {
-    // Seniors should never get pure equity even if labelled aggressive
-    if (safeAge >= 55) {
+    if (isSenior) {
+      // Seniors: downshift even aggressive profiles
       primary = 'ETF'; secondary = 'Debt_MF'; tertiary = 'FD';
+      path.push('senior_downshift');
+    } else if (isHighIncome) {
+      // High earners: ELSS for 80C + equity growth + SGB for tax-free gold
+      primary = 'ELSS'; secondary = 'Equity_MF'; tertiary = 'SGB';
+      path.push('high_income_tax_opt');
     } else {
       primary = 'ELSS'; secondary = 'Equity_MF'; tertiary = 'ETF';
     }
   } else if (safeRisk === 'Moderate-Aggressive') {
-    primary = 'Equity_MF'; secondary = 'ETF'; tertiary = safeAge < 30 ? 'ELSS' : 'Debt_MF';
+    primary = 'Equity_MF'; secondary = 'ETF';
+    if (isYoung && isHighIncome) {
+      tertiary = 'NPS'; // Young high earners benefit from 80CCD(1B)
+      path.push('nps_tax_benefit');
+    } else {
+      tertiary = safeAge < 30 ? 'ELSS' : 'Debt_MF';
+    }
   } else if (safeRisk === 'Moderate') {
     primary = 'ETF'; secondary = 'Debt_MF';
-    tertiary = safeAge >= 60 ? 'RBI_Bond' : 'ELSS';
+    if (isSenior) {
+      tertiary = 'RBI_Bond';
+    } else if (isHighIncome) {
+      tertiary = 'SGB'; // Gold + 2.5% coupon, tax-free at maturity
+      path.push('sgb_diversification');
+    } else {
+      tertiary = 'ELSS';
+    }
   } else if (safeRisk === 'Conservative-Moderate') {
-    primary = 'Debt_MF'; secondary = safeAge >= 60 ? 'RBI_Bond' : 'FD';
-    tertiary = safeAge >= 60 ? 'FD' : 'RBI_Bond';
+    primary = 'Debt_MF';
+    secondary = isSenior ? 'RBI_Bond' : 'FD';
+    tertiary = isHighIncome ? 'G-Sec' : (isSenior ? 'FD' : 'RBI_Bond');
   } else {
     // Conservative
-    primary = safeAge >= 60 ? 'RBI_Bond' : 'FD';
-    secondary = 'Debt_MF';
-    tertiary = safeAge >= 60 ? 'FD' : 'RBI_Bond';
+    if (isSenior) {
+      primary = 'RBI_Bond'; secondary = 'FD'; tertiary = 'Liquid_MF';
+      path.push('senior_safety');
+    } else if (isHighIncome) {
+      primary = 'Debt_MF'; secondary = 'RBI_Bond'; tertiary = 'Arbitrage_MF';
+      path.push('arb_low_vol');
+    } else {
+      primary = 'FD'; secondary = 'PPF'; tertiary = 'Debt_MF';
+    }
   }
+
+  // Confidence scores: primary gets highest, weighted by rule specificity
+  const confPrimary = path.length > 3 ? 0.65 : 0.55; // More specific path = higher confidence
+  const confSecondary = (1 - confPrimary) * 0.65;
+  const confTertiary = (1 - confPrimary) * 0.35;
 
   return {
     primary, secondary, tertiary,
-    confidence_scores: { [primary]: 0.6, [secondary]: 0.25, [tertiary]: 0.15 },
+    confidence_scores: {
+      [primary]: parseFloat(confPrimary.toFixed(2)),
+      [secondary]: parseFloat(confSecondary.toFixed(2)),
+      [tertiary]: parseFloat(confTertiary.toFixed(2)),
+    },
     decision_path: path,
+    explanation: `Rule-based: ${safeRisk} profile, age ${safeAge}, income ₹${(safeIncome/100000).toFixed(1)}L`,
     fallback: true,
   };
 }

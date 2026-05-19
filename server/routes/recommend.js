@@ -106,7 +106,10 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
   }
 
   // Calculate post-tax returns for each recommended instrument
-  const instruments = picks.map(key => {
+  // Also compute portfolio-level analytics (Sharpe ratio, allocation weights)
+  const RISK_FREE_RATE = 0.065; // FD benchmark — the risk-free alternative
+
+  const instruments = picks.map((key, idx) => {
     const meta = INSTRUMENT_META[key];
     if (!meta) {
       console.warn(`[Recommend] Unknown instrument key from ML: '${key}'. Falling back to FD metadata. Add this to INSTRUMENT_META.`);
@@ -119,14 +122,48 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
       profile.investmentHorizon || 15,
       profile.taxRegime || 'new'
     );
+
+    // Sharpe ratio = (return - risk_free_rate) / volatility
+    // Uses static volatility estimates for each instrument type
+    const VOLATILITY_MAP = {
+      ELSS: 0.18, Equity_MF: 0.18, ETF: 0.16, FD: 0.005,
+      RBI_Bond: 0.002, Debt_MF: 0.03, PPF: 0.003, NPS: 0.12,
+      Gold: 0.15, SGB: 0.14, 'G-Sec': 0.01, Liquid_MF: 0.005,
+      Arbitrage_MF: 0.02,
+    };
+    const vol = VOLATILITY_MAP[safeMeta.type] || 0.10;
+    const postTaxDecimal = (postTax.effectiveYield || 0) / 100;
+    const sharpeRatio = vol > 0.001
+      ? parseFloat(((postTaxDecimal - RISK_FREE_RATE) / vol).toFixed(2))
+      : 0;
+
+    // Allocation weight: based on ML confidence + position priority
+    const confScores = normaliseConfidenceScores(mlResult.confidence_scores);
+    const rawWeight = confScores[key] || (idx === 0 ? 0.5 : idx === 1 ? 0.3 : 0.2);
+
     return {
       ...safeMeta,
       nominalReturn: safeMeta.nominalRate,
       postTaxReturn: postTax.effectiveYield,
       effectiveYield: postTax.effectiveYield,
       taxNotes: postTax.notes,
+      sharpeRatio,
+      allocationWeight: parseFloat(rawWeight.toFixed(2)),
     };
   });
+
+  // Normalise allocation weights to sum to exactly 1.0
+  const totalWeight = instruments.reduce((s, i) => s + i.allocationWeight, 0);
+  if (totalWeight > 0) {
+    instruments.forEach(i => {
+      i.allocationWeight = parseFloat((i.allocationWeight / totalWeight).toFixed(2));
+    });
+  }
+
+  // Portfolio-level expected yield (weighted average of post-tax returns)
+  const portfolioYield = parseFloat(
+    instruments.reduce((s, i) => s + (i.effectiveYield * i.allocationWeight), 0).toFixed(2)
+  );
 
   // Call Groq/Gemini for advisory text
   const advisory = await generateAdvisory({
@@ -159,6 +196,8 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
     decision_path: mlResult.decision_path,
     explanation: mlResult.explanation || null,
     ml_fallback: mlResult.fallback || false,
+    portfolio_yield: portfolioYield,
+    risk_free_rate: parseFloat((RISK_FREE_RATE * 100).toFixed(2)),
     disclaimer: DISCLAIMER,
   };
 

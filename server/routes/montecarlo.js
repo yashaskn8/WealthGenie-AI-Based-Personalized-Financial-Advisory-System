@@ -96,7 +96,15 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
     p75: result.p75[i],
     p90: result.p90[i],
     mean: result.mean[i],
+    standard_error: result.standard_error ? result.standard_error[i] : undefined,
   }));
+
+  // Confidence interval width: how tight the estimates are
+  // Narrower = more reliable. CI_width = (p75 - p25) / p50 at terminal year
+  const termIdx = result.p50.length - 1;
+  const ciWidth = termIdx >= 0 && result.p50[termIdx] > 0
+    ? parseFloat(((result.p75[termIdx] - result.p25[termIdx]) / result.p50[termIdx]).toFixed(3))
+    : null;
 
   const response = {
     instrument,
@@ -106,13 +114,15 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
     goal_probability: result.goal_probability,
     target_amount: result.target_amount,
     simulations_run: result.simulations_run,
+    variance_reduction: result.variance_reduction || 'none',
     percentile_summary: {
-      p10: result.p10[result.p10.length - 1],
-      p25: result.p25[result.p25.length - 1],
-      p50: result.p50[result.p50.length - 1],
-      p75: result.p75[result.p75.length - 1],
-      p90: result.p90[result.p90.length - 1],
+      p10: result.p10[termIdx],
+      p25: result.p25[termIdx],
+      p50: result.p50[termIdx],
+      p75: result.p75[termIdx],
+      p90: result.p90[termIdx],
     },
+    confidence_interval_width: ciWidth,
     data_source: dataSource,
     post_tax_rate_used: effectiveRate,
     volatility_used: effectiveVolatility,

@@ -15,7 +15,14 @@ export const registerSchema = Joi.object({
   email: Joi.string().trim().lowercase().email().max(254).required()
     .messages({ 'string.email': 'Please provide a valid email address' }),
   password: Joi.string().min(8).max(128).required()
-    .messages({ 'string.min': 'Password must be at least 8 characters' }),
+    .pattern(/[A-Z]/, 'uppercase')
+    .pattern(/[a-z]/, 'lowercase')
+    .pattern(/[0-9]/, 'digit')
+    .pattern(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'special character')
+    .messages({
+      'string.min': 'Password must be at least 8 characters',
+      'string.pattern.name': 'Password must contain at least one {#name}',
+    }),
 });
 
 export const loginSchema = Joi.object({
