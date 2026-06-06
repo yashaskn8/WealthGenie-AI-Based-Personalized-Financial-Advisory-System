@@ -13,33 +13,27 @@ const DEFAULT_PROFILE = {
   investment_horizon: 15,
 };
 
-export function UserProvider({ children }) {
-  const [profile, setProfile] = useState(() => {
+function readStoredProfile() {
+  try {
     const saved = localStorage.getItem('wg_profile');
     return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-  });
+  } catch {
+    return DEFAULT_PROFILE;
+  }
+}
+
+export function UserProvider({ children }) {
+  const [profile, setProfile] = useState(readStoredProfile);
 
   const [isProfileComplete, setIsProfileComplete] = useState(() => {
     return localStorage.getItem('wg_profile_complete') === 'true';
   });
 
   const [recommendations, setRecommendations] = useState(() => {
-    const saved = localStorage.getItem('wg_profile');
-    const prof = saved ? JSON.parse(saved) : DEFAULT_PROFILE;
+    const prof = readStoredProfile();
     const complete = localStorage.getItem('wg_profile_complete') === 'true';
     return complete ? generateRecommendations(prof) : [];
   });
-
-  const [prevProfileForRecs, setPrevProfileForRecs] = useState(profile);
-  const [prevIsCompleteForRecs, setPrevIsCompleteForRecs] = useState(isProfileComplete);
-
-  if (profile !== prevProfileForRecs || isProfileComplete !== prevIsCompleteForRecs) {
-    setPrevProfileForRecs(profile);
-    setPrevIsCompleteForRecs(isProfileComplete);
-    if (isProfileComplete) {
-      setRecommendations(generateRecommendations(profile));
-    }
-  }
 
   // Persist profile
   useEffect(() => {
@@ -52,15 +46,18 @@ export function UserProvider({ children }) {
 
   const updateProfile = (newProfile) => {
     setProfile(newProfile);
+    setRecommendations(isProfileComplete ? generateRecommendations(newProfile) : []);
   };
 
   const completeProfile = (profileData) => {
     setProfile(profileData);
     setIsProfileComplete(true);
+    setRecommendations(generateRecommendations(profileData));
   };
 
   const resetProfile = () => {
     setIsProfileComplete(false);
+    setRecommendations([]);
   };
 
   const updateRecommendations = (newRecs) => {

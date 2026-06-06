@@ -88,7 +88,8 @@ export async function fetchIndexStatistics(symbol = '^NSEI') {
     });
 
     const prices = (response.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
-      .filter(p => p !== null);
+      .map(Number)
+      .filter(p => Number.isFinite(p) && p > 0);
 
     if (prices.length < 13) {
       // Need at least 13 data points to compute 12 monthly returns for meaningful volatility
@@ -219,7 +220,11 @@ export async function checkFDRateStaleness(Instrument) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const staleCount = await Instrument.countDocuments({
       type: 'FD',
-      updatedAt: { $lt: thirtyDaysAgo },
+      $or: [
+        { updatedAt: { $lt: thirtyDaysAgo } },
+        { updatedAt: { $exists: false }, createdAt: { $lt: thirtyDaysAgo } },
+        { updatedAt: { $exists: false }, createdAt: { $exists: false } },
+      ],
     });
     return {
       stale_count: staleCount,

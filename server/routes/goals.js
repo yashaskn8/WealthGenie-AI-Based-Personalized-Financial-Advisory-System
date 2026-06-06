@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { verifyJWT, isOwner, isValidObjectId } from '../middleware/authMiddleware.js';
 import { asyncHandler, createError } from '../middleware/errorHandler.js';
-import { validate, goalSchema } from '../validation/schemas.js';
+import { validate, goalSchema, goalUpdateSchema } from '../validation/schemas.js';
 import Goal from '../models/Goal.js';
 import FinancialProfile from '../models/FinancialProfile.js';
 import Recommendation from '../models/Recommendation.js';
@@ -16,12 +16,19 @@ const router = Router();
 const STALE_ADVICE_PATTERNS = [
   'temporarily unavailable',
   'could not process',
-  'API key not configured',
+  'api key not configured',
 ];
 
 function isStaleAdvice(advice) {
   if (!advice || typeof advice !== 'string' || advice.trim().length === 0) return true;
-  return STALE_ADVICE_PATTERNS.some(p => advice.toLowerCase().includes(p));
+  const normalisedAdvice = advice.toLowerCase();
+  return STALE_ADVICE_PATTERNS.some(p => normalisedAdvice.includes(p));
+}
+
+async function findOwnedProfileById(profileId, userId) {
+  const id = profileId?.toString?.() || profileId;
+  if (!id || !isValidObjectId(id)) return null;
+  return FinancialProfile.findOne({ _id: id, userId }).lean();
 }
 
 /**
@@ -69,7 +76,10 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
       throw createError(400, 'Invalid profileId in goal create', 'Invalid profile ID.');
     }
     profile = await FinancialProfile.findById(profileId).lean();
-    if (profile && !isOwner(profile, req.user.userId)) {
+    if (!profile) {
+      throw createError(404, `Profile not found for goal create: ${profileId}`, 'Profile not found.');
+    }
+    if (!isOwner(profile, req.user.userId)) {
       throw createError(403, `Unauthorized goal-profile access: ${profileId}`, 'Access denied.');
     }
   }
@@ -122,8 +132,15 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
   }
 
   // Find the user's latest recommendation
-  const latestRec = await Recommendation.findOne({ userId: req.user.userId })
-    .sort({ generatedAt: -1 }).lean();
+  let latestRec = null;
+  if (profile?._id) {
+    latestRec = await Recommendation.findOne({ userId: req.user.userId, profileId: profile._id })
+      .sort({ generatedAt: -1 }).lean();
+  }
+  if (!latestRec) {
+    latestRec = await Recommendation.findOne({ userId: req.user.userId })
+      .sort({ generatedAt: -1 }).lean();
+  }
   const recommendedInstrument = latestRec?.instruments?.[0]?.type || 'Equity_MF';
 
   // Get volatility params for the recommended instrument
@@ -267,7 +284,7 @@ router.get('/', verifyJWT, asyncHandler(async (req, res) => {
     // Regenerate advice with a timeout — don't block the response for too long
     const regenerationPromises = staleGoals.map(async (g) => {
       try {
-        const profile = await FinancialProfile.findById(g.profileId).lean();
+        const profile = await findOwnedProfileById(g.profileId, req.user.userId);
         const userMonthlySavings = profile?.savings || 10000;
         const newAdvice = await generateGoalAdvice(g, profile, userMonthlySavings);
 
@@ -318,7 +335,7 @@ router.get('/', verifyJWT, asyncHandler(async (req, res) => {
       const vol = getInstrumentVolatility(g.recommended_instrument || 'Equity_MF');
       
       let postTaxRate = vol.mean;
-      const profile = await FinancialProfile.findById(g.profileId).lean();
+      const profile = await findOwnedProfileById(g.profileId, req.user.userId);
       if (profile) {
         try {
           const { calculatePostTaxReturn } = await import('../services/postTaxCalculator.js');
@@ -394,7 +411,7 @@ router.patch('/:goalId/refresh-advice', verifyJWT, asyncHandler(async (req, res)
     throw createError(404, `Goal not found: ${goalId}`, 'Goal not found.');
   }
 
-  const profile = await FinancialProfile.findById(goal.profileId).lean();
+  const profile = await findOwnedProfileById(goal.profileId, req.user.userId);
   const userMonthlySavings = profile?.savings || 10000;
   const newAdvice = await generateGoalAdvice(goal, profile, userMonthlySavings);
 
@@ -408,7 +425,7 @@ router.patch('/:goalId/refresh-advice', verifyJWT, asyncHandler(async (req, res)
  * PATCH /api/goals/:goalId [Protected]
  * Update a goal's priority, savings, or target, and recompute Monte Carlo fields.
  */
-router.patch('/:goalId', verifyJWT, asyncHandler(async (req, res) => {
+router.patch('/:goalId', verifyJWT, validate(goalUpdateSchema), asyncHandler(async (req, res) => {
   const { goalId } = req.params;
   const { priority, current_savings, target_amount } = req.body;
 
@@ -426,7 +443,7 @@ router.patch('/:goalId', verifyJWT, asyncHandler(async (req, res) => {
   if (target_amount !== undefined) goal.target_amount = Number(target_amount);
 
   if (current_savings !== undefined || target_amount !== undefined) {
-    const profile = await FinancialProfile.findById(goal.profileId).lean() || 
+    const profile = await findOwnedProfileById(goal.profileId, req.user.userId) ||
                     await FinancialProfile.findOne({ userId: req.user.userId }).sort({ createdAt: -1 }).lean();
     
     const targetDateObj = new Date(goal.target_date);

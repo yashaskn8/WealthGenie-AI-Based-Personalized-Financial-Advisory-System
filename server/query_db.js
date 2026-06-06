@@ -1,10 +1,9 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config({ path: '.env' });
 
-const mongoURI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/wealthgenie';
+const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/wealthgenie';
 console.log('Connecting to Mongo:', mongoURI);
 
 await mongoose.connect(mongoURI);

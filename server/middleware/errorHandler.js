@@ -21,6 +21,9 @@ const ERROR_CATEGORIES = {
 
 function categoriseError(err) {
   if (err.name === 'ValidationError' || err.isJoi) return ERROR_CATEGORIES.VALIDATION;
+  if (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && err.status === 400)) {
+    return ERROR_CATEGORIES.VALIDATION;
+  }
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError')
     return ERROR_CATEGORIES.AUTH;
   if (err.name === 'CastError' && err.kind === 'ObjectId')
@@ -68,7 +71,10 @@ function getRequestFingerprint(req) {
 
 export function errorHandler(err, req, res, _next) {
   const category = categoriseError(err);
-  const status = err.status || err.statusCode || 500;
+  const rawStatus = Number(err.status || err.statusCode);
+  const status = Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599
+    ? rawStatus
+    : 500;
 
   // Response time tracking (if start time was recorded)
   const responseTimeMs = req._startTime
@@ -161,4 +167,3 @@ process.on('uncaughtException', (err) => {
   }));
   process.exit(1);
 });
-

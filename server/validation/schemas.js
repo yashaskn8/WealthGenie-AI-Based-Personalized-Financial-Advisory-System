@@ -128,6 +128,16 @@ export const goalSchema = Joi.object({
 });
 
 // ── Tax Schema ─────────────────────────────────────────────────────
+export const goalUpdateSchema = Joi.object({
+  target_amount: Joi.number().min(1000).max(10000000000).optional()
+    .messages({
+      'number.min': 'Target amount must be at least â‚¹1,000',
+      'number.max': 'Target amount cannot exceed â‚¹1,000 Crores',
+    }),
+  current_savings: Joi.number().min(0).max(10000000000).optional(),
+  priority: Joi.string().valid('Critical', 'High', 'Medium', 'Low').optional(),
+});
+
 export const taxComputeSchema = Joi.object({
   income: Joi.number().min(0).max(1000000000).required()
     .messages({ 'number.min': 'Income must be a positive number' }),
@@ -142,6 +152,7 @@ export const taxComputeSchema = Joi.object({
   section80D_self: Joi.number().min(0).max(50000).optional(),
   section80D_parents: Joi.number().min(0).max(50000).optional(),
   parents_senior: Joi.boolean().default(false).optional(),
+  self_senior: Joi.boolean().default(false).optional(),
   hra: Joi.number().min(0).optional(),
   homeLoanInterest: Joi.number().min(0).max(200000).optional(),
   other: Joi.number().min(0).optional(),
@@ -161,6 +172,7 @@ export const taxCompareSchema = Joi.object({
   section80D_self: Joi.number().min(0).max(50000).optional(),
   section80D_parents: Joi.number().min(0).max(50000).optional(),
   parents_senior: Joi.boolean().default(false).optional(),
+  self_senior: Joi.boolean().default(false).optional(),
   hra: Joi.number().min(0).optional(),
   homeLoanInterest: Joi.number().min(0).max(200000).optional(),
   other: Joi.number().min(0).optional(),

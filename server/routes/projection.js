@@ -117,9 +117,21 @@ router.post('/xirr', verifyJWT, asyncHandler(async (req, res) => {
     if (!cf.date) {
       throw createError(400, 'Missing cashflow date', 'Each cashflow must have a date.');
     }
+    const parsedDate = new Date(cf.date);
+    if (!Number.isFinite(parsedDate.getTime())) {
+      throw createError(400, `Invalid cashflow date: ${cf.date}`, 'Each cashflow must have a valid date.');
+    }
   }
 
-  const result = computeXIRR(cashflows, guess);
+  let safeGuess = guess;
+  if (guess !== undefined) {
+    safeGuess = Number(guess);
+    if (!Number.isFinite(safeGuess)) {
+      throw createError(400, `Invalid XIRR guess: ${guess}`, 'Guess must be a finite number.');
+    }
+  }
+
+  const result = computeXIRR(cashflows, safeGuess);
   res.json({ mode: 'general', ...result });
 }));
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Clock, Banknote, Wallet, Scale, Target, Telescope, User, Eye, EyeOff } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import './App.css';
@@ -56,6 +56,7 @@ const ProfilePage = () => {
   const [investmentGoals, setInvestmentGoals] = useState(savedProfile?.investment_goals || ['Retirement', 'Wealth Growth']);
   const [horizon, setHorizon] = useState(savedProfile?.investment_horizon || 15);
   const [taxRegime, setTaxRegime] = useState(savedProfile?.taxRegime || 'new');
+  const [profileId, setProfileId] = useState(savedProfile?.profileId || null);
 
   const toggleGoal = (goal) => {
     setInvestmentGoals((prev) =>
@@ -70,8 +71,9 @@ const ProfilePage = () => {
     risk_appetite: riskAppetite,
     investment_goals: investmentGoals,
     investment_horizon: horizon,
-    taxRegime
-  }), [age, monthlyIncome, monthlySavings, riskAppetite, investmentGoals, horizon, taxRegime]);
+    taxRegime,
+    profileId
+  }), [age, monthlyIncome, monthlySavings, riskAppetite, investmentGoals, horizon, taxRegime, profileId]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -107,7 +109,9 @@ const ProfilePage = () => {
       console.log("Profile built:", response);
       // Persist profile to localStorage, scoped to the current user
       const currentUser = api.getUserInfo();
-      const profileWithUser = { ...userProfilePayload, _userId: currentUser?.id || null };
+      const nextProfileId = response.profileId || null;
+      setProfileId(nextProfileId);
+      const profileWithUser = { ...userProfilePayload, profileId: nextProfileId, _userId: currentUser?.id || null };
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileWithUser));
       setIsComplete(true);
     } catch (err) {
@@ -116,7 +120,7 @@ const ProfilePage = () => {
   };
 
   // Called from DashboardShell when profile is updated inline
-  const handleProfileUpdate = (updatedProfile) => {
+  const handleProfileUpdate = useCallback((updatedProfile) => {
     setAge(updatedProfile.age);
     setMonthlyIncome(updatedProfile.monthly_income);
     setMonthlySavings(updatedProfile.monthly_savings);
@@ -124,10 +128,12 @@ const ProfilePage = () => {
     setInvestmentGoals(updatedProfile.investment_goals);
     setHorizon(updatedProfile.investment_horizon);
     setTaxRegime(updatedProfile.taxRegime);
+    const nextProfileId = updatedProfile.profileId || profileId || null;
+    setProfileId(nextProfileId);
     const currentUser = api.getUserInfo();
-    const profileWithUser = { ...updatedProfile, _userId: currentUser?.id || null };
+    const profileWithUser = { ...updatedProfile, profileId: nextProfileId, _userId: currentUser?.id || null };
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileWithUser));
-  };
+  }, [profileId]);
 
   if (isComplete) {
     return (
@@ -305,10 +311,10 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
   const profileKey = useMemo(() => JSON.stringify({
     a: userProfile.age, i: userProfile.monthly_income, s: userProfile.monthly_savings,
     r: userProfile.risk_appetite, g: userProfile.investment_goals,
-    h: userProfile.investment_horizon, t: userProfile.taxRegime,
+    h: userProfile.investment_horizon, t: userProfile.taxRegime, p: userProfile.profileId,
   }), [userProfile.age, userProfile.monthly_income, userProfile.monthly_savings,
        userProfile.risk_appetite, userProfile.investment_goals,
-       userProfile.investment_horizon, userProfile.taxRegime]);
+       userProfile.investment_horizon, userProfile.taxRegime, userProfile.profileId]);
 
   // Memoize local recommendations — only recomputes when profile key changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,14 +327,24 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
       try {
         setIsLoading(true);
         setBackendRecs(null); // Clear stale data immediately
-        const profileResponse = await api.buildProfile(
-          userProfile.monthly_income, userProfile.age, userProfile.monthly_savings,
-          userProfile.taxRegime || 'new', userProfile.investment_horizon || 15
-        );
-        const recResponse = await api.getRecommendations(profileResponse.profileId);
+        let activeProfileId = userProfile.profileId;
+        if (!activeProfileId) {
+          const profileResponse = await api.buildProfile(
+            userProfile.monthly_income, userProfile.age, userProfile.monthly_savings,
+            userProfile.taxRegime || 'new', userProfile.investment_horizon || 15
+          );
+          activeProfileId = profileResponse.profileId;
+          if (activeProfileId) {
+            onProfileUpdate?.({ ...userProfile, profileId: activeProfileId });
+          }
+        }
+        if (!activeProfileId) {
+          throw new Error('Backend profile creation did not return a profileId.');
+        }
+        const recResponse = await api.getRecommendations(activeProfileId);
         setBackendRecs({
           ...recResponse,
-          profileId: profileResponse.profileId
+          profileId: activeProfileId
         });
       } catch (err) {
         console.error("Failed to fetch backend recommendations:", err);
@@ -337,7 +353,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
       }
     };
     fetchBackendData();
-  }, [profileKey, userProfile]);
+  }, [profileKey, userProfile, onProfileUpdate]);
 
   // Merge backend data with local recommendations for display
   const recommendations = useMemo(() => {
@@ -427,7 +443,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
 
   const handleRebalanceSave = async (updated) => {
     try {
-      let profileId = backendRecs?.profileId;
+      let profileId = backendRecs?.profileId || userProfile.profileId;
       if (!profileId) {
         const profileResponse = await api.buildProfile(
           userProfile.monthly_income, userProfile.age, userProfile.monthly_savings,
@@ -435,7 +451,12 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
         );
         profileId = profileResponse.profileId;
         if (profileId) {
-          await api.getRecommendations(profileId);
+          const recResponse = await api.getRecommendations(profileId);
+          onProfileUpdate?.({ ...userProfile, profileId });
+          setBackendRecs({
+            ...recResponse,
+            profileId,
+          });
         }
       }
 

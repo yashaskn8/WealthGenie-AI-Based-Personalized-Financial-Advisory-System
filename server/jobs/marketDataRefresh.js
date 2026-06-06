@@ -33,27 +33,13 @@ export function startMarketDataRefreshJobs() {
 }
 
 /**
- * Simple cron scheduler using setInterval.
- * Parses basic cron expressions: "minute hour * * *"
- * Falls back to fixed interval if parsing fails.
+ * Simple cron scheduler using setTimeout/setInterval.
+ * Supports the cron shapes used by this app: "minute hour * * *" and "minute */2 * * *".
  */
 function scheduleJob(cronExpr, name, fn) {
-  // Parse the cron expression to determine interval
-  const parts = cronExpr.split(' ');
-  let intervalMs;
+  const { initialDelayMs, intervalMs } = getScheduleTiming(cronExpr);
 
-  if (parts[1] === '*/2') {
-    // Every 2 hours
-    intervalMs = 2 * 60 * 60 * 1000;
-  } else if (parts[1] !== '*' && parts[0] !== '*') {
-    // Daily at a specific time — run every 24 hours
-    intervalMs = 24 * 60 * 60 * 1000;
-  } else {
-    // Default: every 6 hours
-    intervalMs = 6 * 60 * 60 * 1000;
-  }
-
-  // Run immediately on startup (non-blocking)
+  // Preserve the startup warmup so caches populate shortly after boot.
   setTimeout(async () => {
     try {
       await fn();
@@ -61,15 +47,66 @@ function scheduleJob(cronExpr, name, fn) {
     } catch (err) {
       console.error(`[CRON] ${name}: initial run failed:`, err.message);
     }
-  }, 5000); // 5s delay to let the server finish startup
+  }, 5000);
 
-  // Schedule recurring runs
-  setInterval(async () => {
+  const runScheduled = async () => {
     try {
       await fn();
     } catch (err) {
       console.error(`[CRON] ${name} failed:`, err.message);
-      // Do NOT throw — cron failure must not crash the server
     }
-  }, intervalMs);
+  };
+
+  setTimeout(() => {
+    runScheduled();
+    setInterval(runScheduled, intervalMs);
+  }, initialDelayMs);
+}
+
+function getScheduleTiming(cronExpr, now = new Date()) {
+  const [minutePart, hourPart] = cronExpr.split(' ');
+  const fallback = {
+    initialDelayMs: 6 * 60 * 60 * 1000,
+    intervalMs: 6 * 60 * 60 * 1000,
+  };
+  const minute = Number(minutePart);
+
+  if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
+    return fallback;
+  }
+
+  if (hourPart === '*/2') {
+    const next = new Date(now);
+    next.setUTCSeconds(0, 0);
+    next.setUTCMinutes(minute);
+
+    const currentHour = now.getUTCHours();
+    const nextEvenHour = currentHour % 2 === 0 ? currentHour : currentHour + 1;
+    next.setUTCHours(nextEvenHour);
+    if (next <= now) {
+      next.setUTCHours(next.getUTCHours() + 2);
+    }
+
+    return {
+      initialDelayMs: next.getTime() - now.getTime(),
+      intervalMs: 2 * 60 * 60 * 1000,
+    };
+  }
+
+  const hour = Number(hourPart);
+  if (Number.isInteger(hour) && hour >= 0 && hour <= 23) {
+    const next = new Date(now);
+    next.setUTCSeconds(0, 0);
+    next.setUTCHours(hour, minute);
+    if (next <= now) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+
+    return {
+      initialDelayMs: next.getTime() - now.getTime(),
+      intervalMs: 24 * 60 * 60 * 1000,
+    };
+  }
+
+  return fallback;
 }

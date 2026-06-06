@@ -193,13 +193,25 @@ export function computeXIRR(cashflows, guess = 0.1, tolerance = 1e-10, maxIterat
     return { rate: 0, converged: false, iterations: 0, npvResidual: NaN, error: 'Need at least 2 cashflows' };
   }
 
+  guess = Number.isFinite(Number(guess)) ? Number(guess) : 0.1;
+  guess = Math.max(-0.99, Math.min(guess, 50.0));
+
   // Normalize dates to UTC midnight and aggregate cashflows on the same date
   const dateGroups = new Map();
   for (const cf of cashflows) {
     const d = cf.date instanceof Date ? cf.date : new Date(cf.date);
+    if (!Number.isFinite(d.getTime())) {
+      return {
+        rate: 0,
+        converged: false,
+        iterations: 0,
+        npvResidual: NaN,
+        error: `Invalid cashflow date: ${cf.date}`,
+      };
+    }
     const utcTime = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     const amount = Number(cf.amount);
-    if (Number.isFinite(amount)) {
+    if (Number.isFinite(amount) && Number.isFinite(utcTime)) {
       dateGroups.set(utcTime, (dateGroups.get(utcTime) || 0) + amount);
     }
   }

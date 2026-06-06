@@ -4,6 +4,12 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
 const ML_TIMEOUT_MS = 5000;
 
+function hasUsablePrediction(result) {
+  if (!result || typeof result !== 'object') return false;
+  return [result.primary, result.secondary, result.tertiary]
+    .some(pick => typeof pick === 'string' && pick.trim().length > 0);
+}
+
 export async function getMLPrediction(profileData) {
   try {
     const res = await axios.post(`${ML_SERVICE_URL}/predict/enriched`, {
@@ -12,6 +18,10 @@ export async function getMLPrediction(profileData) {
       monthly_savings: profileData.monthly_savings,
       risk_category: profileData.risk_category,
     }, { timeout: ML_TIMEOUT_MS });
+    if (!hasUsablePrediction(res.data)) {
+      console.warn('[MLClient] ML service returned an unusable prediction, using rule-based fallback.');
+      return getRuleBasedFallback(profileData);
+    }
     return res.data;
   } catch (err) {
     console.warn('[MLClient] ML service unavailable, using rule-based fallback:', err.message);

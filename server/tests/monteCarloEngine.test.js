@@ -45,6 +45,32 @@ describe('Monte Carlo Engine', () => {
     });
   });
 
+  test('fractional horizons use the actual terminal month instead of rounding to a year', () => {
+    const r = runMonteCarlo({
+      monthlyInvestment: 10000,
+      postTaxAnnualReturn: 0.12,
+      annualVolatility: 0,
+      years: 0.5,
+      simulations: 500,
+    });
+    expect(r.years_array).toEqual([0.5]);
+    expect(r.p50).toHaveLength(1);
+    expect(r.deterministic_fv).toBeGreaterThan(60000);
+    expect(r.deterministic_fv).toBeLessThan(70000);
+  });
+
+  test('negative monthly rates use annuity math instead of zero-rate fallback', () => {
+    const r = runMonteCarlo({
+      monthlyInvestment: 10000,
+      postTaxAnnualReturn: -0.12,
+      annualVolatility: 0,
+      years: 1,
+      simulations: 500,
+    });
+    expect(r.deterministic_fv).toBeLessThan(120000);
+    expect(r.p50[0]).toBeLessThan(120000);
+  });
+
   test('computeGoalProbability: all above target = 1.0', () => {
     expect(computeGoalProbability([100, 200, 300], 50)).toBe(1);
   });

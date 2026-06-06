@@ -49,6 +49,21 @@ function normaliseConfidenceScores(rawScores) {
   return normalised;
 }
 
+function buildProfileHash(profile) {
+  return crypto.createHash('sha256').update(JSON.stringify({
+    age: profile.age,
+    income: profile.annualIncome,
+    savings: profile.savings,
+    risk: profile.riskCategory,
+    regime: profile.taxRegime,
+    horizon: profile.investmentHorizon,
+  })).digest('hex').substring(0, 16);
+}
+
+export function buildRecommendationCacheKey(userId, profileId, profile) {
+  return `recommendation:${userId}:${profileId}:${buildProfileHash(profile)}`;
+}
+
 // DISCLAIMER and RISK_FREE_RATE imported from instrumentConstants.js
 
 /**
@@ -73,15 +88,7 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
   }
 
   // Check Redis cache to prevent redundant recalculations
-  const profileHash = crypto.createHash('sha256').update(JSON.stringify({
-    age: profile.age,
-    income: profile.annualIncome,
-    savings: profile.savings,
-    risk: profile.riskCategory,
-    regime: profile.taxRegime,
-    horizon: profile.investmentHorizon,
-  })).digest('hex').substring(0, 16);
-  const cacheKey = `recommendation:${req.user.userId}:${profileHash}`;
+  const cacheKey = buildRecommendationCacheKey(req.user.userId, profile._id, profile);
 
   const cachedResult = await getCache(cacheKey);
   if (cachedResult) {
@@ -346,15 +353,7 @@ router.post('/weights', verifyJWT, validate(updateWeightsSchema), asyncHandler(a
   await recommendation.save();
 
   // Invalidate Redis cache for this recommendation
-  const profileHash = crypto.createHash('sha256').update(JSON.stringify({
-    age: profile.age,
-    income: profile.annualIncome,
-    savings: profile.savings,
-    risk: profile.riskCategory,
-    regime: profile.taxRegime,
-    horizon: profile.investmentHorizon,
-  })).digest('hex').substring(0, 16);
-  const cacheKey = `recommendation:${req.user.userId}:${profileHash}`;
+  const cacheKey = buildRecommendationCacheKey(req.user.userId, profile._id, profile);
   await delCache(cacheKey);
 
   res.json({

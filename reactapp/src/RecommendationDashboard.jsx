@@ -266,11 +266,6 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
       return { year: yr.toString(), worst, average: avg, best };
     });
 
-    // Expand all table rows by default on computed map
-    const initialExpanded = {};
-    formattedTable.forEach(t => initialExpanded[t.id] = true);
-    setExpandedRows(initialExpanded);
-
     return {
       allocationDataOuter: outerData,
       tableData: formattedTable,
@@ -279,6 +274,12 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
       totalProjected: proj
     };
   }, [recommendations, horizon, inflationAdjusted, initialCapital, stepUpPct]);
+
+  useEffect(() => {
+    const initialExpanded = {};
+    tableData.forEach(t => { initialExpanded[t.id] = true; });
+    setExpandedRows(initialExpanded);
+  }, [tableData]);
 
   // Risk-grouped eligible instruments for "Browse by Risk Level"
   const riskGroups = useMemo(() => {

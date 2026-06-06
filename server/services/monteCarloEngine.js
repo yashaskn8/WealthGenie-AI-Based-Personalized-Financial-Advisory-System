@@ -122,6 +122,37 @@ function percentile(sortedArr, p) {
   return sortedArr[lower] + (sortedArr[upper] - sortedArr[lower]) * (idx - lower);
 }
 
+function buildProjectionHorizon(years) {
+  const numericYears = Number(years);
+  const requestedYears = Number.isFinite(numericYears) && numericYears > 0 ? numericYears : 1;
+  const totalMonths = Math.max(1, Math.round(requestedYears * 12));
+  const checkpointMonths = [];
+
+  for (let month = 12; month < totalMonths; month += 12) {
+    checkpointMonths.push(month);
+  }
+  if (!checkpointMonths.includes(totalMonths)) {
+    checkpointMonths.push(totalMonths);
+  }
+
+  return {
+    years: totalMonths / 12,
+    totalMonths,
+    checkpointMonths,
+    yearsArray: checkpointMonths.map(month => Number((month / 12).toFixed(2))),
+  };
+}
+
+function annuityDueFV(monthlyInvestment, monthlyRate, totalMonths) {
+  if (!monthlyInvestment || monthlyInvestment <= 0 || totalMonths <= 0) return 0;
+  if (Math.abs(monthlyRate) < 1e-12) {
+    return monthlyInvestment * totalMonths;
+  }
+  return monthlyInvestment
+    * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate)
+    * (1 + monthlyRate);
+}
+
 /**
  * Helper to sample a single monthly log-normal multiplier (GBM).
  * S(t+dt) = S(t) * exp((mean - vol^2/2)*dt + vol*sqrt(dt)*Z)
@@ -200,14 +231,18 @@ export function runMonteCarlo({
   isRealTrack = false,
   currentSavings = 0,
 }) {
-  // Enforce integer years and protect against fractional or extremely small values (e.g. 0.5 yrs)
-  const integerYears = Math.max(1, Math.round(years || 1));
-  years = integerYears;
+  const horizon = buildProjectionHorizon(years);
+  years = horizon.years;
 
-  const safeSavings = Number.isFinite(currentSavings) && currentSavings > 0 ? currentSavings : 0;
+  monthlyInvestment = Number.isFinite(Number(monthlyInvestment)) && Number(monthlyInvestment) > 0
+    ? Number(monthlyInvestment)
+    : 0;
+  const safeSavings = Number.isFinite(Number(currentSavings)) && Number(currentSavings) > 0
+    ? Number(currentSavings)
+    : 0;
 
   // Input guards
-  if ((!monthlyInvestment || monthlyInvestment <= 0) && safeSavings <= 0) {
+  if (monthlyInvestment <= 0 && safeSavings <= 0) {
     return emptyResult(years, simulations);
   }
   if (!years || years <= 0 || !Number.isFinite(years)) {
@@ -235,8 +270,8 @@ export function runMonteCarlo({
     annualVolatility = 0.60;
   }
 
-  const yearsArray = [];
-  for (let y = 1; y <= years; y++) yearsArray.push(y);
+  const { totalMonths, checkpointMonths, yearsArray } = horizon;
+  const checkpointMonthToIndex = new Map(checkpointMonths.map((month, index) => [month, index]));
 
   // finalValues[year_index] = array of terminal values across all simulations
   const allSimResults = yearsArray.map(() => []);
@@ -244,13 +279,10 @@ export function runMonteCarlo({
 
   const halfSims = Math.ceil(simulations / 2);
   const actualSims = halfSims * 2;
-  const totalMonths = years * 12;
 
   // Deterministic SIP + lump sum FV for control variate (aligned with continuous GBM expected yield)
   const r = toMonthlyRate(postTaxAnnualReturn, true);
-  const fvSIP = r > 0
-    ? monthlyInvestment * ((Math.pow(1 + r, totalMonths) - 1) / r) * (1 + r)
-    : monthlyInvestment * totalMonths;
+  const fvSIP = annuityDueFV(monthlyInvestment, r, totalMonths);
   const fvSavings = safeSavings * Math.pow(1 + r, totalMonths);
   const deterministicFV = fvSIP + fvSavings;
 
@@ -283,27 +315,27 @@ export function runMonteCarlo({
 
     // ── Path 1: use +Z ──────────────────────────────────────────────
     let balance1 = safeSavings;
-    for (let y = 0; y < years; y++) {
-      for (let m = 0; m < 12; m++) {
-        balance1 += monthlyInvestment;
-        const monthIdx = y * 12 + m;
-        const z = zValues[monthIdx];
-        balance1 *= sampleLogNormalMonthly(postTaxAnnualReturn, annualVolatility, z);
+    for (let monthIdx = 0; monthIdx < totalMonths; monthIdx++) {
+      balance1 += monthlyInvestment;
+      const z = zValues[monthIdx];
+      balance1 *= sampleLogNormalMonthly(postTaxAnnualReturn, annualVolatility, z);
+      const checkpointIdx = checkpointMonthToIndex.get(monthIdx + 1);
+      if (checkpointIdx !== undefined) {
+        allSimResults[checkpointIdx].push(balance1);
       }
-      allSimResults[y].push(balance1);
     }
     finalValues.push(balance1);
 
     // ── Path 2: use -Z (antithetic mirror) ──────────────────────────
     let balance2 = safeSavings;
-    for (let y = 0; y < years; y++) {
-      for (let m = 0; m < 12; m++) {
-        balance2 += monthlyInvestment;
-        const monthIdx = y * 12 + m;
-        const z = zValues[monthIdx];
-        balance2 *= sampleLogNormalMonthly(postTaxAnnualReturn, annualVolatility, -z);
+    for (let monthIdx = 0; monthIdx < totalMonths; monthIdx++) {
+      balance2 += monthlyInvestment;
+      const z = zValues[monthIdx];
+      balance2 *= sampleLogNormalMonthly(postTaxAnnualReturn, annualVolatility, -z);
+      const checkpointIdx = checkpointMonthToIndex.get(monthIdx + 1);
+      if (checkpointIdx !== undefined) {
+        allSimResults[checkpointIdx].push(balance2);
       }
-      allSimResults[y].push(balance2);
     }
     finalValues.push(balance2);
   }
@@ -320,11 +352,9 @@ export function runMonteCarlo({
   // savings and SIP under a deterministic compounding formula (deterministicFV_y).
   // Then, we scale all our random simulated paths by the ratio of the true mathematical value
   // to the simulated average. This eliminates the sampling bias entirely.
-  for (let y = 0; y < years; y++) {
-    const totalMonths_y = (y + 1) * 12;
-    const fvSIP_y = r > 0
-      ? monthlyInvestment * ((Math.pow(1 + r, totalMonths_y) - 1) / r) * (1 + r)
-      : monthlyInvestment * totalMonths_y;
+  for (let y = 0; y < checkpointMonths.length; y++) {
+    const totalMonths_y = checkpointMonths[y];
+    const fvSIP_y = annuityDueFV(monthlyInvestment, r, totalMonths_y);
     const fvSavings_y = safeSavings * Math.pow(1 + r, totalMonths_y);
     const deterministicFV_y = fvSIP_y + fvSavings_y;
 
@@ -338,8 +368,8 @@ export function runMonteCarlo({
   }
 
   // Update finalValues to contain the corrected terminal values for goal probability
-  const lastYearIdx = years - 1;
-  finalValues = [...allSimResults[lastYearIdx]];
+  const terminalIdx = allSimResults.length - 1;
+  finalValues = [...allSimResults[terminalIdx]];
 
   const rawMean = finalValues.reduce((s, v) => s + v, 0) / finalValues.length;
   const controlCorrection = rawMean - deterministicFV;
@@ -348,7 +378,7 @@ export function runMonteCarlo({
   const p10 = [], p25 = [], p50 = [], p75 = [], p90 = [], mean = [];
   const stdErr = [];
 
-  for (let y = 0; y < years; y++) {
+  for (let y = 0; y < allSimResults.length; y++) {
     const sorted = [...allSimResults[y]].sort((a, b) => a - b);
     const yrNom = Math.round(percentile(sorted, 10));
     const yrP25 = Math.round(percentile(sorted, 25));
@@ -431,10 +461,10 @@ export function runMonteCarlo({
  * Generate an empty result set (for invalid inputs).
  */
 function emptyResult(years, simulations) {
-  const n = Math.max(1, years || 1);
-  const zeros = Array.from({ length: n }, () => 0);
+  const horizon = buildProjectionHorizon(years);
+  const zeros = Array.from({ length: horizon.yearsArray.length }, () => 0);
   return {
-    years_array: Array.from({ length: n }, (_, i) => i + 1),
+    years_array: horizon.yearsArray,
     p10: [...zeros], p25: [...zeros], p50: [...zeros],
     p75: [...zeros], p90: [...zeros], mean: [...zeros],
     finalValues: [],

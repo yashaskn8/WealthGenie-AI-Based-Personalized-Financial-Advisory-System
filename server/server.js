@@ -48,9 +48,13 @@ app.use(helmet({
 // from making requests to an API hosted on another domain/port (e.g., http://localhost:5000).
 // CORS middleware allows the server to explicitly list which frontend domains (origins)
 // are allowed to send requests and read responses.
-const ALLOWED_ORIGINS = process.env.CORS_ORIGINS 
-  ? process.env.CORS_ORIGINS.split(',') 
-  : ['http://localhost:5173', 'http://localhost:3000'];
+const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://localhost:3000'];
+const configuredOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+  : [];
+const ALLOWED_ORIGINS = configuredOrigins.length > 0
+  ? configuredOrigins
+  : DEFAULT_ALLOWED_ORIGINS;
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 
 // ── Body Parsing ─────────────────────────────────────────────────

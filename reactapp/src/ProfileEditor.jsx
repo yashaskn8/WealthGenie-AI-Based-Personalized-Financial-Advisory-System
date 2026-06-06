@@ -62,8 +62,8 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
 
     setIsSaving(true);
     try {
-      await api.buildProfile(numIncome, numAge, numSavings, draft.taxRegime || 'new', draft.investment_horizon || 15);
-      onProfileUpdate(draft);
+      const response = await api.buildProfile(numIncome, numAge, numSavings, draft.taxRegime || 'new', draft.investment_horizon || 15);
+      onProfileUpdate({ ...draft, profileId: response.profileId || draft.profileId || null });
       setIsEditing(false);
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2500);

@@ -38,45 +38,54 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
     }
 
     const profile = await FinancialProfile.findById(profileId).lean();
-    if (profile) {
-      // Authorization check
-      if (!isOwner(profile, req.user.userId)) {
-        throw createError(403, `Unauthorized MC profile access: ${profileId}`, 'Access denied.');
-      }
+    if (!profile) {
+      throw createError(404, `Profile not found for Monte Carlo: ${profileId}`, 'Profile not found.');
+    }
 
-      const annualIncome = profile.annualIncome || (profile.income * 12);
-      const regime = profile.taxRegime || 'new';
+    // Authorization check
+    if (!isOwner(profile, req.user.userId)) {
+      throw createError(403, `Unauthorized MC profile access: ${profileId}`, 'Access denied.');
+    }
 
-      try {
-        const postTaxResult = calculatePostTaxReturn(
-          instrument,
-          liveParams.mean,
-          annualIncome,
-          years,
-          regime,
-          monthly_investment,   // monthlySIP for accurate FD TDS / ELSS LTCG
-          profile.age || 30     // userAge for senior citizen TDS thresholds
-        );
+    const annualIncome = profile.annualIncome || (profile.income * 12);
+    const regime = profile.taxRegime || 'new';
 
-        effectiveRate = postTaxResult.postTaxReturn;
-        postTaxInfo = {
-          nominal_rate: liveParams.mean,
-          post_tax_rate: postTaxResult.postTaxReturn,
-          tax_type: postTaxResult.taxType,
-          tax_rate: postTaxResult.taxRate,
-          tds_applicable: postTaxResult.tdsApplicable || false,
-          regime,
-        };
-      } catch (taxErr) {
-        console.warn('[MonteCarlo] Post-tax calculation failed, using pre-tax rate:', taxErr.message);
-      }
+    try {
+      const postTaxResult = calculatePostTaxReturn(
+        instrument,
+        liveParams.mean,
+        annualIncome,
+        years,
+        regime,
+        monthly_investment,   // monthlySIP for accurate FD TDS / ELSS LTCG
+        profile.age || 30     // userAge for senior citizen TDS thresholds
+      );
+
+      effectiveRate = postTaxResult.postTaxReturn;
+      postTaxInfo = {
+        nominal_rate: liveParams.mean,
+        post_tax_rate: postTaxResult.postTaxReturn,
+        tax_type: postTaxResult.taxType,
+        tax_rate: postTaxResult.taxRate,
+        tds_applicable: postTaxResult.tdsApplicable || false,
+        regime,
+      };
+    } catch (taxErr) {
+      console.warn('[MonteCarlo] Post-tax calculation failed, using pre-tax rate:', taxErr.message);
     }
   }
 
   // ── Step 3: Check Redis cache ──
   // Round effectiveRate to 4 decimal places to avoid cache fragmentation from float precision
   const rateKey = effectiveRate.toFixed(4);
-  const cacheKey = `mc:${req.user.userId}:${instrument}:${years}:${monthly_investment}:${rateKey}`;
+  const volatilityKey = effectiveVolatility.toFixed(4);
+  const targetKey = target_amount === undefined || target_amount === null
+    ? 'none'
+    : Number(target_amount).toFixed(0);
+  const savingsKey = current_savings === undefined || current_savings === null
+    ? '0'
+    : Number(current_savings).toFixed(0);
+  const cacheKey = `mc:${req.user.userId}:${instrument}:${years}:${monthly_investment}:${savingsKey}:${targetKey}:${rateKey}:${volatilityKey}`;
   const cached = await getCache(cacheKey);
   if (cached) return res.json({ ...cached, cached: true });
 

@@ -6,6 +6,7 @@ const instrumentDetailSchema = new mongoose.Schema({
   nominalReturn: Number,
   postTaxReturn: Number,
   effectiveYield: Number,
+  expenseRatio: Number,
   riskLevel: String,
   lockIn: Number,
   tags: [String],
