@@ -350,7 +350,7 @@ function getTaxShieldContext(profile, recommendations) {
 }
 
 /* ── Score History Panel (profile-aware, dynamic dates) ───────── */
-const ScoreHistoryPanel = ({ currentScore, profile, subScores, recommendations }) => {
+const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
   const savingsRate = ((profile?.monthly_savings || 0) / (profile?.monthly_income || 1)) * 100;
   const goalCount = (profile?.investment_goals || []).length;
   const horizon = profile?.investment_horizon || 10;
@@ -551,11 +551,10 @@ const ResolutionModal = ({ metric, onClose, onNavigate, profile }) => {
 const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
   const [resolutionMetric, setResolutionMetric] = useState(null);
 
-  const animatedScore = useAnimatedCounter(67, 2500); // will be overridden below
-
   const { score, subScores, grade, color } = useMemo(() => {
     const savingsRatio = (profile?.monthly_savings || 0) / (profile?.monthly_income || 1);
-    const savingsScore = Math.min(100, savingsRatio * 500);
+    // 30% savings rate = 100/100 capacity score (higher standard than 20%)
+    const savingsScore = Math.min(100, Math.round(savingsRatio * 333));
 
     const emergencyGoalDeclared = profile?.investment_goals?.includes('Emergency Fund');
     const emergencyAllocated = (recommendations || [])
@@ -563,7 +562,13 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
       .reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);
     const monthlyExpenses = (profile?.monthly_income || 0) - (profile?.monthly_savings || 0);
     const emergencyTarget = monthlyExpenses * 6;
-    const projectedEmergency = emergencyAllocated * 12;
+
+    // Use monthly compounding SIP FV formula for 12 months at 7% CAGR (emergency fund return rate)
+    const rEmergency = (7 / 100) / 12;
+    const projectedEmergency = emergencyAllocated > 0
+      ? emergencyAllocated * ((Math.pow(1 + rEmergency, 12) - 1) / rEmergency) * (1 + rEmergency)
+      : 0;
+
     const emergencyCoverage = emergencyTarget > 0 ? Math.min(1, projectedEmergency / emergencyTarget) : 0;
     let emergencyScore, emergencyExtra;
     if (!emergencyGoalDeclared) {
@@ -580,9 +585,11 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
       emergencyExtra = `${Math.round(emergencyCoverage * 100)}% funded. Alert: Target shortfall detected.\nRecommendation: Increase contribution.`;
     }
 
-    const categories = new Set((recommendations || []).map(r => r.category).filter(Boolean));
-    const totalCategories = Math.max(4, new Set(['Equity', 'Debt', 'Government', 'Commodity', 'Equity-Debt']).size);
-    const divScore = recommendations?.length > 0 ? Math.min(100, (categories.size / totalCategories) * 100) : 0;
+    // Only count categories with active allocations (> 0)
+    const activeRecs = (recommendations || []).filter(r => (r.monthly_allocation || 0) > 0);
+    const categories = new Set(activeRecs.map(r => r.category).filter(Boolean));
+    const totalCategories = 5; // Government, Debt, Commodity, Equity-Debt, Equity
+    const divScore = activeRecs.length > 0 ? Math.min(100, Math.round((categories.size / totalCategories) * 100)) : 0;
 
     const taxSavingRecs = (recommendations || []).filter(r => r.tax_benefit);
     const taxSavingAlloc = taxSavingRecs.reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);

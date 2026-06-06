@@ -41,9 +41,9 @@ const SEED_DATA = [
 
   // ═══ GOVERNMENT INSTRUMENTS — 4 ═══
   { name: 'RBI Floating Rate Savings Bonds', type: 'Government', category: 'RBI Bond', issuer: 'RBI', interestRate: 8.05, maturityYears: 7, riskLevel: 'Very Low', lockInYears: 7, minInvestment: 1000, sovereignGuarantee: true, tdsApplicable: false, taxation: 'Slab Rate' },
-  { name: '10-Year Government Security', type: 'Government', category: 'G-Sec', issuer: 'Government of India', interestRate: 7.18, maturityYears: 10, riskLevel: 'Very Low', lockInYears: 0, minInvestment: 10000, sovereignGuarantee: true, tdsApplicable: false, taxation: 'STCG at Slab / LTCG at 10%' },
+  { name: '10-Year Government Security', type: 'Government', category: 'G-Sec', issuer: 'Government of India', interestRate: 7.18, maturityYears: 10, riskLevel: 'Very Low', lockInYears: 0, minInvestment: 10000, sovereignGuarantee: true, tdsApplicable: false, taxation: 'STCG at Slab / LTCG at 12.5%' },
   { name: '364-Day Treasury Bill', type: 'Government', category: 'T-Bill', issuer: 'Government of India', interestRate: 6.85, maturityYears: 1, riskLevel: 'Very Low', lockInYears: 0, minInvestment: 25000, sovereignGuarantee: true, tdsApplicable: false, taxation: 'STCG at Slab Rate' },
-  { name: '5-Year Government Security', type: 'Government', category: 'G-Sec', issuer: 'Government of India', interestRate: 7.05, maturityYears: 5, riskLevel: 'Very Low', lockInYears: 0, minInvestment: 10000, sovereignGuarantee: true, tdsApplicable: false, taxation: 'STCG at Slab / LTCG at 10%' },
+  { name: '5-Year Government Security', type: 'Government', category: 'G-Sec', issuer: 'Government of India', interestRate: 7.05, maturityYears: 5, riskLevel: 'Very Low', lockInYears: 0, minInvestment: 10000, sovereignGuarantee: true, tdsApplicable: false, taxation: 'STCG at Slab / LTCG at 12.5%' },
 ];
 
 async function seed() {
@@ -55,7 +55,7 @@ async function seed() {
     console.log('Cleared existing instruments');
 
     await Instrument.insertMany(SEED_DATA);
-    console.log(`✅ Seeded ${SEED_DATA.length} instruments successfully`);
+    console.log(`Seeded ${SEED_DATA.length} instruments successfully`);
 
     await mongoose.disconnect();
     console.log('Disconnected from MongoDB');

@@ -47,9 +47,9 @@ export function getRuleBasedFallback({ age, annual_income, monthly_savings, risk
 
   if (safeRisk === 'Aggressive') {
     if (isSenior) {
-      // Seniors: downshift even aggressive profiles
-      primary = 'ETF'; secondary = 'Debt_MF'; tertiary = 'FD';
-      path.push('senior_downshift');
+      // Seniors: downshift even aggressive profiles, include SCSS for safe yield
+      primary = 'ETF'; secondary = 'SCSS'; tertiary = 'Liquid_MF';
+      path.push('senior_downshift_scss');
     } else if (isHighIncome) {
       // High earners: ELSS for 80C + equity growth + SGB for tax-free gold
       primary = 'ELSS'; secondary = 'Equity_MF'; tertiary = 'SGB';
@@ -68,7 +68,7 @@ export function getRuleBasedFallback({ age, annual_income, monthly_savings, risk
   } else if (safeRisk === 'Moderate') {
     primary = 'ETF'; secondary = 'Debt_MF';
     if (isSenior) {
-      tertiary = 'RBI_Bond';
+      tertiary = 'SCSS';
     } else if (isHighIncome) {
       tertiary = 'SGB'; // Gold + 2.5% coupon, tax-free at maturity
       path.push('sgb_diversification');
@@ -77,13 +77,13 @@ export function getRuleBasedFallback({ age, annual_income, monthly_savings, risk
     }
   } else if (safeRisk === 'Conservative-Moderate') {
     primary = 'Debt_MF';
-    secondary = isSenior ? 'RBI_Bond' : 'FD';
+    secondary = isSenior ? 'SCSS' : 'FD';
     tertiary = isHighIncome ? 'G-Sec' : (isSenior ? 'FD' : 'RBI_Bond');
   } else {
     // Conservative
     if (isSenior) {
-      primary = 'RBI_Bond'; secondary = 'FD'; tertiary = 'Liquid_MF';
-      path.push('senior_safety');
+      primary = 'SCSS'; secondary = 'RBI_Bond'; tertiary = 'Liquid_MF';
+      path.push('senior_safety_scss');
     } else if (isHighIncome) {
       primary = 'Debt_MF'; secondary = 'RBI_Bond'; tertiary = 'Arbitrage_MF';
       path.push('arb_low_vol');

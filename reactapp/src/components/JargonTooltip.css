@@ -6,13 +6,11 @@
   align-items: center;
   gap: 2px;
   cursor: help;
-  border-bottom: 1px dashed rgba(139, 92, 246, 0.35);
   transition: all 0.2s ease;
   padding-bottom: 0px;
 }
 
 .jargon-trigger:hover {
-  border-bottom-color: rgba(139, 92, 246, 0.7);
   color: #c4b5fd;
 }
 

@@ -44,7 +44,7 @@ export function validatePortfolio(instruments, totalSavings) {
   });
 
   // Log in development
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+  if (import.meta.env?.DEV) {
     errors.forEach(e => console.error('[Portfolio Validation]', e));
     warnings.forEach(w => console.warn('[Portfolio Validation]', w));
   } else {

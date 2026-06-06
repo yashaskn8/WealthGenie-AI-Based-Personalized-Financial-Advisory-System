@@ -14,12 +14,15 @@ const router = Router();
 router.post('/register', validate(registerSchema), asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
+  // SECURITY: Hash password FIRST, before checking email existence.
+  // This ensures both "email exists" and "email new" paths take the same ~250ms
+  // from bcrypt, preventing timing-based email enumeration attacks.
+  const passwordHash = await bcrypt.hash(password, 12);
+
   const existing = await User.findOne({ email }).lean();
   if (existing) {
     throw createError(409, `Registration attempt with existing email: ${email}`, 'Email already registered.');
   }
-
-  const passwordHash = await bcrypt.hash(password, 12);
 
   // Wrap create in try/catch to handle the race condition where two concurrent
   // requests both pass the findOne check but only one can insert (unique index).

@@ -324,15 +324,15 @@ describe('Risk Profiler — Boundary Values', () => {
 describe('Cross-Module Financial Invariants', () => {
   test('tax slab used in post-tax calc matches tax engine', () => {
     const income = 1500000;
-    const slab = getTaxSlab(income, 'new');
+    const slab = getTaxSlab(income, 'new') * (1 + CESS_RATE);
     const fdResult = calculatePostTaxReturn('FD', 0.0725, income, 1, 'new');
-    expect(fdResult.taxRate).toBe(slab);
+    expect(fdResult.taxRate).toBeCloseTo(slab, 6);
   });
 
   test('FD post-tax return = nominal × (1 - marginalRate)', () => {
     const income = 2000000;
     const nominal = 0.0725;
-    const marginal = getTaxSlab(income, 'new');
+    const marginal = getTaxSlab(income, 'new') * (1 + CESS_RATE);
     const result = calculatePostTaxReturn('FD', nominal, income, 1, 'new');
     expect(result.postTaxReturn).toBeCloseTo(nominal * (1 - marginal), 3);
   });
@@ -544,8 +544,8 @@ describe('Post-Tax — Gold STCG uses Slab Rate (not 20%)', () => {
   test('Gold ETF short-term: taxed at slab rate, NOT 20%', () => {
     const result = calculatePostTaxReturn('Gold', 0.09, 1500000, 0.5, 'new');
     // At ₹15L income, slab rate ≠ 20% — it should be marginal slab
-    const marginal = getTaxSlab(1500000, 'new');
-    expect(result.taxRate).toBe(marginal);
+    const marginal = getTaxSlab(1500000, 'new') * (1 + CESS_RATE);
+    expect(result.taxRate).toBeCloseTo(marginal, 6);
     expect(result.taxType).toContain('Slab Rate');
   });
 
@@ -586,7 +586,7 @@ describe('Centralized Constants — Rate Consistency', () => {
   });
 
   test('getNominalRate returns correct rates and defaults for unknowns', () => {
-    expect(getNominalRate('FD')).toBe(7.25);
+    expect(getNominalRate('FD')).toBe(6.5);
     expect(getNominalRate('ELSS')).toBe(13.5);
     expect(getNominalRate('NONEXISTENT')).toBe(7.0); // safe default
   });
@@ -608,8 +608,8 @@ describe('Centralized Constants — Rate Consistency', () => {
     expect(CESS_RATE).toBe(0.04);
   });
 
-  test('RISK_FREE_RATE is exactly 0.065 (6.5%)', () => {
-    expect(RISK_FREE_RATE).toBe(0.065);
+  test('RISK_FREE_RATE is exactly 0.05 (5%)', () => {
+    expect(RISK_FREE_RATE).toBe(0.05);
   });
 
   test('DISCLAIMER is a non-empty string containing SEBI', () => {

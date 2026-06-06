@@ -256,6 +256,7 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   transition: all 0.45s var(--ease-smooth);
   position: relative;
   box-shadow:
@@ -814,7 +815,7 @@ input[type=range] {
 }
 
 /* ===== Responsive ===== */
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .top-row-grid { grid-template-columns: 1fr 1fr; }
   .bottom-row-grid { grid-template-columns: 1fr; }
 }

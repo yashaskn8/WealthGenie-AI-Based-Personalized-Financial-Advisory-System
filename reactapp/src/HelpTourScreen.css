@@ -496,4 +496,128 @@ select.help-form-input option {
   .help-guide-chevron { display: none; }
   .help-form-row { flex-direction: column; gap: 16px; }
   .help-cta-buttons { flex-direction: column; }
+  .help-glossary-grid { grid-template-columns: 1fr !important; }
 }
+
+/* ─── Financial Jargon Buster Glossary ────────────────────────── */
+.help-glossary-section {
+  margin-top: 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.help-section-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin: 0 0 8px;
+  letter-spacing: -0.8px;
+}
+
+.help-section-desc {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  max-width: 600px;
+  margin-bottom: 24px;
+}
+
+.help-glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.help-glossary-card {
+  background: linear-gradient(165deg, rgba(16, 24, 44, 0.5) 0%, rgba(8, 13, 28, 0.7) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 24px -6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.02);
+  display: flex;
+  flex-direction: column;
+  height: max-content;
+}
+
+.help-glossary-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.15);
+  background: linear-gradient(165deg, rgba(16, 24, 44, 0.6) 0%, rgba(8, 13, 28, 0.8) 100%);
+  box-shadow: 0 12px 32px -6px rgba(0,0,0,0.45), inset 0 1px 1px rgba(255,255,255,0.04);
+}
+
+.help-glossary-expanded {
+  border-color: rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 16px 40px -10px rgba(0,0,0,0.6), 0 0 24px rgba(56, 189, 248, 0.05) !important;
+}
+
+.help-glossary-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.help-glossary-term-group {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.help-glossary-term {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: -0.3px;
+}
+
+.help-glossary-fullname {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.help-glossary-chevron {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #475569;
+}
+
+.help-glossary-expanded .help-glossary-chevron {
+  transform: rotate(90deg);
+  color: #38bdf8;
+}
+
+.help-glossary-definition {
+  font-size: 0.82rem;
+  color: #8b9cb7;
+  line-height: 1.5;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.help-glossary-more {
+  overflow: hidden;
+}
+
+.help-glossary-more-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.help-glossary-more-text {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.55;
+  font-family: 'Inter', sans-serif;
+}
+

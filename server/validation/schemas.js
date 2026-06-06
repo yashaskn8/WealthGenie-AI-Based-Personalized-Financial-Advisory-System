@@ -3,6 +3,22 @@ import Joi from 'joi';
 /**
  * WealthGenie Request Validation Schemas
  * Uses Joi for runtime input validation on Express routes.
+ * 
+ * =========================================================================
+ * 📘 BEGINNER NOTE: WHAT IS INPUT VALIDATION & JOI?
+ * =========================================================================
+ * 1. Why input validation matters: 
+ *    We must never trust data sent by users or browsers. An attacker could send 
+ *    negative numbers for income, strings where dates are expected, or huge payloads
+ *    to crash our database or server. Validation acts as a shield, ensuring data is
+ *    in the correct format, type, and range before our code processes it.
+ * 
+ * 2. What is Joi?
+ *    Joi is a JavaScript schema description language and validator. It lets us write
+ *    declarative schemas to describe what a valid request must look like (e.g. "a string,
+ *    between 2 and 100 characters, trimmed, and required"). It automatically rejects
+ *    invalid requests with status 400 (Bad Request) and cleanses input (e.g. converting
+ *    query strings like "1200000" into actual numbers).
  */
 
 // ── Reusable field definitions ─────────────────────────────────────
@@ -81,6 +97,7 @@ export const monteCarloSchema = Joi.object({
   monthly_investment: Joi.number().min(500).max(10000000).required(),
   years: Joi.number().integer().min(1).max(40).required(),
   target_amount: Joi.number().min(1000).max(10000000000).optional(),
+  current_savings: Joi.number().min(0).max(10000000000).optional(),
   profileId: objectId.optional(),
 });
 
@@ -107,6 +124,7 @@ export const goalSchema = Joi.object({
     }),
   current_savings: Joi.number().min(0).max(10000000000).default(0),
   profileId: objectId.optional(),
+  priority: Joi.string().valid('Critical', 'High', 'Medium', 'Low').default('Medium').optional(),
 });
 
 // ── Tax Schema ─────────────────────────────────────────────────────
@@ -114,12 +132,59 @@ export const taxComputeSchema = Joi.object({
   income: Joi.number().min(0).max(1000000000).required()
     .messages({ 'number.min': 'Income must be a positive number' }),
   regime: Joi.string().valid('new', 'old').default('new'),
+  incomeSource: Joi.string().valid('salary', 'pension', 'family_pension', 'business', 'other').default('salary'),
+  section80C: Joi.number().min(0).max(150000).optional(),
+  nps80CCD1B: Joi.number().min(0).max(50000).optional(),
+  nps80CCD2: Joi.number().min(0).optional(),
+  basicSalary: Joi.number().min(0).optional(),
+  isGovtEmployee: Joi.boolean().default(false).optional(),
+  section80D: Joi.number().min(0).max(100000).optional(),
+  section80D_self: Joi.number().min(0).max(50000).optional(),
+  section80D_parents: Joi.number().min(0).max(50000).optional(),
+  parents_senior: Joi.boolean().default(false).optional(),
+  hra: Joi.number().min(0).optional(),
+  homeLoanInterest: Joi.number().min(0).max(200000).optional(),
+  other: Joi.number().min(0).optional(),
+  age: Joi.number().integer().min(18).max(120).optional(),
 });
 
 export const taxCompareSchema = Joi.object({
   income: Joi.number().min(0).max(1000000000).required()
     .messages({ 'number.min': 'Income must be a positive number' }),
+  incomeSource: Joi.string().valid('salary', 'pension', 'family_pension', 'business', 'other').default('salary'),
+  section80C: Joi.number().min(0).max(150000).optional(),
+  nps80CCD1B: Joi.number().min(0).max(50000).optional(),
+  nps80CCD2: Joi.number().min(0).optional(),
+  basicSalary: Joi.number().min(0).optional(),
+  isGovtEmployee: Joi.boolean().default(false).optional(),
+  section80D: Joi.number().min(0).max(100000).optional(),
+  section80D_self: Joi.number().min(0).max(50000).optional(),
+  section80D_parents: Joi.number().min(0).max(50000).optional(),
+  parents_senior: Joi.boolean().default(false).optional(),
+  hra: Joi.number().min(0).optional(),
+  homeLoanInterest: Joi.number().min(0).max(200000).optional(),
+  other: Joi.number().min(0).optional(),
+  age: Joi.number().integer().min(18).max(120).optional(),
 });
+
+// ── Rebalance Schema ───────────────────────────────────────────────
+export const rebalanceSchema = Joi.object({
+  current_allocation: Joi.object().pattern(Joi.string(), Joi.number().min(0)).required()
+    .messages({ 'any.required': 'Current asset allocation is required' }),
+  target_allocation: Joi.object().pattern(Joi.string(), Joi.number().min(0).max(100)).required()
+    .messages({ 'any.required': 'Target asset weights are required' }),
+  threshold: Joi.number().min(0).max(50).default(2.0),
+  partial_ratio: Joi.number().min(0.1).max(1.0).default(1.0),
+  holding_months: Joi.number().min(0).max(600).default(24),
+});
+
+export const updateWeightsSchema = Joi.object({
+  profileId: objectId.required()
+    .messages({ 'string.pattern.base': 'Invalid profile ID format' }),
+  weights: Joi.object().pattern(Joi.string(), Joi.number().min(0)).required()
+    .messages({ 'any.required': 'Weights are required' }),
+});
+
 
 // ── Chat Schema ────────────────────────────────────────────────────
 export const chatMessageSchema = Joi.object({

@@ -151,7 +151,7 @@ process.on('unhandledRejection', (reason) => {
   }));
 });
 
-// Catch uncaught exceptions — log but don't crash immediately
+// Catch uncaught exceptions — log and terminate immediately so process managers can restart
 process.on('uncaughtException', (err) => {
   console.error(JSON.stringify({
     timestamp: new Date().toISOString(),
@@ -159,5 +159,6 @@ process.on('uncaughtException', (err) => {
     message: err.message,
     stack: err.stack,
   }));
-  // In production, you'd want to do a graceful shutdown here
+  process.exit(1);
 });
+

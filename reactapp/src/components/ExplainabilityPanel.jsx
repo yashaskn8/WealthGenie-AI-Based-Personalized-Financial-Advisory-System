@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 import { getConfidenceLabel } from '../utils/confidenceLabels';
+import JargonTooltip from './JargonTooltip';
 
 const FEATURE_COLORS = {
   positive: '#10b981',
@@ -22,6 +23,34 @@ function formatRawValue(feature, value) {
   return value;
 }
 
+const ShapTooltip = ({ active, payload, totalMagnitude }) => {
+  if (!active || !payload?.length) return null;
+  const item = payload[0].payload;
+  const influencePercent = totalMagnitude > 0
+    ? ((item.magnitude / totalMagnitude) * 100).toFixed(0) : 0;
+
+  return (
+    <div style={{
+      background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(6, 182, 212, 0.3)',
+      borderRadius: 12, padding: '12px 16px', color: '#e2e8f0', fontSize: '0.85rem',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)', maxWidth: 260,
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.display_name}</div>
+      <div style={{ marginBottom: 4 }}>
+        <span style={{ color: item.direction === 'increased' ? '#10b981' : '#f43f5e', fontWeight: 600 }}>
+          {item.direction === 'increased' ? '↑' : '↓'}
+        </span>{' '}
+        {influencePercent}% weight in picking this for you
+      </div>
+      {item.raw_value != null && (
+        <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+          What you entered: {formatRawValue(item.feature, item.raw_value)}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ExplainabilityPanel = ({ explanation, instrumentName }) => {
   if (!explanation || !explanation.feature_contributions) return null;
 
@@ -36,7 +65,7 @@ const ExplainabilityPanel = ({ explanation, instrumentName }) => {
      (explanationInstrument === 'Debt MF' && titleInstrument.includes('Debt')) ||
      (explanationInstrument === 'ETF' && titleInstrument.includes('ETF')));
 
-  if (!isConsistent && process.env.NODE_ENV === 'development') {
+  if (!isConsistent && import.meta.env.DEV) {
     console.warn(
       `[ExplainabilityPanel] Instrument mismatch detected.\n` +
       ` Title instrument: "${titleInstrument}"\n` +
@@ -59,38 +88,7 @@ const ExplainabilityPanel = ({ explanation, instrumentName }) => {
     raw_value: c.raw_value,
   }));
 
-  // ── FIX 2: Custom tooltip with percentage influence ────────────
-  const totalMagnitude = contributions.reduce((sum, c) => sum + c.magnitude, 0);
-
-  const ShapTooltip = ({ active, payload }) => {
-    if (!active || !payload?.length) return null;
-    const item = payload[0].payload;
-    const influencePercent = totalMagnitude > 0
-      ? ((item.magnitude / totalMagnitude) * 100).toFixed(0) : 0;
-
-    return (
-      <div style={{
-        background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(6, 182, 212, 0.3)',
-        borderRadius: 12, padding: '12px 16px', color: '#e2e8f0', fontSize: '0.85rem',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)', maxWidth: 260,
-      }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.display_name}</div>
-        <div style={{ marginBottom: 4 }}>
-          <span style={{ color: item.direction === 'increased' ? '#10b981' : '#f43f5e', fontWeight: 600 }}>
-            {item.direction === 'increased' ? '↑' : '↓'}
-          </span>{' '}
-          {influencePercent}% influence on this recommendation
-        </div>
-        {item.raw_value != null && (
-          <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-            Your value: {formatRawValue(item.feature, item.raw_value)}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // ── FIX 2: Confidence badge ────────────────────────────────────
+  // ── FIX 2: Qualitative confidence badge ────────────────────────────────────
   const conf = getConfidenceLabel(explanation.confidence || 0);
 
   return (
@@ -116,7 +114,7 @@ const ExplainabilityPanel = ({ explanation, instrumentName }) => {
           background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
           alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem',
         }}>AI</span>
-        Why WealthGenie recommended {titleInstrument}
+        Why this was picked for you
       </h3>
       <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 16, position: 'relative' }}>
         {displaySubtitle}
@@ -129,11 +127,11 @@ const ExplainabilityPanel = ({ explanation, instrumentName }) => {
       }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: FEATURE_COLORS.positive }} />
-          Increases recommendation likelihood
+          Makes this a good fit for you
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: FEATURE_COLORS.negative }} />
-          Reduces recommendation likelihood
+          Makes this less ideal for you
         </span>
       </div>
 
@@ -143,7 +141,7 @@ const ExplainabilityPanel = ({ explanation, instrumentName }) => {
             {/* FIX 2: Hide numeric X-axis */}
             <XAxis type="number" hide={true} />
             <YAxis type="category" dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 13, fontWeight: 500 }} width={90} axisLine={false} tickLine={false} />
-            <Tooltip content={<ShapTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+            <Tooltip content={<ShapTooltip totalMagnitude={contributions.reduce((sum, c) => sum + c.magnitude, 0)} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
             <ReferenceLine x={0} stroke="#475569" strokeWidth={1} />
             <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={800} animationBegin={200}>
               {contributions.map((entry, index) => (

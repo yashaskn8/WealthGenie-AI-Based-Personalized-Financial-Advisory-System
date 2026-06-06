@@ -13,28 +13,33 @@ const connectRedis = async () => {
       url: process.env.REDIS_URL || 'redis://localhost:6379',
       socket: {
         connectTimeoutMs: 3000,
-        reconnectStrategy: false,   // Do NOT retry — fail once and move on
+        reconnectStrategy: (retries) => {
+          if (retries > 5) {
+            return new Error('Redis reconnect attempts exhausted.');
+          }
+          return Math.min(retries * 500, 3000); // Backoff: 500ms, 1000ms, 1500ms, etc.
+        },
       },
     });
 
     let errorLogged = false;
     redisClient.on('error', (err) => {
       if (!errorLogged) {
-        console.warn('⚠️  Redis not available — running without cache:', err.message);
+        console.warn('Redis not available — running without cache:', err.message);
         errorLogged = true;
       }
       redisAvailable = false;
     });
 
     redisClient.on('connect', () => {
-      console.log('✅ Redis connected');
+      console.log('Redis connected');
       redisAvailable = true;
     });
 
     await redisClient.connect();
     redisAvailable = true;
   } catch (error) {
-    console.warn('⚠️  Redis not available — running without cache:', error.message);
+    console.warn('Redis not available — running without cache:', error.message);
     redisAvailable = false;
     redisClient = null;
   }
@@ -77,4 +82,4 @@ const delCache = async (key) => {
   }
 };
 
-export { connectRedis, getCache, setCache, delCache, redisClient };
+export { connectRedis, getCache, setCache, delCache, redisClient, redisAvailable };

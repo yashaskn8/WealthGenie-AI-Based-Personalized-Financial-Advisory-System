@@ -154,8 +154,7 @@ export function getLockInWarning(instrument, horizonYears) {
   if (!instrument || !['elss', 'ELSS'].includes(instrument.id || instrument.type)) return null;
   if (horizonYears <= 5) {
     const sipMonthsLocked = Math.min(36, horizonYears * 12);
-    const trailingLockedMonths = Math.max(0, 36 - (horizonYears * 12 - 36));
-    return `Each ELSS SIP is locked for 3 years. Your last ${Math.min(36, horizonYears * 12)} months of SIPs will still be locked when your ${horizonYears}-year horizon ends.`;
+    return `Each ELSS SIP is locked for 3 years. Your last ${sipMonthsLocked} months of SIPs will still be locked when your ${horizonYears}-year horizon ends.`;
   }
   return null;
 }

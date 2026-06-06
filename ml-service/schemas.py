@@ -1,12 +1,15 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal
 
 
 class PredictRequest(BaseModel):
     age: int = Field(..., ge=18, le=80, description="User age in years")
     annual_income: float = Field(..., gt=0, le=100000000, description="Annual income in INR (max ₹10Cr)")
     monthly_savings: float = Field(..., ge=0, description="Monthly savings in INR")
-    risk_category: str = Field(..., description="Risk category: Conservative, Conservative-Moderate, Moderate, Moderate-Aggressive, Aggressive")
+    risk_category: Literal['Conservative', 'Conservative-Moderate', 'Moderate', 'Moderate-Aggressive', 'Aggressive'] = Field(
+        ...,
+        description="Risk category: Conservative, Conservative-Moderate, Moderate, Moderate-Aggressive, Aggressive"
+    )
 
     @model_validator(mode='after')
     def savings_must_be_reasonable(self):
@@ -35,6 +38,8 @@ class Explanation(BaseModel):
 
 
 class PredictResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    
     primary: str
     secondary: str
     tertiary: str
@@ -45,6 +50,8 @@ class PredictResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     status: str
     model_version: str
     model_accuracy: Optional[float] = None

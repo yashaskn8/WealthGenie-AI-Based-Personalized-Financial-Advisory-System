@@ -44,3 +44,12 @@ export function formatCompactINR(val) {
   if (abs >= 1000) return `₹${(num / 1000).toFixed(1)} K`;
   return `₹${Math.round(num)}`;
 }
+
+/**
+ * Formats a percentage cleanly (e.g. 12.5 -> "12.5%", 12.0 -> "12%").
+ */
+export function formatPercent(val, decimals = 1) {
+  if (val === null || val === undefined || isNaN(val)) return '0%';
+  const num = Number(val);
+  return `${Number.isInteger(num) ? num : num.toFixed(decimals)}%`;
+}

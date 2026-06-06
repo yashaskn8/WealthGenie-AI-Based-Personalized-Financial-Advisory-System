@@ -59,6 +59,12 @@ async function request(method, path, data = null, options = {}, retries = 2) {
     const json = await res.json();
 
     if (!res.ok) {
+      if (res.status === 401) {
+        clearAuthToken();
+        if (window.location.pathname !== '/' && window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
       throw new Error(json.error || `Request failed with status ${res.status}`);
     }
     return json;
@@ -144,6 +150,10 @@ export async function getGoals() {
   return request('GET', '/goals');
 }
 
+export async function updateGoal(goalId, goalData) {
+  return request('PATCH', `/goals/${goalId}`, goalData);
+}
+
 export async function deleteGoal(goalId) {
   return request('DELETE', `/goals/${goalId}`);
 }
@@ -166,13 +176,49 @@ export async function clearChatSession(sessionId) {
   return request('DELETE', `/chat/session/${sessionId}`);
 }
 
+export async function computeTax(income, regime = 'new', deductions = {}) {
+  const params = new URLSearchParams({ income: String(income), regime });
+  Object.entries(deductions).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') {
+      params.set(k, String(v));
+    }
+  });
+  return request('GET', `/tax/compute?${params.toString()}`);
+}
+
+export async function compareTax(income, deductions = {}) {
+  const params = new URLSearchParams({ income: String(income) });
+  Object.entries(deductions).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') {
+      params.set(k, String(v));
+    }
+  });
+  return request('GET', `/tax/compare?${params.toString()}`);
+}
+
+export async function rebalancePortfolio(currentAllocation, targetAllocation, threshold = 2.0, partialRatio = 1.0, holdingMonths = 24) {
+  return request('POST', '/portfolio/rebalance', {
+    current_allocation: currentAllocation,
+    target_allocation: targetAllocation,
+    threshold,
+    partial_ratio: partialRatio,
+    holding_months: holdingMonths,
+  });
+}
+
+export async function updateRecommendationWeights(profileId, weights) {
+  return request('POST', '/recommend/weights', { profileId, weights });
+}
+
 // Default export for convenience
 const api = {
   register, login, setAuthToken, getAuthToken, clearAuthToken,
   setUserInfo, getUserInfo,
   buildProfile, getRecommendations, getInstruments, getProjections,
-  runMonteCarlo, createGoal, getGoals, deleteGoal, healthCheck,
-  sendChatMessage, getChatHistory, clearChatSession,
+  runMonteCarlo, createGoal, getGoals, updateGoal, deleteGoal, healthCheck,
+  sendChatMessage, getChatHistory, clearChatSession, rebalancePortfolio,
+  updateRecommendationWeights,
+  computeTax, compareTax,
 };
 
 export default api;

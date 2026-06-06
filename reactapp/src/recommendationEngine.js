@@ -45,7 +45,7 @@ export const GOAL_PROFILES = {
   },
   'Wealth Growth': {
     liquidity_required: 'low',
-    max_lock_in_years: 10,
+    max_lock_in_years: null, // No goal-level lock-in cap — the horizon filter handles this
     preferred_categories: ['Equity', 'Equity-Debt', 'Commodity'],
     excluded_ids: [],
     recommended_horizon_months: null,
@@ -69,8 +69,11 @@ export function filterInstrumentsForGoal(instruments, goalType) {
   return instruments.filter(inst => {
     // Exclude instruments by ID
     if (profile.excluded_ids?.includes(inst.id)) return false;
-    // Exclude instruments that violate liquidity requirements
-    if (profile.max_lock_in_years === 0 && (inst.lockIn > 0 || inst.lock_in_years > 0)) {
+    // Exclude instruments whose lock-in exceeds the goal's max
+    // (e.g., PPF 15yr lock-in excluded for Wealth Growth max 10yr)
+    const lockIn = inst.lockIn || inst.lock_in_years || 0;
+    if (profile.max_lock_in_years !== null && profile.max_lock_in_years !== undefined
+        && lockIn > profile.max_lock_in_years) {
       return false;
     }
     return true;
@@ -88,11 +91,7 @@ export function buildEmergencyFundPortfolio(userProfile) {
   // Liquid instruments only — all have lockIn=0
   const liquidPortfolio = [
     {
-      id: 'liquid_mf', name: 'Liquid Mutual Fund', abbr: 'Liquid MF',
-      cat: 'Debt', rate: 7.0, risk: 1, riskLabel: 'Very Low', lockIn: 0,
-      taxType: 'slab', color: '#14b8a6', minMonthlyInvestment: 500,
-      maxAnnualInvestment: null, desc: 'T+1 redemption. Ideal core emergency holding.',
-      eligibility: { minAge: 18, maxAge: null, minAnnualIncome: 0, minMonthlySavings: 500 },
+      ...investmentDatabase.find(i => i.id === 'liquid_mf'),
     },
     {
       ...investmentDatabase.find(i => i.id === 'fd'),
@@ -174,20 +173,49 @@ export function getMarginalRate(annualIncome, regime = 'new') {
   const standardDeduction = regime === 'new' ? 75000 : 50000;
   const taxableIncome = Math.max(0, annualIncome - standardDeduction);
 
+  let rate = 0;
   if (regime === 'old') {
-    if (taxableIncome > 1000000) return 0.30;
-    if (taxableIncome > 500000)  return 0.20;
-    if (taxableIncome > 250000)  return 0.05;
-    return 0;
+    if (taxableIncome > 1000000) rate = 0.30;
+    else if (taxableIncome > 500000)  rate = 0.20;
+    else if (taxableIncome > 250000)  rate = 0.05;
+  } else {
+    // New regime FY2025-26 slabs (on taxable income after ₹75K deduction)
+    if (taxableIncome > 2400000) rate = 0.30;
+    else if (taxableIncome > 2000000) rate = 0.25;
+    else if (taxableIncome > 1600000) rate = 0.20;
+    else if (taxableIncome > 1200000) rate = 0.15;
+    else if (taxableIncome > 800000)  rate = 0.10;
+    else if (taxableIncome > 400000)  rate = 0.05;
   }
-  // New regime FY2025-26 slabs (on taxable income after ₹75K deduction)
-  if (taxableIncome > 2400000) return 0.30;
-  if (taxableIncome > 2000000) return 0.25;
-  if (taxableIncome > 1600000) return 0.20;
-  if (taxableIncome > 1200000) return 0.15;
-  if (taxableIncome > 800000)  return 0.10;
-  if (taxableIncome > 400000)  return 0.05;
-  return 0;
+  return rate * 1.04;
+}
+
+export function estimateEquityLTCGTaxRate(nominalRate, monthlySIP, holdingYears) {
+  const safeSIP = Number(monthlySIP) || 10000;
+  const safeYears = Number(holdingYears) || 3;
+  if (safeSIP <= 0 || safeYears <= 0 || nominalRate <= 0) return 0.125 * 1.04;
+
+  const totalMonths = Math.round(safeYears * 12);
+  const monthlyRate = Math.exp(nominalRate / 12) - 1;
+
+  let totalGains = 0;
+  for (let i = 0; i < totalMonths; i++) {
+    const monthsRemaining = totalMonths - i;
+    const trancheFV = safeSIP * Math.pow(1 + monthlyRate, monthsRemaining);
+    const gain = Math.max(0, trancheFV - safeSIP);
+    totalGains += gain;
+  }
+
+  if (totalGains <= 0) return 0;
+
+  const EXEMPTION_LIMIT = 125000;
+  const LTCG_RATE = 0.125;
+  const CESS_MULTIPLIER = 1.04;
+
+  const taxableGains = Math.max(0, totalGains - EXEMPTION_LIMIT);
+  const totalTax = taxableGains * LTCG_RATE * CESS_MULTIPLIER;
+
+  return totalGains > 0 ? totalTax / totalGains : LTCG_RATE * CESS_MULTIPLIER;
 }
 
 // ─── POST-TAX COMPUTATION (FIXED: post-tax NEVER exceeds nominal) ─
@@ -243,26 +271,34 @@ export function computePostTaxReturn(inv, annualSavings, annualIncome, profile) 
     }
 
     case "ltcg": {
-      // Equity LTCG: 12.5% on gains (simplified)
-      const ltcgRate = 0.125;
-      const postTaxRate = rate * (1 - ltcgRate);
+      // Equity LTCG: 12.5% on gains -> Upgraded to detailed FIFO tranche analysis
+      const nominalRate = rate / 100;
+      const monthlySIP = (annualSavings || 0) / 12;
+      const holdingYears = Number(profile?.investment_horizon || profile?.investmentHorizon) || 15;
+      
+      const effectiveLtcgRate = estimateEquityLTCGTaxRate(nominalRate, monthlySIP, holdingYears);
+      const postTaxRate = rate * (1 - effectiveLtcgRate);
       return {
         postTaxRate: parseFloat(postTaxRate.toFixed(2)),
         taxSaving: 0,
-        taxPaid: Math.round(annualSavings * rate / 100 * ltcgRate),
+        taxPaid: Math.round(annualSavings * nominalRate * effectiveLtcgRate),
         marginalRate: mr,
       };
     }
 
     case "elss": {
-      // ELSS: LTCG 12.5% on gains; 80C deduction reported separately
-      const ltcgRate = 0.125;
-      const postTaxRate = rate * (1 - ltcgRate);
+      // ELSS: LTCG 12.5% on gains; 80C deduction reported separately -> Upgraded to FIFO tranche
+      const nominalRate = rate / 100;
+      const monthlySIP = (annualSavings || 0) / 12;
+      const holdingYears = Number(profile?.investment_horizon || profile?.investmentHorizon) || 15;
+      
+      const effectiveLtcgRate = estimateEquityLTCGTaxRate(nominalRate, monthlySIP, holdingYears);
+      const postTaxRate = rate * (1 - effectiveLtcgRate);
       const taxSaving = Math.min(150000, annualSavings) * mr;
       return {
         postTaxRate: parseFloat(postTaxRate.toFixed(2)),
         taxSaving,
-        taxPaid: Math.round(annualSavings * rate / 100 * ltcgRate),
+        taxPaid: Math.round(annualSavings * nominalRate * effectiveLtcgRate),
         marginalRate: mr,
       };
     }
@@ -288,14 +324,15 @@ export function computePostTaxReturn(inv, annualSavings, annualIncome, profile) 
     }
 
     case "sgb": {
-      // SGB: 2.5% interest taxed at slab; capital gains exempt at maturity
-      const interestComponent = 0.025;
-      const taxOnInterest = interestComponent * mr;
+      // SGB: 2.5% p.a. interest taxed at slab; capital gains exempt at maturity
+      // IMPORTANT: rate is in percentage form (e.g., 13.0), so interest must also be in pct points
+      const interestPctPts = 2.5;
+      const taxOnInterest = interestPctPts * mr; // e.g., 2.5 * 0.30 = 0.75 pct pts
       const postTaxRate = rate - taxOnInterest;
       return {
         postTaxRate: parseFloat(Math.max(0, postTaxRate).toFixed(2)),
         taxSaving: 0,
-        taxPaid: Math.round(annualSavings * interestComponent * mr),
+        taxPaid: Math.round(annualSavings * (interestPctPts / 100) * mr),
         marginalRate: mr,
       };
     }
@@ -336,7 +373,6 @@ export function getEligibleInvestments(profile) {
 
     // ── INSTRUMENT-SPECIFIC RULES ──
     if (inv.id === "scss" && age < 60) return false;
-    if (inv.id === "pmvvy" && age < 60) return false;
     if (inv.id === "nps" && age >= 60) return false;
     if (inv.id === "sukanya") {
       if (age < 18 || age > 40) return false;
@@ -372,28 +408,46 @@ export function getEligibleInvestments(profile) {
   });
 
   // ── MINIMUM ELIGIBLE INSTRUMENTS FALLBACK ──
-  // Fallback instruments must still respect user's affordability and horizon
+  // Fallback instruments must respect user's affordability, horizon, AND risk appetite.
+  // Previously this always added risk<=2 instruments, which diluted high-risk portfolios
+  // with conservative Government bonds — causing inverted allocations.
   if (result.length < 3) {
-    const safeDefaults = investmentDatabase.filter(inv => {
-      // Only add instruments the user can actually afford
-      if (savings < inv.minMonthlyInvestment) return false;
-      if (inv.eligibility.minMonthlySavings && savings < inv.eligibility.minMonthlySavings) return false;
-      // Only add instruments that respect the horizon
-      const effectiveLockIn = (inv.maturity_type === 'age_based' && inv.maturity_age)
-        ? Math.max(0, inv.maturity_age - age)
-        : inv.lockIn;
-      if (effectiveLockIn > 0 && effectiveLockIn > horizon) return false;
-      // Only low-risk fallbacks
-      return inv.risk <= 2;
-    });
+    // Determine risk-appropriate fallback tiers based on user's risk appetite
+    const riskTiers = risk === 'high'
+      ? [5, 4, 3, 2, 1]    // High risk: prefer high-risk fallbacks first
+      : risk === 'medium'
+        ? [3, 2, 4, 1]      // Medium: prefer medium-risk first
+        : [1, 2, 3];        // Low: prefer low-risk first
 
     const existingIds = new Set(result.map(i => i.id));
-    for (const inv of safeDefaults) {
-      if (!existingIds.has(inv.id)) {
-        result.push(inv);
-        existingIds.add(inv.id);
-      }
+
+    for (const maxRisk of riskTiers) {
       if (result.length >= 3) break;
+
+      const candidates = investmentDatabase.filter(inv => {
+        if (existingIds.has(inv.id)) return false;
+        if (inv.risk !== maxRisk) return false;
+        // Only add instruments the user can actually afford
+        if (savings < inv.minMonthlyInvestment) return false;
+        if (inv.eligibility.minMonthlySavings && savings < inv.eligibility.minMonthlySavings) return false;
+        // Only add instruments that respect the horizon
+        const effectiveLockIn = (inv.maturity_type === 'age_based' && inv.maturity_age)
+          ? Math.max(0, inv.maturity_age - age)
+          : inv.lockIn;
+        if (effectiveLockIn > 0 && effectiveLockIn > horizon) return false;
+        // Respect age/instrument-specific rules
+        if (inv.id === "scss" && age < 60) return false;
+        if (inv.id === "sukanya" && !profile.has_daughter_under_10) return false;
+        return true;
+      });
+
+      for (const inv of candidates) {
+        if (!existingIds.has(inv.id)) {
+          result.push(inv);
+          existingIds.add(inv.id);
+        }
+        if (result.length >= 3) break;
+      }
     }
 
     if (result.length === 0) {
@@ -425,9 +479,16 @@ function computeScore(inv, profile) {
   if (inv.id === "gold_etf" || inv.id === "sgb") returnPoints = Math.min(returnPoints, 30);
   score += returnPoints;
 
+  // Risk-alignment bonuses AND mismatch penalties
+  // Without penalties, PPF's EEE bonus (+12) lets it dominate even for high-risk users
   if (risk === "low" && inv.risk <= 2) score += 20;
-  else if (risk === "medium" && inv.risk >= 2 && inv.risk <= 4) score += 15;
-  else if (risk === "high" && inv.risk >= 3) score += 18;
+  else if (risk === "low" && inv.risk >= 3) score -= 10;  // Low-risk user penalized for volatile instruments
+
+  if (risk === "medium" && inv.risk >= 2 && inv.risk <= 4) score += 15;
+  else if (risk === "medium" && inv.risk === 1) score -= 5;  // Mild penalty for very safe instruments
+
+  if (risk === "high" && inv.risk >= 3) score += 18;
+  else if (risk === "high" && inv.risk <= 1) score -= 12;  // High-risk user penalized for ultra-safe instruments
 
   // Fix 2: Use effective lock-in for age-based instruments (NPS)
   const effectiveLockIn = (inv.maturity_type === 'age_based' && inv.maturity_age)
@@ -442,21 +503,20 @@ function computeScore(inv, profile) {
   if (inv.taxType === "sgb") score += 6;
 
   if (goals.includes("Tax Saving") && ["eee", "elss", "nps"].includes(inv.taxType)) score += 8;
-  if (goals.includes("Retirement") && ["nps", "ppf", "scss", "pmvvy"].includes(inv.id)) score += 10;
+  if (goals.includes("Retirement") && ["nps", "ppf", "scss"].includes(inv.id)) score += 10;
   if (goals.includes("Wealth Growth") && inv.risk >= 3) score += 5;
 
   // Age-appropriate scoring: boost senior-specific instruments
   if (inv.id === "nps" && horizon >= 15) score += 8;
   if (inv.id === "sukanya") score += 12;
   if (inv.id === "scss") score += 15;
-  if (inv.id === "pmvvy") score += 14; // High score for senior pension
 
   return { ...inv, score, postTaxRate };
 }
 
 // ─── FIX 2.6: CONCENTRATION GUARD ────────────────────────────────
 export function enforceConcentrationLimits(rankedInvestments) {
-  return rankedInvestments.map((inv, idx) => {
+  return rankedInvestments.map((inv) => {
     const cap = CONCENTRATION_CAPS[inv.id];
     if (cap) {
       return { ...inv, concentrationBadge: cap.badge, maxPct: cap.maxPct };
@@ -476,7 +536,7 @@ export function getWhy(inv, profile) {
   const annualSavings = savings * 12;
   const mr = getMarginalRate(annualIncome, profile.taxRegime || 'new');
   const mrPct = (mr * 100).toFixed(0);
-  const { postTaxRate, tdsNote, npsNote } = computePostTaxReturn(inv, annualSavings, annualIncome, profile);
+  const { postTaxRate, tdsNote } = computePostTaxReturn(inv, annualSavings, annualIncome, profile);
   const postTaxStr = postTaxRate.toFixed(1);
 
   // Equivalent taxable rate for EEE instruments
@@ -493,10 +553,10 @@ export function getWhy(inv, profile) {
       `No other government scheme offers this rate with a 5-year lock-in for your age group.`,
       `TDS applies if annual interest exceeds ₹50,000. This should be one of your top-3 instruments.`,
     ],
-    pmvvy: [
-      `PMVVY is a government-guaranteed pension scheme designed exclusively for senior citizens aged 60+. The 7.4% p.a. rate is fixed for the entire 10-year term.`,
-      `Unlike other instruments, PMVVY pays a regular pension — you can choose monthly, quarterly, half-yearly, or annual payouts. Maximum investment of ₹15 lakhs.`,
-      `For your retirement income needs at age ${age}, this provides guaranteed, inflation-beating income with zero credit risk and sovereign backing.`,
+    liquid_mf: [
+      `Liquid Mutual Funds offer high safety and near-instant liquidity (T+1 redemption, with up to ₹50,000 instant withdrawal), making them the perfect core holding for emergency reserves.`,
+      `They invest in extremely short-term debt papers (maturity ≤ 91 days) with sovereign or AAA rating, minimizing both credit and interest rate risk.`,
+      `Gains are taxed at your income slab rate of ${mrPct}%, but the post-tax yield remains superior to a standard bank savings account.`
     ],
     sukanya: [
       `SSY offers the highest guaranteed EEE return at 8.2% p.a. — better than PPF and entirely tax-free.`,
@@ -628,11 +688,15 @@ export function generateRecommendations(userProfile) {
   const maxPicks = Math.min(8, scored.length);
   const recommended = scored.slice(0, maxPicks);
 
-  const totalScore = recommended.reduce((sum, inv) => sum + inv.score, 0);
+  // Clamp scores to minimum 1 before weight computation.
+  // Negative scores (from risk-mismatch penalties) must not invert the allocation
+  // when totalScore goes negative — that would give highest weight to lowest-scored instruments.
+  const clampedScores = recommended.map(inv => Math.max(1, inv.score));
+  const totalScore = clampedScores.reduce((sum, s) => sum + s, 0);
   if (totalScore === 0) return [];
 
-  // Compute raw weights, guarantee non-negative, normalize to 100%
-  let rawWeights = recommended.map(inv => Math.max(0, inv.score / totalScore));
+  // Compute raw weights from clamped scores, normalize to 100%
+  let rawWeights = clampedScores.map(s => s / totalScore);
   const rawTotal = rawWeights.reduce((s, w) => s + w, 0);
   if (rawTotal <= 0) {
     rawWeights = recommended.map(() => 1 / recommended.length);
@@ -640,27 +704,66 @@ export function generateRecommendations(userProfile) {
     rawWeights = rawWeights.map(w => w / rawTotal);
   }
 
-  // Compute monthly SIP from normalized weights
-  let sipAllocations = rawWeights.map(w => {
-    let amount = Math.round(w * savings / 100) * 100;
-    return Math.max(0, amount);
-  });
+  // ── ALLOCATION ENGINE (budget-aware) ──
+  // Check if total minimum investments exceed the budget.
+  // If so, skip minimum enforcement entirely and use pure score-proportional
+  // allocation. This ensures different risk levels produce different splits
+  // (e.g., Low: 60% PPF / 40% Gold, High: 30% PPF / 70% Gold)
+  // instead of forcing 100% into a single instrument.
+  const totalMinRequired = recommended.reduce((s, inv) => s + inv.minMonthlyInvestment, 0);
+  const budgetCanSupportMins = savings >= totalMinRequired;
 
-  // Apply instrument caps
-  recommended.forEach((inv, i) => {
-    if (sipAllocations[i] > 0 && sipAllocations[i] < inv.minMonthlyInvestment) {
-      sipAllocations[i] = inv.minMonthlyInvestment;
+  let sipAllocations;
+
+  if (budgetCanSupportMins) {
+    // Normal path: budget is large enough — enforce minimums, then distribute
+    sipAllocations = rawWeights.map(w => {
+      let amount = Math.round(w * savings / 100) * 100;
+      return Math.max(0, amount);
+    });
+
+    // Enforce minimum investment floors
+    recommended.forEach((inv, i) => {
+      if (sipAllocations[i] > 0 && sipAllocations[i] < inv.minMonthlyInvestment) {
+        sipAllocations[i] = inv.minMonthlyInvestment;
+      }
+      if (inv.maxAnnualInvestment && sipAllocations[i] * 12 > inv.maxAnnualInvestment) {
+        sipAllocations[i] = Math.floor(inv.maxAnnualInvestment / 12 / 100) * 100;
+      }
+    });
+
+    // If enforcement caused overflow, drop lowest-scored instruments
+    let allocatedSum = sipAllocations.reduce((s, a) => s + a, 0);
+    while (allocatedSum > savings && recommended.length > 1) {
+      let dropIdx = -1;
+      for (let i = sipAllocations.length - 1; i >= 1; i--) {
+        if (sipAllocations[i] > 0) { dropIdx = i; break; }
+      }
+      if (dropIdx === -1) break;
+      allocatedSum -= sipAllocations[dropIdx];
+      sipAllocations[dropIdx] = 0;
     }
-    if (inv.maxAnnualInvestment && sipAllocations[i] * 12 > inv.maxAnnualInvestment) {
-      sipAllocations[i] = Math.floor(inv.maxAnnualInvestment / 12 / 100) * 100;
-    }
-  });
+  } else {
+    // Constrained path: budget too small for minimums — use pure proportional
+    // allocation. Use finer rounding (₹50 steps) so small budgets can still
+    // produce visible splits across risk levels.
+    const roundStep = savings <= 1000 ? 50 : 100;
+    sipAllocations = rawWeights.map(w => {
+      return Math.max(0, Math.round(w * savings / roundStep) * roundStep);
+    });
+  }
 
   // Ensure SIP sum equals total savings exactly
+  // Apply residual to the LARGEST-weight (highest-scored) instrument
   let allocatedSum = sipAllocations.reduce((s, a) => s + a, 0);
   const diff = savings - allocatedSum;
   if (diff !== 0 && recommended.length > 0) {
-    sipAllocations[0] = Math.max(0, sipAllocations[0] + diff);
+    // Find the instrument with highest allocation for residual absorption
+    let maxIdx = 0;
+    for (let i = 1; i < sipAllocations.length; i++) {
+      if (sipAllocations[i] > sipAllocations[maxIdx]) maxIdx = i;
+    }
+    sipAllocations[maxIdx] = Math.max(0, sipAllocations[maxIdx] + diff);
   }
 
   // Assign allocations

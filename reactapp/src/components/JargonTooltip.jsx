@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * WealthGenie — Jargon Buster Dictionary & Tooltip Component
  * ─────────────────────────────────────────────────────────────
@@ -203,6 +204,34 @@ export const JARGON = {
   'SEBI': {
     short: 'Securities Exchange Board of India',
     plain: 'The government regulator that monitors the stock market and mutual funds. SEBI ensures that fund companies don\'t cheat investors and follow strict rules.',
+  },
+  'Drift Tolerance': {
+    short: 'Allowable track drift percentage',
+    plain: 'How far an investment is allowed to drift from its target mix before we recommend a fix. E.g., a 2% drift tolerance means if a 20% target becomes 22% or 18%, we recommend rebalancing.',
+  },
+  'Rebalance Ratio': {
+    short: 'Adjustment speed/strength',
+    plain: 'Controls whether to fully rebalance (100%) or do a partial rebalance. Partial rebalancing (e.g. 50%) reduces transaction costs and taxes while still reducing portfolio risk.',
+  },
+  'Portfolio Ledger': {
+    short: 'Record of your investments',
+    plain: 'A ledger tracking the actual quantities and values of assets you own. In our system, you can use Sandbox/Demo mode or input your Live Ledger holdings.',
+  },
+  'Asset Class': {
+    short: 'Category of investments',
+    plain: 'Groups of investments that act similarly, such as Equity (shares in companies), Debt (bonds and fixed deposits), and Gold/Commodities.',
+  },
+  'Asset Allocation': {
+    short: 'Your investment mix',
+    plain: 'How you divide your total money among different categories (like stocks, bonds, and gold) to balance risk and growth potential.',
+  },
+  'Success Probability': {
+    short: 'Likelihood of achieving your goal',
+    plain: 'The percentage chance of meeting your target amount by the deadline, calculated using thousands of simulated market paths.',
+  },
+  'Monte Carlo': {
+    short: 'Market simulator',
+    plain: 'A statistical technique that runs 1,000+ simulations of different market ups and downs to show the range of possible future values for your investments.',
   },
 };
 

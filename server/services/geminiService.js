@@ -56,33 +56,77 @@ Paragraph 3: Provide ONE specific, actionable next step the investor should take
 
 Use simple English. Reference specific numbers from the profile. Do not use bullet points. Keep it warm and professional.`;
 
-  try {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return { text: 'Advisory service not configured. Please set GROQ_API_KEY in your .env file.', cached: false };
+  let text = '';
+  let fallbackUsed = false;
+  let modelUsed = '';
 
-    const response = await axios.post(GROQ_API_URL, {
-      model: MODEL_NAME,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 500,
-      temperature: 0.7
-    }, { 
-      timeout: 15000,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+  // ── Attempt 1: Gemini (Primary) ──
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const res = await axios.post(GEMINI_CHAT_URL, {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 500, temperature: 0.7 }
+      }, {
+        timeout: 15000,
+        headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
+      });
+      text = res.data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('');
+      if (text) {
+        modelUsed = 'Gemini 2.0 Flash';
       }
-    });
-
-    const text = response.data?.choices?.[0]?.message?.content || 'Unable to generate advisory.';
-    const result = { text, cached: false, generatedAt: new Date().toISOString() };
-
-    // Cache for 1 hour
-    await setCache(cacheKey, result, 3600);
-    return result;
-  } catch (err) {
-    console.error('Groq API error:', err.message);
-    return { text: getFallbackAdvisory(userContext), cached: false, fallback: true };
+    } catch (geminiErr) {
+      console.warn('[Advisory] Primary Gemini API failed, falling back to Groq:', geminiErr.message);
+    }
   }
+
+  // ── Attempt 2: Groq (Secondary Fallback) ──
+  if (!text) {
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey) {
+      try {
+        const response = await axios.post(GROQ_API_URL, {
+          model: MODEL_NAME,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 500,
+          temperature: 0.7
+        }, {
+          timeout: 15000,
+          headers: {
+            'Authorization': `Bearer ${groqKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        text = response.data?.choices?.[0]?.message?.content;
+        if (text) {
+          modelUsed = 'Groq Llama 3.3';
+        }
+      } catch (groqErr) {
+        console.error('[Advisory] Fallback Groq API also failed:', groqErr.message);
+      }
+    }
+  }
+
+  // ── Attempt 3: Rule-Based Fallback ──
+  if (!text) {
+    text = getFallbackAdvisory(userContext);
+    fallbackUsed = true;
+    modelUsed = 'Rule-based Static Fallback';
+  }
+
+  const result = {
+    text,
+    cached: false,
+    generatedAt: new Date().toISOString(),
+    fallback: fallbackUsed,
+    modelUsed,
+  };
+
+  // Cache for 1 hour if it wasn't a total static fallback (to allow retries later if keys are configured)
+  if (!fallbackUsed) {
+    await setCache(cacheKey, result, 3600);
+  }
+  return result;
 }
 
 function getFallbackAdvisory({ age, riskCategory, instruments }) {
@@ -124,11 +168,14 @@ export async function chatWithGemini(message, profileContext) {
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
     try {
-      const res = await axios.post(`${GEMINI_CHAT_URL}?key=${geminiKey}`, {
+      const res = await axios.post(GEMINI_CHAT_URL, {
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: message }] }],
         generationConfig: { maxOutputTokens: 300, temperature: 0.6 }
-      }, { timeout: 15000 });
+      }, {
+        timeout: 15000,
+        headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
+      });
       const text = res.data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('');
       if (text) return text;
     } catch (geminiErr) {

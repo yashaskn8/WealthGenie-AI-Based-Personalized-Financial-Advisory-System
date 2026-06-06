@@ -21,7 +21,7 @@ const MessageSchema = new mongoose.Schema({
     latency_ms: Number,
     grounded_on_profile: Boolean,
     disclaimer_appended: Boolean,
-    provider: { type: String, enum: ['gemini', 'groq'] },
+    provider: { type: String, enum: ['gemini', 'groq', 'local_fallback'] },
   },
 });
 

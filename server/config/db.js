@@ -6,10 +6,10 @@ const connectDB = async () => {
       // Mongoose 8 uses these defaults, but explicit for clarity
       autoIndex: true,
     });
-    console.log(`✅ MongoDB connected: ${conn.connection.host}`);
+    console.log(`MongoDB connected: ${conn.connection.host}`);
     return conn;
   } catch (error) {
-    console.error(`❌ MongoDB connection error: ${error.message}`);
+    console.error(`MongoDB connection error: ${error.message}`);
     process.exit(1);
   }
 };

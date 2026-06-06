@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, ChevronDown, ChevronUp, ExternalLink, MapPin, Star, TrendingUp, TrendingDown, Building2, Shield, Zap, Info, Wallet, PieChart as PieIcon, Activity, AlertCircle, BarChart3, Lock, Target, History as HistoryIcon, Calculator as CalcIcon, ShieldCheck, Landmark, IndianRupee, ArrowRight, ClipboardCheck, CircleCheck, CircleX, ArrowLeftRight, Flame, Briefcase } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, PieChart, Pie, AreaChart, Area } from 'recharts';
 import { formatINR } from '../utils/indianNumberFormat';
@@ -20,11 +20,14 @@ const TABS = [
 
 const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizon }) => {
   const [activeTab, setActiveTab] = useState('Overview');
-  const [calcMode, setCalcMode] = useState('SIP');
+  const calcMode = 'SIP';
   const [calcAmount, setCalcAmount] = useState(5000);
   const [calcYears, setCalcYears] = useState(15);
   const [calcReturn, setCalcReturn] = useState(10);
   const [stressTestAmount, setStressTestAmount] = useState(100000);
+
+  const [prevInvestmentId, setPrevInvestmentId] = useState(investment?.id);
+  const [prevHorizon, setPrevHorizon] = useState(horizon);
 
   // ─── Instrument-Aware Calculator Bounds ───
   // Clamp sliders to realistic ranges for each investment type
@@ -58,26 +61,44 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
     return { returnMin: sliderRetMin, returnMax: sliderRetMax, yearMin, yearMax };
   }, [investment]);
 
-  // Sync state when investment/horizon changes
-  useEffect(() => {
-    if (investment) {
-      const clampedYears = Math.max(calcBounds.yearMin, Math.min(calcBounds.yearMax, horizon || calcBounds.yearMin));
-      setCalcYears(clampedYears);
-    }
-  }, [horizon, investment, calcBounds]);
+  if (investment?.id !== prevInvestmentId || horizon !== prevHorizon) {
+    setPrevInvestmentId(investment?.id);
+    setPrevHorizon(horizon);
 
-  useEffect(() => {
-    if (investment) {
+    const retMin = investment ? (investment.expected_return_min ?? (investment.rate ? investment.rate * 0.85 : 5)) : 5;
+    const retMax = investment ? (investment.expected_return_max ?? (investment.rate || 12)) : 12;
+    const cat = investment ? (investment.category || investment.cat || '').toLowerCase() : '';
+    const name = investment ? (investment.name || investment.abbr || '').toLowerCase() : '';
+
+    let yearMin = 1, yearMax = 30;
+    if (name.includes('ppf')) { yearMin = 15; yearMax = 30; }
+    else if (name.includes('scss')) { yearMin = 5; yearMax = 8; }
+    else if (name.includes('sukanya') || name.includes('ssy')) { yearMin = 15; yearMax = 21; }
+    else if (name.includes('nps')) { yearMin = 10; yearMax = 40; }
+    else if (name.includes('rbi') && name.includes('bond')) { yearMin = 7; yearMax = 7; }
+    else if (name.includes('pmvvy')) { yearMin = 10; yearMax = 10; }
+    else if (name.includes('fd') || name.includes('fixed deposit')) { yearMin = 1; yearMax = 10; }
+    else if (name.includes('liquid')) { yearMin = 1; yearMax = 3; }
+    else if (name.includes('sgb') || name.includes('gold bond')) { yearMin = 5; yearMax = 8; }
+    else if (name.includes('elss')) { yearMin = 3; yearMax = 25; }
+    else if (cat === 'equity') { yearMin = 3; yearMax = 30; }
+    else if (cat === 'hybrid') { yearMin = 3; yearMax = 25; }
+    else if (cat === 'debt') { yearMin = 1; yearMax = 10; }
+
+    const sliderRetMin = Math.max(1, Math.floor(retMin - 2));
+    const sliderRetMax = Math.min(30, Math.ceil(retMax + 2));
+
+    const clampedYears = Math.max(yearMin, Math.min(yearMax, horizon || yearMin));
+    setCalcYears(clampedYears);
+
+    if (investment && investment.id !== prevInvestmentId) {
       setCalcAmount(investment.monthly_allocation || 5000);
-      const retMin = investment.expected_return_min || (investment.rate ? investment.rate * 0.85 : 8);
-      const retMax = investment.expected_return_max || investment.rate || 10;
       const avgReturn = (retMin + retMax) / 2;
-      // Clamp to instrument bounds
-      const clampedReturn = Math.max(calcBounds.returnMin, Math.min(calcBounds.returnMax, avgReturn));
+      const clampedReturn = Math.max(sliderRetMin, Math.min(sliderRetMax, avgReturn));
       setCalcReturn(parseFloat(clampedReturn.toFixed(1)));
       setActiveTab('Overview');
     }
-  }, [investment, calcBounds]);
+  }
 
   // Normalize fields
   const inv = useMemo(() => {
@@ -133,7 +154,6 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
   const maturityValue = calcMode === 'SIP' ? calculateSIPFutureValue(calcAmount, calcReturn, calcYears) : calculateLumpSumFutureValue(calcAmount, calcReturn, calcYears);
   const totalInvested = calcMode === 'SIP' ? calcAmount * 12 * calcYears : calcAmount;
   const estimatedReturns = Math.max(0, maturityValue - totalInvested);
-  const calcDonutData = [ { name: 'Invested', value: totalInvested }, { name: 'Returns', value: estimatedReturns } ];
   
   // ─── Inflation-Adjusted Real Value ───
   const INFLATION_RATE = 6; // India CPI long-term avg ~6% (RBI target band: 4±2%, 10yr avg ~5.8%)
@@ -203,6 +223,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
           border-radius: 3px !important;
           border: none !important;
           box-sizing: border-box !important;
+          background: linear-gradient(to right, #38bdf8 0%, #38bdf8 var(--slider-pct, 0%), rgba(255,255,255,0.08) var(--slider-pct, 0%), rgba(255,255,255,0.08) 100%) !important;
         }
 
         .calc-field input[type="range"]::-webkit-slider-thumb {
@@ -231,6 +252,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
           border-radius: 3px !important;
           border: none !important;
           box-sizing: border-box !important;
+          background: linear-gradient(to right, #38bdf8 0%, #38bdf8 var(--slider-pct, 0%), rgba(255,255,255,0.08) var(--slider-pct, 0%), rgba(255,255,255,0.08) 100%) !important;
         }
 
         .calc-field input[type="range"]::-moz-range-thumb {
@@ -639,9 +661,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
                       value={calcAmount} 
                       onChange={e => setCalcAmount(Number(e.target.value))} 
                       style={{ 
-                        width: '100%', 
-                        accentColor: '#38bdf8',
-                        background: `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${(calcAmount - 1000)/(500000 - 1000) * 100}%, rgba(255,255,255,0.08) ${(calcAmount - 1000)/(500000 - 1000) * 100}%, rgba(255,255,255,0.08) 100%)`
+                        '--slider-pct': `${(calcAmount - 1000)/(500000 - 1000) * 100}%`
                       }} 
                     />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#475569', marginTop: 4 }}>
@@ -659,9 +679,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
                       value={calcYears} 
                       onChange={e => setCalcYears(Number(e.target.value))} 
                       style={{ 
-                        width: '100%', 
-                        accentColor: '#38bdf8',
-                        background: `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${(calcYears - calcBounds.yearMin)/Math.max(1, calcBounds.yearMax - calcBounds.yearMin) * 100}%, rgba(255,255,255,0.08) ${(calcYears - calcBounds.yearMin)/Math.max(1, calcBounds.yearMax - calcBounds.yearMin) * 100}%, rgba(255,255,255,0.08) 100%)`
+                        '--slider-pct': `${(calcYears - calcBounds.yearMin)/Math.max(1, calcBounds.yearMax - calcBounds.yearMin) * 100}%`
                       }} 
                     />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#475569', marginTop: 4 }}>
@@ -679,9 +697,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
                       value={calcReturn} 
                       onChange={e => setCalcReturn(Number(e.target.value))} 
                       style={{ 
-                        width: '100%', 
-                        accentColor: '#38bdf8',
-                        background: `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${(calcReturn - calcBounds.returnMin)/Math.max(1, calcBounds.returnMax - calcBounds.returnMin) * 100}%, rgba(255,255,255,0.08) ${(calcReturn - calcBounds.returnMin)/Math.max(1, calcBounds.returnMax - calcBounds.returnMin) * 100}%, rgba(255,255,255,0.08) 100%)`
+                        '--slider-pct': `${(calcReturn - calcBounds.returnMin)/Math.max(1, calcBounds.returnMax - calcBounds.returnMin) * 100}%`
                       }} 
                     />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#475569', marginTop: 4 }}>
@@ -726,23 +742,23 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
                   {realMaturityValue > 0 && (() => {
                     // All amounts in today's (2026) rupees — goals use realMaturityValue
                     const goals = [
-                      { min: 20000,     icon: '🎧', label: 'Premium wireless earbuds', amount: '~₹20K' },
-                      { min: 50000,     icon: '📱', label: 'iPhone SE / Samsung S24 FE', amount: '~₹50K' },
-                      { min: 85000,     icon: '🛵', label: 'Honda Activa 6G (on-road)', amount: '~₹85K' },
-                      { min: 135000,    icon: '📱', label: 'iPhone 16 Pro', amount: '~₹1.35L' },
-                      { min: 250000,    icon: '✈️', label: 'Thailand/Bali trip for 2', amount: '~₹2.5L' },
-                      { min: 500000,    icon: '💻', label: 'MacBook Pro M4', amount: '~₹5L' },
-                      { min: 900000,    icon: '🚗', label: 'Maruti Brezza (on-road)', amount: '~₹9L' },
-                      { min: 1200000,   icon: '🎓', label: '4-yr engineering (state college)', amount: '~₹12L' },
-                      { min: 1800000,   icon: '🚘', label: 'Hyundai Creta (on-road)', amount: '~₹18L' },
-                      { min: 2500000,   icon: '💍', label: 'Middle-class Indian wedding', amount: '~₹25L' },
-                      { min: 4000000,   icon: '🎓', label: 'MBA from IIM (2-yr total)', amount: '~₹40L' },
-                      { min: 6000000,   icon: '🚘', label: 'Fortuner / XUV700 (top-end)', amount: '~₹60L' },
-                      { min: 8000000,   icon: '🏠', label: '2BHK in Bangalore/Pune', amount: '~₹80L' },
-                      { min: 12000000,  icon: '🏡', label: '3BHK in Mumbai suburb', amount: '~₹1.2Cr' },
-                      { min: 25000000,  icon: '🏢', label: '3BHK premium metro flat', amount: '~₹2.5Cr' },
-                      { min: 50000000,  icon: '🏦', label: 'Financial independence (25x rule)', amount: '~₹5Cr' },
-                      { min: 100000000, icon: '👑', label: 'Early retirement corpus', amount: '~₹10Cr' },
+                      { min: 20000,     icon: '', label: 'Premium wireless earbuds', amount: '~₹20K' },
+                      { min: 50000,     icon: '', label: 'iPhone SE / Samsung S24 FE', amount: '~₹50K' },
+                      { min: 85000,     icon: '', label: 'Honda Activa 6G (on-road)', amount: '~₹85K' },
+                      { min: 135000,    icon: '', label: 'iPhone 16 Pro', amount: '~₹1.35L' },
+                      { min: 250000,    icon: '', label: 'Thailand/Bali trip for 2', amount: '~₹2.5L' },
+                      { min: 500000,    icon: '', label: 'MacBook Pro M4', amount: '~₹5L' },
+                      { min: 900000,    icon: '', label: 'Maruti Brezza (on-road)', amount: '~₹9L' },
+                      { min: 1200000,   icon: '', label: '4-yr engineering (state college)', amount: '~₹12L' },
+                      { min: 1800000,   icon: '', label: 'Hyundai Creta (on-road)', amount: '~₹18L' },
+                      { min: 2500000,   icon: '', label: 'Middle-class Indian wedding', amount: '~₹25L' },
+                      { min: 4000000,   icon: '', label: 'MBA from IIM (2-yr total)', amount: '~₹40L' },
+                      { min: 6000000,   icon: '', label: 'Fortuner / XUV700 (top-end)', amount: '~₹60L' },
+                      { min: 8000000,   icon: '', label: '2BHK in Bangalore/Pune', amount: '~₹80L' },
+                      { min: 12000000,  icon: '', label: '3BHK in Mumbai suburb', amount: '~₹1.2Cr' },
+                      { min: 25000000,  icon: '', label: '3BHK premium metro flat', amount: '~₹2.5Cr' },
+                      { min: 50000000,  icon: '', label: 'Financial independence (25x rule)', amount: '~₹5Cr' },
+                      { min: 100000000, icon: '', label: 'Early retirement corpus', amount: '~₹10Cr' },
                     ];
                     const matched = goals.filter(g => realMaturityValue >= g.min);
                     const topGoals = matched.slice(-3).reverse();
@@ -814,7 +830,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
   <div class="card" style="grid-column:span 2"><div class="label">Today's Purchasing Power (6% inflation adjusted)</div><div class="value orange">${formatINR(realMaturityValue)}</div></div>
 </div>
 <div class="disclaimer">
-  ⚠ This is a projection based on estimated returns. Past performance does not guarantee future results.<br>
+  Disclaimer: This is a projection based on estimated returns. Past performance does not guarantee future results.<br>
   All figures are indicative. Consult a SEBI-registered investment advisor before investing.<br><br>
   Generated by WealthGenie • ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
 </div>
@@ -832,7 +848,7 @@ const DeepDiveModal = ({ isOpen, onClose, investment, allRecommendations, horizo
                       className="goal-export-btn goal-export-btn--copy"
                       onClick={(e) => {
                         const btn = e.currentTarget;
-                        const summary = `📊 WealthGenie – ${inv.name} Goal Report\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n💰 Monthly SIP: ₹${calcAmount.toLocaleString('en-IN')}\n📈 Expected Return: ${calcReturn}% p.a.\n⏳ Time Horizon: ${calcYears} years\n\n💵 Total Invested: ${formatINR(totalInvested)}\n📊 Maturity Value: ${formatINR(maturityValue)}\n🛡 After Tax: ${formatINR(postTaxValue)}\n💡 Today's Value: ${formatINR(realMaturityValue)}\n\n⚠ Past performance ≠ future results.\nGenerated by WealthGenie • ${new Date().toLocaleDateString('en-IN')}`;
+                        const summary = `WealthGenie – ${inv.name} Goal Report\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n• Monthly SIP: ₹${calcAmount.toLocaleString('en-IN')}\n• Expected Return: ${calcReturn}% p.a.\n• Time Horizon: ${calcYears} years\n\n• Total Invested: ${formatINR(totalInvested)}\n• Maturity Value: ${formatINR(maturityValue)}\n• After Tax: ${formatINR(postTaxValue)}\n• Today's Value: ${formatINR(realMaturityValue)}\n\n* Past performance is not indicative of future results.\nGenerated by WealthGenie • ${new Date().toLocaleDateString('en-IN')}`;
                         navigator.clipboard.writeText(summary).then(() => {
                           btn.textContent = '✓ Copied!';
                           btn.style.borderColor = '#22c55e';

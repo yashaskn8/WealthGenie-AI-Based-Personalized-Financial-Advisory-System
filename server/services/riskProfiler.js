@@ -1,14 +1,32 @@
 /**
  * WealthGenie Risk Profiler
- * Categorizes users into risk buckets based on age + annual income.
+ * Categorizes users into risk buckets based on age + annual income + investment horizon + financial ratios.
  *
- * Uses a composite scoring model:
- *   - Age score: younger → higher risk capacity (0–50 points)
- *   - Income score: higher income → higher risk capacity (0–50 points)
- *   - Total score mapped to 5 risk categories with smooth boundaries
- *
- * This avoids the cliff-edge problem where a ₹1 income difference
- * or 1-year age difference causes a two-tier risk jump.
+ * =========================================================================
+ * 📘 BEGINNER NOTE: WHAT IS COMPOSITE RISK SCORING?
+ * =========================================================================
+ * Risk capacity is not just about how you "feel" about the stock market. It is
+ * a mathematical combination of your ability to take risk (financial strength)
+ * and your timeline (investment horizon).
+ * 
+ * WealthGenie uses a 3-Factor Composite Scoring Model (ranging from 0 to 100 points):
+ * 
+ * 1. Age (0–40 points): Younger investors have more decades ahead of them. If the 
+ *    market crashes tomorrow, they have time to wait for a recovery before needing
+ *    the money. Thus: Younger = Higher Risk Score.
+ * 
+ * 2. Annual Income (0–40 points): Higher earners have a larger financial cushion.
+ *    If an emergency occurs, they can cover it from their current cash flow rather than
+ *    being forced to sell investments at a loss. Thus: Higher Income = Higher Risk Score.
+ * 
+ * 3. Investment Horizon (0–20 points): How long will the money stay invested? 
+ *    If you need the money in 2 years, you cannot afford a market crash (low risk). 
+ *    If you need it in 20 years, short-term crashes don't matter because the market
+ *    historically trends upwards over long periods. Thus: Longer Horizon = Higher Risk Score.
+ * 
+ * We also subtract penalties for high debt levels or dependents, giving us a highly
+ * personalized, mathematically balanced risk score. This avoids the "cliff-edge"
+ * problem where a ₹1 income difference shifts you from Moderate to Conservative.
  */
 
 const RISK_PROFILES = {
@@ -101,13 +119,51 @@ function horizonScore(horizonYears) {
  * @param {number} [investmentHorizon=15] - Investment horizon in years (optional)
  * @returns {{ category, description, recommendedEquityAllocation, riskScore }}
  */
-export function getRiskProfile(age, annualIncome, investmentHorizon = 15) {
+export function getRiskProfile(
+  age,
+  annualIncome,
+  investmentHorizon = 15,
+  experienceYears = 0,
+  dependents = 0,
+  monthlySavings = null,
+  monthlyDebtPayment = 0
+) {
   // Input guards
   const safeAge = Math.max(18, Math.min(80, Number(age) || 30));
   const safeIncome = Math.max(0, Number(annualIncome) || 0);
   const safeHorizon = Math.max(1, Math.min(40, Number(investmentHorizon) || 15));
+  const safeExperience = Math.max(0, Number(experienceYears) || 0);
+  const safeDependents = Math.max(0, Number(dependents) || 0);
 
-  const score = ageScore(safeAge) + incomeScore(safeIncome) + horizonScore(safeHorizon);
+  // Calculate components
+  const scoreAge = ageScore(safeAge);
+  const scoreIncome = incomeScore(safeIncome);
+  const scoreHorizon = horizonScore(safeHorizon);
+  const scoreExperience = Math.min(10, safeExperience * 2);
+  const penaltyDependents = Math.min(10, safeDependents * 2);
+
+  // Savings-to-income ratio penalty: max 15 points
+  let penaltySavings = 0;
+  if (monthlySavings !== null && monthlySavings !== undefined) {
+    const safeSavings = Math.max(0, Number(monthlySavings) || 0);
+    const savingsRatio = safeIncome > 0 ? (safeSavings * 12) / safeIncome : 0.15;
+    if (savingsRatio < 0.15) {
+      penaltySavings = Math.min(15, 15 * (1 - savingsRatio / 0.15));
+    }
+  }
+
+  // Debt-to-income ratio penalty: max 15 points (triggered if EMI > 30% of gross monthly income)
+  let penaltyDebt = 0;
+  if (monthlyDebtPayment !== null && monthlyDebtPayment !== undefined) {
+    const safeDebt = Math.max(0, Number(monthlyDebtPayment) || 0);
+    const debtRatio = safeIncome > 0 ? (safeDebt * 12) / safeIncome : 0;
+    if (debtRatio > 0.30) {
+      penaltyDebt = Math.min(15, (debtRatio - 0.30) * 50);
+    }
+  }
+
+  const rawScore = scoreAge + scoreIncome + scoreHorizon + scoreExperience - penaltyDependents - penaltySavings - penaltyDebt;
+  const score = Math.max(0, Math.min(100, rawScore));
 
   let profileKey;
   if (score >= 80)      profileKey = 'Aggressive';
@@ -116,8 +172,13 @@ export function getRiskProfile(age, annualIncome, investmentHorizon = 15) {
   else if (score >= 20) profileKey = 'Conservative-Moderate';
   else                  profileKey = 'Conservative';
 
+  // Smooth recommended equity allocation: 20% to 80% (slope 0.75 points per risk score unit)
+  const smoothAllocation = 20 + Math.max(0, Math.min(80, score - 10)) * 0.75;
+  const recommendedAllocation = Math.round(smoothAllocation);
+
   return {
     ...RISK_PROFILES[profileKey],
+    recommendedEquityAllocation: recommendedAllocation,
     riskScore: Math.round(score),
   };
 }

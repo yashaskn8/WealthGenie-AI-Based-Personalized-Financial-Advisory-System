@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { verifyJWT, isOwner, isValidObjectId } from '../middleware/authMiddleware.js';
 import { asyncHandler, createError } from '../middleware/errorHandler.js';
-import { validate, recommendSchema } from '../validation/schemas.js';
+import { validate, recommendSchema, updateWeightsSchema } from '../validation/schemas.js';
 import FinancialProfile from '../models/FinancialProfile.js';
 import Recommendation from '../models/Recommendation.js';
 import { getMLPrediction } from '../services/mlClient.js';
@@ -9,7 +9,7 @@ import { calculatePostTaxReturnSafe } from '../services/postTaxCalculator.js';
 import { getTaxSlab } from '../services/taxEngine.js';
 import { generateAdvisory } from '../services/geminiService.js';
 import crypto from 'crypto';
-import { getCache, setCache } from '../config/redis.js';
+import { getCache, setCache, delCache } from '../config/redis.js';
 import { INSTRUMENT_PARAMS, RISK_FREE_RATE, DISCLAIMER } from '../services/instrumentConstants.js';
 
 const router = Router();
@@ -103,6 +103,83 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
     throw createError(502, 'ML service returned no recommendations', 'Recommendation engine returned empty results.');
   }
 
+  // ── DEMOGRAPHIC & TAX-BASED OVERRIDES ──────────────────────────────
+  // Override ML picks for specific investor segments to ensure regulatory
+  // alignment and fiduciary responsibility.
+  //
+  // These overrides take precedence over ML predictions because certain
+  // instrument-investor pairings are either:
+  //   (a) Unsuitable per SEBI suitability guidelines
+  //   (b) Tax-inefficient given the investor's marginal rate
+  //   (c) Inappropriate for the investor's time horizon
+
+  const HIGH_RISK_INSTRUMENTS = new Set(['Smallcap_MF', 'Midcap_MF', 'ELSS', 'Equity_MF']);
+  const LOW_YIELD_DEBT = new Set(['FD', 'Debt_MF', 'Liquid_MF']);
+
+  // Override 1: Age >= 60 — redirect aggressive picks to safe instruments
+  if (profile.age >= 60) {
+    for (let i = 0; i < picks.length; i++) {
+      if (HIGH_RISK_INSTRUMENTS.has(picks[i])) {
+        const replacement = i === 0 ? 'SCSS' : (i === 1 ? 'RBI_Bond' : 'FD');
+        console.warn(`[Recommend Override] Age ${profile.age}: replacing ${picks[i]} with ${replacement}`);
+        picks[i] = replacement;
+      }
+    }
+  }
+
+  // Override 2: Age < 25 — force at least 70% equity allocation
+  // Young investors have the longest compounding horizon; fixed income
+  // allocations above 30% are suboptimal over 30+ year horizons.
+  if (profile.age < 25) {
+    const equityTypes = new Set(['Equity_MF', 'ETF', 'Index_MF', 'ELSS', 'Midcap_MF', 'Smallcap_MF', 'Hybrid_MF']);
+    const equityCount = picks.filter(p => equityTypes.has(p)).length;
+    if (equityCount === 0 && picks.length > 0) {
+      console.warn(`[Recommend Override] Age ${profile.age}: forcing primary to Index_MF`);
+      picks[0] = 'Index_MF';
+    }
+  }
+
+  // Override 3: 30% tax slab — prefer Arbitrage_MF over FD/Debt_MF
+  // At 30% marginal rate, FD post-tax yield (~4.55%) is inferior to
+  // Arbitrage_MF (~6.56% post LTCG at 12.5%), making FD tax-inefficient.
+  if (marginalRate >= 0.30) {
+    for (let i = 0; i < picks.length; i++) {
+      if (LOW_YIELD_DEBT.has(picks[i])) {
+        console.warn(`[Recommend Override] 30% slab: replacing ${picks[i]} with Arbitrage_MF`);
+        picks[i] = 'Arbitrage_MF';
+        break; // Only replace the first occurrence to maintain diversification
+      }
+    }
+  }
+
+  // Deduplicate picks after overrides
+  const seen = new Set();
+  const deduped = [];
+  for (const p of picks) {
+    if (!seen.has(p)) { seen.add(p); deduped.push(p); }
+  }
+
+  // Define suitability check for backfill filler instruments
+  const isSuitableFiller = (inst) => {
+    if (profile.age >= 60 && HIGH_RISK_INSTRUMENTS.has(inst)) return false;
+    if (marginalRate >= 0.30 && LOW_YIELD_DEBT.has(inst)) return false;
+    return true;
+  };
+
+  // If overrides created duplicates and we lost instruments, backfill safely
+  const allInstruments = Object.keys(INSTRUMENT_PARAMS);
+  while (deduped.length < 3) {
+    const filler = allInstruments.find(k => !seen.has(k) && isSuitableFiller(k));
+    if (filler) {
+      seen.add(filler);
+      deduped.push(filler);
+    } else {
+      break;
+    }
+  }
+  picks.length = 0;
+  picks.push(...deduped);
+
   // Calculate post-tax returns for each recommended instrument
   // Also compute portfolio-level analytics (Sharpe ratio, allocation weights)
   // RISK_FREE_RATE imported from instrumentConstants.js
@@ -123,7 +200,10 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
 
     // Sharpe ratio = (return - risk_free_rate) / volatility
     // Volatility from centralized instrumentConstants.js
+    // Note: postTaxDecimal already accounts for expense ratio (TER) since nominalRate is net of TER.
+    // Therefore, this is the net risk-adjusted Sharpe ratio.
     const vol = INSTRUMENT_PARAMS[safeMeta.type]?.volatility || 0.10;
+    const expenseRatio = INSTRUMENT_PARAMS[safeMeta.type]?.expenseRatio || 0.0;
     const postTaxDecimal = (postTax.effectiveYield || 0) / 100;
     const sharpeRatio = vol > 0.001
       ? parseFloat(((postTaxDecimal - RISK_FREE_RATE) / vol).toFixed(2))
@@ -131,7 +211,7 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
 
     // Allocation weight: based on ML confidence + position priority
     const confScores = normaliseConfidenceScores(mlResult.confidence_scores);
-    const rawWeight = confScores[key] || (idx === 0 ? 0.5 : idx === 1 ? 0.3 : 0.2);
+    const rawWeight = confScores[key] || (idx === 0 ? 0.40 : idx === 1 ? 0.35 : 0.25);
 
     return {
       ...safeMeta,
@@ -140,6 +220,7 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
       effectiveYield: postTax.effectiveYield,
       taxNotes: postTax.notes,
       sharpeRatio,
+      expenseRatio,
       allocationWeight: parseFloat(rawWeight.toFixed(2)),
     };
   });
@@ -205,6 +286,82 @@ router.post('/', verifyJWT, validate(recommendSchema), asyncHandler(async (req, 
   await setCache(cacheKey, result, 86400);
 
   res.json(result);
+}));
+
+/**
+ * POST /api/recommend/weights [Protected]
+ * Updates allocation weights of a recommendation.
+ */
+router.post('/weights', verifyJWT, validate(updateWeightsSchema), asyncHandler(async (req, res) => {
+  const { profileId, weights } = req.body;
+
+  const profile = await FinancialProfile.findById(profileId).lean();
+  if (!profile) {
+    throw createError(404, `Profile not found: ${profileId}`, 'Profile not found.');
+  }
+
+  if (!isOwner(profile, req.user.userId)) {
+    throw createError(403, `Access denied`, 'Access denied.');
+  }
+
+  // Find the latest recommendation for this profile
+  const recommendation = await Recommendation.findOne({ profileId }).sort({ generatedAt: -1 });
+  if (!recommendation) {
+    throw createError(404, 'No recommendation found to update', 'No recommendation found.');
+  }
+
+  // Update weights on instruments
+  const parsedWeights = {};
+  let totalWeight = 0;
+  for (const [k, v] of Object.entries(weights || {})) {
+    const val = Number(v) || 0;
+    if (val < 0) continue;
+    parsedWeights[k] = val;
+    totalWeight += val;
+  }
+
+  if (totalWeight <= 0) {
+    throw createError(400, 'Invalid weights', 'Total weights must be greater than zero.');
+  }
+
+  // Map of weights normalized to sum to exactly 1.0
+  const normWeights = {};
+  for (const [k, v] of Object.entries(parsedWeights)) {
+    normWeights[k.toUpperCase()] = v / totalWeight;
+  }
+
+  // Update the recommendation instruments
+  recommendation.instruments.forEach(inst => {
+    const weight = normWeights[inst.type.toUpperCase()] ?? 0;
+    inst.allocationWeight = parseFloat(weight.toFixed(4));
+  });
+
+  // Re-normalize instruments weights to sum to EXACTLY 1.0 (to avoid rounding issues)
+  const instWeightSum = recommendation.instruments.reduce((s, i) => s + i.allocationWeight, 0);
+  if (instWeightSum > 0 && Math.abs(instWeightSum - 1.0) > 0.0001) {
+    const maxIdx = recommendation.instruments.reduce((mi, w, i, arr) => w.allocationWeight > arr[mi].allocationWeight ? i : mi, 0);
+    recommendation.instruments[maxIdx].allocationWeight = parseFloat((recommendation.instruments[maxIdx].allocationWeight + (1.0 - instWeightSum)).toFixed(4));
+  }
+
+  await recommendation.save();
+
+  // Invalidate Redis cache for this recommendation
+  const profileHash = crypto.createHash('sha256').update(JSON.stringify({
+    age: profile.age,
+    income: profile.annualIncome,
+    savings: profile.savings,
+    risk: profile.riskCategory,
+    regime: profile.taxRegime,
+    horizon: profile.investmentHorizon,
+  })).digest('hex').substring(0, 16);
+  const cacheKey = `recommendation:${req.user.userId}:${profileHash}`;
+  await delCache(cacheKey);
+
+  res.json({
+    status: 'success',
+    message: 'Recommendation weights updated successfully.',
+    instruments: recommendation.instruments,
+  });
 }));
 
 export default router;

@@ -344,6 +344,15 @@ input[type="range"].tax-slider {
   border-radius: 100px;
   outline: none;
   cursor: pointer;
+  background: transparent;
+}
+
+input[type="range"].tax-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 100px;
+  border: none;
+  box-sizing: border-box;
   background: linear-gradient(
     to right,
     #0ea5e9 0%,
@@ -392,7 +401,13 @@ input[type="range"].tax-slider::-moz-range-thumb:hover {
 input[type="range"].tax-slider::-moz-range-track {
   height: 4px;
   border-radius: 100px;
-  background: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(
+    to right,
+    #0ea5e9 0%,
+    #0ea5e9 var(--val, 40%),
+    rgba(255, 255, 255, 0.08) var(--val, 40%),
+    rgba(255, 255, 255, 0.08) 100%
+  );
 }
 
 /* Hide increment arrows on number inputs for a clean look */
@@ -675,10 +690,7 @@ input[type="range"].tax-slider::-moz-range-track {
   gap: 6px;
 }
 
-.tax-rec-return::before {
-  content: '📈';
-  font-size: 1rem;
-}
+
 
 /* Zero-tax celebration banner */
 .tax-zero-banner {

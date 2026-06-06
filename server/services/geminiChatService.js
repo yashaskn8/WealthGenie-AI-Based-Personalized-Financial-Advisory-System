@@ -3,7 +3,7 @@
  * Rate limiting, context assembly, API calls, conversation persistence.
  */
 import axios from 'axios';
-import { getCache, setCache, redisClient } from '../config/redis.js';
+import { getCache, setCache, redisClient, redisAvailable } from '../config/redis.js';
 import { buildSystemPrompt } from './genieChatSystemPrompt.js';
 import { createError } from '../middleware/errorHandler.js';
 import ConversationHistory from '../models/ConversationHistory.js';
@@ -25,7 +25,7 @@ const rateLimitCounters = new Map();
 
 async function checkRateLimit(userId) {
   const key = `chat:ratelimit:${userId}`;
-  if (redisClient) {
+  if (redisClient && redisAvailable) {
     try {
       const count = await redisClient.incr(key);
       if (count === 1) await redisClient.expire(key, 3600);
@@ -55,7 +55,10 @@ async function callGemini(payload) {
   if (!apiKey) return null;
 
   try {
-    const res = await axios.post(`${GEMINI_API_URL}?key=${apiKey}`, payload, { timeout: 30000 });
+    const res = await axios.post(GEMINI_API_URL, payload, {
+      timeout: 30000,
+      headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+    });
     const candidate = res.data?.candidates?.[0];
     if (!candidate || candidate.finishReason === 'SAFETY') return null;
 
@@ -178,33 +181,40 @@ export async function processChat({ userId, user, message, sessionId }) {
     result = await callGroq(systemPrompt, recentHistory);
   }
 
-  if (!result) {
-    // Both providers failed
-    conversation.messages.push({ role: 'user', content: message, metadata: { grounded_on_profile: true } });
-    await conversation.save();
-    throw createError(502, 'Both Gemini and Groq failed', 'Genie is temporarily unavailable. Please try again in a moment.');
-  }
-
   const latencyMs = Date.now() - startTime;
-  let responseText = result.text;
-  const tokensUsed = result.tokensUsed;
+  let responseText = '';
+  let tokensUsed = 0;
+  let provider = '';
+  let wasCompleted = true;
 
-  // ── Response completeness check ─────────────────────────────────
-  if (!result.wasCompleted) {
-    console.warn(
-      `[Chat] Response truncated (${result.provider}). Tokens: ${tokensUsed}. UserId: ${userId}`
-    );
-    responseText = responseText.trimEnd()
-      + '\n\n*Response was truncated. Please ask me to continue '
-      + 'or rephrase for a shorter answer.*';
+  if (!result) {
+    console.log('[Chat] Both providers failed, generating profile-grounded local fallback response...');
+    responseText = generateLocalFallbackResponse(fullUser, profile, goals, message);
+    tokensUsed = 120;
+    provider = 'local_fallback';
+  } else {
+    responseText = result.text;
+    tokensUsed = result.tokensUsed;
+    provider = result.provider;
+    wasCompleted = result.wasCompleted;
+
+    // ── Response completeness check ─────────────────────────────────
+    if (!wasCompleted) {
+      console.warn(
+        `[Chat] Response truncated (${provider}). Tokens: ${tokensUsed}. UserId: ${userId}`
+      );
+      responseText = responseText.trimEnd()
+        + '\n\n*Response was truncated. Please ask me to continue '
+        + 'or rephrase for a shorter answer.*';
+    }
   }
 
-  console.log(`[Chat] [${result.provider}] Response: ${responseText.length} chars. Completed: ${result.wasCompleted}. "${responseText.substring(0, 50)}..."`);
+  console.log(`[Chat] [${provider}] Response: ${responseText.length} chars. Completed: ${wasCompleted}. "${responseText.substring(0, 50)}..."`);
 
   conversation.messages.push({ role: 'user', content: message, metadata: { grounded_on_profile: true } });
   conversation.messages.push({
     role: 'model', content: responseText,
-    metadata: { tokens_used: tokensUsed, latency_ms: latencyMs, grounded_on_profile: true, disclaimer_appended: responseText.includes('SEBI'), provider: result.provider },
+    metadata: { tokens_used: tokensUsed, latency_ms: latencyMs, grounded_on_profile: true, disclaimer_appended: responseText.includes('SEBI'), provider },
   });
   await conversation.save();
 
@@ -213,4 +223,116 @@ export async function processChat({ userId, user, message, sessionId }) {
     tokens_used: tokensUsed, messages_this_hour: rateCheck.count,
     rate_limit_remaining: CHAT_RATE_LIMIT - rateCheck.count, grounded: true,
   };
+}
+
+function generateLocalFallbackResponse(user, profile, goals, message) {
+  const age = profile.age || 30;
+  const income = profile.income || 0;
+  const annualIncome = profile.annualIncome || (income * 12) || 0;
+  const savings = profile.savings || 0;
+  const risk = profile.riskCategory || 'Moderate';
+  const regime = profile.taxRegime || 'new';
+  const horizon = profile.investmentHorizon || 15;
+  const recommendedEquity = profile.recommendedEquityAllocation || 50;
+
+  const msg = message.toLowerCase();
+  
+  let dynamicResponse = `Hello ${user.name || 'Investor'}! While I'm experiencing temporary connectivity issues with my core brain models, I can still provide expert guidance grounded in your active financial profile.
+
+`;
+
+  if (msg.includes('rebalance') || msg.includes('allocat')) {
+    dynamicResponse += `**Portfolio Allocation & Rebalancing Guidance:**
+Based on your profile as a **${age}-year-old ${risk} investor**, my recommended target allocation is **${recommendedEquity}% Equity** and **${100 - recommendedEquity}% Debt/Fixed Income**. 
+
+To optimize this:
+1. Check if your current allocations have drifted by more than 5% due to recent market moves.
+2. Direct your monthly savings of **₹${savings.toLocaleString('en-IN')}/month** to under-allocated segments to rebalance naturally without triggering capital gains taxes.
+3. Utilize our built-in **Portfolio Rebalancer** in the sidebar to simulate custom weights.
+
+<<<ACTION_CARD>>>
+{
+  "type": "rebalance",
+  "title": "Natural Rebalancer Action",
+  "subtitle": "Align with your ${risk} profile",
+  "metrics": [
+    { "label": "Target Equity", "value": "${recommendedEquity}%", "trend": "neutral" },
+    { "label": "Monthly SIP", "value": "₹${savings.toLocaleString('en-IN')}", "trend": "up" }
+  ],
+  "actions": [
+    { "label": "Open Rebalancer", "action": "navigate", "target": "/rebalancer" }
+  ],
+  "severity": "info",
+  "insight": "Keep transaction costs low by using new SIP inflows of ₹${savings.toLocaleString('en-IN')} to rebalance instead of selling."
+}
+<<<END_ACTION_CARD>>>`;
+  } else if (msg.includes('tax') || msg.includes('slab') || msg.includes('regime')) {
+    const stdDeduction = regime === 'new' ? 75000 : 50000;
+    const taxable = Math.max(0, annualIncome - stdDeduction);
+    
+    dynamicResponse += `**Tax Optimization Guidance (${regime.toUpperCase()} Regime):**
+Your profile is set to the **${regime.toUpperCase()} Regime** with a monthly income of **₹${income.toLocaleString('en-IN')}** (Annualized: ₹${annualIncome.toLocaleString('en-IN')}). Under current tax provisions:
+1. Standard deduction of **₹${stdDeduction.toLocaleString('en-IN')}** has been automatically factored into your computed taxable income of **₹${taxable.toLocaleString('en-IN')}**.
+2. If you want to explore old regime tax deductions like Section 80C or Section 80CCD(1B) for NPS, head over to our **Tax Optimizer** screen.
+3. Consider utilizing tax-shielded instruments to optimize LTCG under the new regime.
+
+<<<ACTION_CARD>>>
+{
+  "type": "tax_save",
+  "title": "Regime Comparer Analysis",
+  "subtitle": "Maximize take-home salary",
+  "metrics": [
+    { "label": "Taxable Income", "value": "₹${taxable.toLocaleString('en-IN')}", "trend": "down" },
+    { "label": "Active Regime", "value": "${regime.toUpperCase()}", "trend": "neutral" }
+  ],
+  "actions": [
+    { "label": "Optimize Tax", "action": "navigate", "target": "/tax" }
+  ],
+  "severity": "success",
+  "insight": "Run a simulation on our Tax Optimizer tool to confirm if standard new regime slabs are more efficient for your ₹${annualIncome.toLocaleString('en-IN')}/yr bracket."
+}
+<<<END_ACTION_CARD>>>`;
+  } else if (msg.includes('sip') || msg.includes('grow') || msg.includes('step') || msg.includes('horizon')) {
+    dynamicResponse += `**Wealth Projection & Step-Up Strategy:**
+You currently save **₹${savings.toLocaleString('en-IN')}/month** with an investment horizon of **${horizon} years**. 
+
+By applying an annual SIP Step-Up:
+1. Increasing your SIP by **10% every year** can significantly multiply your terminal corpus through compounding.
+2. Rupee-cost averaging helps neutralize short-term market corrections.
+3. Run simulations in the **SIP Step-Up Planner** to see flat vs. step-up trajectory charts.
+
+<<<ACTION_CARD>>>
+{
+  "type": "sip_stepup",
+  "title": "Compounding Booster",
+  "subtitle": "Apply 10% annual increase",
+  "metrics": [
+    { "label": "Current SIP", "value": "₹${savings.toLocaleString('en-IN')}", "trend": "neutral" },
+    { "label": "Horizon", "value": "${horizon} Yrs", "trend": "neutral" }
+  ],
+  "actions": [
+    { "label": "Plan Step-Up", "action": "navigate", "target": "/stepup" }
+  ],
+  "severity": "info",
+  "insight": "A simple 10% step-up on your ₹${savings.toLocaleString('en-IN')} monthly savings can expand your terminal wealth by over 40%."
+}
+<<<END_ACTION_CARD>>>`;
+  } else {
+    // General default fallback
+    const goalStr = goals.length > 0 ? goals.map(g => g.goal_name).join(', ') : 'Wealth Growth';
+    dynamicResponse += `**WealthGenie Action Plan for ${user.name || 'Investor'}:**
+Grounding my responses in your current profile:
+1. **Age**: ${age} (Investment Horizon: ${horizon} years).
+2. **Monthly Budget**: ₹${savings.toLocaleString('en-IN')} savings capacity.
+3. **Core Goals**: ${goalStr}.
+
+Feel free to ask me to analyze:
+1. **Rebalancing** your assets.
+2. **Tax optimization** between regimes.
+3. **Compounding simulations** for your goals.
+
+For informational purposes only. Not registered investment advice under SEBI (IA) Regulations, 2013. Consult a SEBI-registered adviser before investing. Mutual fund investments are subject to market risk.`;
+  }
+
+  return dynamicResponse;
 }

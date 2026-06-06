@@ -8,7 +8,8 @@ const InsightsScreen = ({ profile, recommendations }) => {
   const horizon = profile?.investment_horizon || 15;
   const savings = Number(profile?.monthly_savings || 0);
   const income = Number(profile?.monthly_income || 0);
-  const recCount = recommendations?.length || 0;
+  const activeRecs = (recommendations || []).filter(r => (r.monthly_allocation || 0) > 0);
+  const recCount = activeRecs.length;
   const savingsRate = income > 0 ? ((savings / income) * 100).toFixed(0) : '0';
 
   const cards = [
@@ -16,64 +17,71 @@ const InsightsScreen = ({ profile, recommendations }) => {
       icon: TrendingUp,
       iconColor: '#f43f5e',
       accentGradient: 'linear-gradient(135deg, #f43f5e, #e11d48)',
-      title: 'Macro Equity Valuation',
+      title: 'Stock Market Levels',
       tag: 'Market Signal',
       tagColor: '#f43f5e',
       severity: 'medium',
-      body: `Broad market indices are pushing historically high P/E ratios. For your ${horizon}-year horizon, our models suggest maintaining SIP discipline during near-term volatility rather than attempting to time macro entry points.`,
+      body: `The stock market has run up a lot recently. For your long-term goal of ${horizon} years, the best strategy is to keep your monthly savings going regularly, rather than trying to time when the market goes up or down.`,
       action: isHighRisk
-        ? 'Your high-risk profile captures upside but stay prepared for 15–20% drawdown windows.'
-        : 'Continue systematic investing — time in market beats timing the market.',
+        ? 'Keep investing regularly, but be prepared for typical 15–20% market ups and downs.'
+        : 'Keep investing regularly — time in the market counts more than trying to time it.',
       delay: 0.1
     },
     {
       icon: BarChart3,
       iconColor: '#2dd4bf',
       accentGradient: 'linear-gradient(135deg, #2dd4bf, #14b8a6)',
-      title: 'Yield Curve Dynamics',
-      tag: 'Fixed Income',
+      title: 'Safe Income Growth',
+      tag: 'Safe Investments',
       tagColor: '#2dd4bf',
       severity: 'low',
-      body: 'With the RBI signaling potential rate shifts, locking in long-duration fixed income yields now provides a strong counter-balance to your equity exposure. Your debt allocation has been weighted towards sovereign and high-grade corporate bonds to optimize post-tax risk-adjusted returns.',
-      action: 'Review your debt allocation in the Rebalancer to capture current yield premiums.',
+      body: 'With government interest rates expected to change, locking in fixed interest rates now protects your savings. We have selected high-quality government and corporate bonds to get you stable growth with lower taxes.',
+      action: 'Review your safe allocations to lock in current higher interest rates.',
       delay: 0.2
     },
     {
       icon: Newspaper,
       iconColor: '#fbbf24',
       accentGradient: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-      title: 'Regulatory Alpha',
-      tag: 'Tax Strategy',
+      title: 'Tax-Free Compounding',
+      tag: 'Tax Savings',
       tagColor: '#fbbf24',
       severity: 'high',
-      body: 'We\'ve detected structural shifts in domestic taxation. Funneling your mandatory fixed-income savings through EPF/PPF rather than taxable FDs structurally improves your compounding rate by approximately 1.8% annualized.',
-      action: 'Check the "Tax Optimizer" tab to maximize your Section 80C deductions.',
+      body: 'You can save more on taxes! Placing your safe savings into tax-free plans like EPF or PPF instead of standard bank Fixed Deposits (which are fully taxed) boosts your actual returns by about 1.8% each year.',
+      action: 'Check the "Tax Saver" tab to maximize your deductions.',
       delay: 0.3
     },
     {
       icon: AlertTriangle,
       iconColor: '#38bdf8',
       accentGradient: 'linear-gradient(135deg, #38bdf8, #0ea5e9)',
-      title: 'Portfolio Concentration',
-      tag: 'Risk Monitor',
+      title: 'Investment Diversification',
+      tag: 'Risk Checker',
       tagColor: '#38bdf8',
       severity: 'low',
-      body: `Your portfolio is diversified across ${recCount} discrete asset configurations. However, keep an eye on overlapping sectoral allocations if you add thematic mutual funds manually.`,
-      action: `${recCount} instruments active — monitor sector overlap when adding new positions.`,
+      body: `Your savings are well spread out across ${recCount} different funds. When adding new funds manually, try to avoid putting too much money into the same sector (like IT or Banking) so your risk is well distributed.`,
+      action: `${recCount} funds active — check for overlap if you add new investments.`,
       delay: 0.4
     },
     {
       icon: Shield,
       iconColor: '#a78bfa',
       accentGradient: 'linear-gradient(135deg, #a78bfa, #8b5cf6)',
-      title: 'Savings Efficiency',
-      tag: 'Behavioral',
+      title: 'Monthly Savings Rate',
+      tag: 'Savings Check',
       tagColor: '#a78bfa',
       severity: savingsRate >= 30 ? 'low' : savingsRate >= 20 ? 'medium' : 'high',
-      body: `Your current savings rate is ${savingsRate}% of gross income (₹${savings.toLocaleString('en-IN')}/mo of ₹${income.toLocaleString('en-IN')}/mo). ${Number(savingsRate) >= 30 ? 'This is excellent — you\'re well above the recommended 20% threshold.' : Number(savingsRate) >= 20 ? 'This is a healthy rate, but pushing to 30%+ would significantly accelerate your wealth trajectory.' : 'Consider increasing your savings rate. Even a 5% boost compounds into lakhs over your timeline.'}`,
+      body: `Your current savings rate is ${savingsRate}% of your total income (₹${savings.toLocaleString('en-IN')}/mo of ₹${income.toLocaleString('en-IN')}/mo). ${Number(savingsRate) >= 30 ? 'This is excellent — you\'re saving well above the standard 20% mark.' : Number(savingsRate) >= 20 ? 'This is a healthy rate, but saving a bit more would speed up your wealth growth.' : 'Consider saving a bit more each month. Even a 5% increase makes a massive difference over time.'}`,
       action: Number(savingsRate) >= 30
-        ? 'Excellent discipline — consider deploying surplus into step-up SIP for exponential growth.'
-        : `Increasing savings by ₹${Math.round((income * 0.05) / 1000) * 1000}/mo could add ₹${((Math.round((income * 0.05) / 1000) * 1000 * 12 * horizon * 1.5) / 100000).toFixed(0)}L+ to your corpus.`,
+        ? 'Excellent savings habit — consider using a yearly increasing SIP to grow your money faster.'
+        : (() => {
+          const boost = Math.round((income * 0.05) / 1000) * 1000;
+          // Proper SIP FV: P × ((1+r)^n - 1) / r × (1+r), r = 11%/12 (blended avg)
+          const r = 0.11 / 12;
+          const n = horizon * 12;
+          const sipFV = r > 0 ? boost * ((Math.pow(1 + r, n) - 1) / r) * (1 + r) : boost * n;
+          return `Saving an extra ₹${boost.toLocaleString('en-IN')}/mo could add ₹${(sipFV / 100000).toFixed(0)} Lakhs+ to your final savings over ${horizon} years.`;
+        })(),
       delay: 0.5
     },
   ];

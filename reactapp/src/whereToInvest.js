@@ -96,6 +96,20 @@ const WHERE_TO_INVEST = {
     ]
   },
 
+  // ═══════════════════ LIQUID MF ═══════════════════
+  liquid_mf: {
+    title: "Best Liquid Mutual Funds",
+    riskLevel: 1,
+    note: "Liquid funds invest in high-quality debt securities maturing within 91 days. T+1 redemption (instant withdrawal up to ₹50,000 via iSIP). Gains are taxed at your income slab rate.",
+    howToStart: "Open an account on digital platforms like Groww, Zerodha Coin, or Kuvera, or directly via the fund house (AMC) website.",
+    products: [
+      { name: "SBI Liquid Fund", provider: "SBI MF", rate: "~7.0% (1Y Return)", highlight: "India's largest liquid fund by AUM (~₹70,000 Cr). Extremely safe portfolio consisting of sovereign and AAA commercial papers. T+1 redemption with instant withdrawal up to ₹50,000 via iSIP. Expense ratio: 0.16% (Direct). Best choice for core emergency fund parking.", platform: "SBI MF / Groww / Coin", minInvestment: "₹500", badge: "Top Pick" },
+      { name: "ICICI Prudential Liquid Fund", provider: "ICICI Pru MF", rate: "~7.05% (1Y Return)", highlight: "AUM ~₹45,000 Cr. Consistently maintains a highly liquid portfolio with high allocation in Sovereign T-Bills. Expense ratio: 0.15% (Direct-Growth). Provides clean, low-cost cash management with instant redemption options.", platform: "ICICI MF / Groww / Coin", minInvestment: "₹99", badge: "Lowest Expense" },
+      { name: "HDFC Liquid Fund", provider: "HDFC MF", rate: "~7.0% (1Y Return)", highlight: "AUM ~₹55,000 Cr. Conservative fund management from one of India's most respected fund houses. Zero credit-risk exposure, high liquidity, and instant withdrawal facilities up to ₹50,000.", platform: "HDFC MF / Groww / Coin", minInvestment: "₹100" },
+      { name: "Nippon India Liquid Fund", provider: "Nippon India MF", rate: "~7.02% (1Y Return)", highlight: "AUM ~₹30,000 Cr. Highly diversified portfolio across short-term papers. Efficient digital execution via Nippon India app with instant redemption features.", platform: "Nippon MF / Groww / Coin", minInvestment: "₹100" }
+    ]
+  },
+
   // ═══════════════════ DEBT MF ═══════════════════
   debt_mf: {
     title: "Best Debt Mutual Funds to Consider",

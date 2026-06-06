@@ -2,6 +2,29 @@
 WealthGenie Recommendation Backtester
 Tests how recommended instruments would have performed for
 a given profile over historical Nifty return periods.
+
+=========================================================================
+📘 BEGINNER NOTE: WHAT IS BACKTESTING & CAPM (ALPHA/BETA)?
+=========================================================================
+1. What is Backtesting?
+   Before investing your hard-earned money, you want to know: "How would this
+   portfolio have survived past financial storms?"
+   Backtesting runs historical market data (like the 2008 Global Financial
+   Crisis or the 2020 COVID crash) through our asset profiles to simulate
+   what your returns and maximum losses (drawdowns) would have been.
+
+2. Beta (Market Sensitivity):
+   Beta measures how much an asset moves when the broad stock market moves:
+   - Beta = 1.0 (e.g. Nifty 50 ETF): Moves in lockstep with the market. If the 
+     market rises 10%, this rises 10%.
+   - Beta = 0.0 (e.g. Fixed Deposit, PPF): Zero stock market sensitivity. Safe and steady.
+   - Beta = -0.2 (e.g. Gold): Moves in the opposite direction. Highly useful for hedging 
+     because when stock markets crash, gold prices often spike as investors seek safety.
+
+3. Alpha (Value-Add):
+   Alpha represents the excess return an investment earns above its benchmark index. 
+   If the benchmark earns 10%, but an active ELSS fund earns 12%, the fund manager's 
+   alpha is 2%.
 """
 import numpy as np
 from dataclasses import dataclass

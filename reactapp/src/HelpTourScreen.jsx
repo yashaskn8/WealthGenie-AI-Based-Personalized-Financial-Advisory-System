@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Compass, ShieldCheck, Target, Calculator, PieChart, Activity, Sparkles, ChevronRight, Mail, Phone, MessageCircle, X, CheckCircle, ExternalLink, BookOpen, Lightbulb } from 'lucide-react';
+import { Compass, ShieldCheck, Target, Calculator, PieChart, Activity, Sparkles, ChevronRight, Mail, MessageCircle, X, ExternalLink, BookOpen, Lightbulb, CheckCircle, HelpCircle } from 'lucide-react';
 /* styles */
 import './HelpTourScreen.css';
 
@@ -8,6 +8,130 @@ const HelpTourScreen = () => {
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactSent, setContactSent] = useState(false);
   const [expandedCard, setExpandedCard] = useState(null);
+  const [expandedGlossary, setExpandedGlossary] = useState(null);
+
+  const glossary = [
+    {
+      term: 'SIP',
+      fullName: 'Systematic Investment Plan',
+      definition: 'Investing a fixed amount regularly (e.g. monthly) rather than a lump sum.',
+      learnMore: 'SIP helps average out your purchase costs (Rupee Cost Averaging) and removes the stress of timing the market. By investing regularly, you buy more units when prices are low and fewer when prices are high.'
+    },
+    {
+      term: 'XIRR',
+      fullName: 'Extended Internal Rate of Return',
+      definition: 'The annualized rate of return for a series of irregular, non-periodic cash flows.',
+      learnMore: 'XIRR is the gold standard for calculating SIP returns. Since each installment is held for a different length of time, simple returns fail to measure performance accurately. XIRR calculates the exact rate at which your money compounded.'
+    },
+    {
+      term: 'LTCG',
+      fullName: 'Long-Term Capital Gains Tax',
+      definition: 'Tax applied on profits from selling investments held longer than a specific duration (e.g. 1 year for equities).',
+      learnMore: 'For equity mutual funds and stocks in India, gains held for more than 1 year are taxed at 12.5% on profits exceeding ₹1.25 Lakhs per financial year. Under Budget 2024, this exemption was increased from ₹1 Lakh.'
+    },
+    {
+      term: 'STCG',
+      fullName: 'Short-Term Capital Gains Tax',
+      definition: 'Tax applied on profits from selling investments held for a short duration (e.g. under 1 year for equities).',
+      learnMore: 'For equity assets, selling within 1 year triggers a flat 20% tax rate on all profits (STCG). This is designed to discourage short-term speculation.'
+    },
+    {
+      term: 'CAGR',
+      fullName: 'Compound Annual Growth Rate',
+      definition: 'The constant rate at which an investment would grow if it grew at a steady compounding rate.',
+      learnMore: 'CAGR is a useful tool to compare different investments (like mutual funds vs FDs) over a long period. It shows the smoothed annual return, ignoring short-term volatility.'
+    },
+    {
+      term: 'GBM',
+      fullName: 'Geometric Brownian Motion',
+      definition: 'A mathematical model used to simulate stock prices and asset values, assuming random changes.',
+      learnMore: 'GBM is the foundation of our Monte Carlo engine. It models price paths by combining a steady upward trend (drift) with random fluctuations (diffusion), ensuring values never drop below zero.'
+    },
+    {
+      term: 'QMC',
+      fullName: 'Quasi-Monte Carlo',
+      definition: 'A simulation method that uses highly uniform sequences (Halton sequences) instead of pure random numbers.',
+      learnMore: 'Standard Monte Carlo uses random numbers, which leave empty gaps and clusters. QMC uses deterministic sequences to cover the possibilities evenly, accelerating calculation convergence by 10x.'
+    },
+    {
+      term: 'SHAP',
+      fullName: 'Shapley Additive exPlanations',
+      definition: 'A machine learning explainability method that attributes credit to input features for a prediction.',
+      learnMore: 'SHAP breaks down our Random Forest recommendation. It shows exactly how much your Age, Income, and Risk Appetite contributed to the final portfolio suggestion, making the AI transparent.'
+    },
+    {
+      term: 'EEE',
+      fullName: 'Exempt-Exempt-Exempt',
+      definition: 'A tax category where investment, interest earned, and maturity withdrawals are all completely tax-exempt.',
+      learnMore: 'PPF (Public Provident Fund) and SSY (Sukanya Samriddhi Yojana) fall under this category. It is the most tax-efficient structure available under Indian tax laws.'
+    },
+    {
+      term: 'TDS',
+      fullName: 'Tax Deducted at Source',
+      definition: 'Tax collected by banks directly before paying out interest or income to you.',
+      learnMore: 'If your FD interest exceeds ₹40,000 in a year (₹50,000 for senior citizens), the bank automatically deducts 10% tax. You must report this in your annual tax filings.'
+    },
+    {
+      term: 'Sharpe Ratio',
+      fullName: 'Risk-Adjusted Return Measure',
+      definition: 'A metric measuring how much excess return an investment earns relative to the volatility it takes on.',
+      learnMore: 'Sharpe ratio is calculated as: (Portfolio Return - Risk-Free Rate) / Volatility. A higher Sharpe ratio means you are getting compensated well for the market risk you are carrying.'
+    },
+    {
+      term: 'Simplex Projection',
+      fullName: 'Portfolio Constraint Algorithm',
+      definition: 'A mathematical process that clamps portfolio weights to ensure they sum to exactly 100%.',
+      learnMore: 'In mean-variance optimization, weights can drift or become negative (short-selling). Simplex projection maps these weights onto a probability simplex, enforcing 0-100% bounds.'
+    },
+    {
+      term: 'Risk Capacity',
+      fullName: 'Financial Risk Threshold',
+      definition: "An investor's actual financial ability to bear market losses based on age, income, and timeline.",
+      learnMore: 'Unlike risk tolerance (which is how you feel), capacity is what you can afford. A young high-income earner with 30 years to retirement has high risk capacity even if they are personally cautious.'
+    },
+    {
+      term: 'Asset Allocation',
+      fullName: 'Portfolio Weighting',
+      definition: 'Splitting your investments among different classes like equities, debt, gold, and cash.',
+      learnMore: 'Asset allocation is the single biggest driver of long-term returns. Spreading your savings across different classes helps manage risk, as they rarely move in lockstep.'
+    },
+    {
+      term: 'Rebalancing',
+      fullName: 'Portfolio Readjustment',
+      definition: 'Restoring your portfolio to its target percentages when market moves cause them to drift.',
+      learnMore: 'If equities rise, your portfolio may become too risky. Rebalancing sells some equities and buys safer debt to bring the portfolio back in line with your risk budget.'
+    },
+    {
+      term: 'NPS',
+      fullName: 'National Pension System',
+      definition: 'A government retirement savings scheme offering additional tax benefits.',
+      learnMore: 'NPS invests in a mix of equity and debt. Contributions are locked until age 60, and up to ₹50,000 is tax-deductible under Section 80CCD(1B) in the Old Tax Regime.'
+    },
+    {
+      term: 'PPF',
+      fullName: 'Public Provident Fund',
+      definition: 'A 15-year government savings scheme with guaranteed interest and EEE tax status.',
+      learnMore: 'PPF offers low-risk sovereign-backed interest. It has a mandatory 15-year lock-in with partial withdrawals permitted after 7 years, making it ideal for safe, long-term goals.'
+    },
+    {
+      term: 'SGB',
+      fullName: 'Sovereign Gold Bonds',
+      definition: 'Government bonds denominated in gold that pay 2.5% annual interest.',
+      learnMore: 'SGBs offer a double benefit: you gain from gold price appreciation tax-free if held for 8 years, and you earn an extra 2.5% simple interest annually (taxable at slab rates).'
+    },
+    {
+      term: 'Cess',
+      fullName: 'Health & Education Cess',
+      definition: 'A flat 4% tax added on top of your income tax and surcharge liabilities.',
+      learnMore: 'Cess is a tax-on-tax earmarked for government welfare schemes. If your calculated income tax is ₹10,000, a 4% cess of ₹400 is added, making your total tax ₹10,400.'
+    },
+    {
+      term: 'Marginal Relief',
+      fullName: 'Tax Threshold Cushion',
+      definition: 'A tax discount preventing tax spikes when income slightly crosses a slab boundary.',
+      learnMore: 'If you earn ₹12,00,005, you shouldn\'t pay ₹80,000 in tax just for earning ₹5 above the limit. Marginal relief caps your tax to the excess income, which is ₹5.'
+    }
+  ];
 
   const guides = [
     {
@@ -158,6 +282,65 @@ const HelpTourScreen = () => {
           );
         })}
       </div>
+
+      {/* Financial Jargon Buster Section */}
+      <motion.div
+        className="help-glossary-section"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+      >
+        <div className="help-badge">
+          <HelpCircle size={12} /> Jargon Buster
+        </div>
+        <h2 className="help-section-title">Financial Glossary</h2>
+        <p className="help-section-desc">
+          Confused by financial acronyms and math terms? Click on any card below to reveal plain-English explanations.
+        </p>
+
+        <div className="help-glossary-grid">
+          {glossary.map((item, i) => {
+            const isExpanded = expandedGlossary === i;
+            return (
+              <motion.div
+                key={i}
+                className={`help-glossary-card ${isExpanded ? 'help-glossary-expanded' : ''}`}
+                onClick={() => setExpandedGlossary(isExpanded ? null : i)}
+                layout
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              >
+                <div className="help-glossary-card-header">
+                  <div className="help-glossary-term-group">
+                    <span className="help-glossary-term">{item.term}</span>
+                    <span className="help-glossary-fullname">({item.fullName})</span>
+                  </div>
+                  <ChevronRight
+                    size={16}
+                    className={`help-glossary-chevron ${isExpanded ? 'help-glossary-chevron-open' : ''}`}
+                  />
+                </div>
+                <p className="help-glossary-definition">{item.definition}</p>
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="help-glossary-more"
+                    >
+                      <div className="help-glossary-more-inner">
+                        <Lightbulb size={14} color="#38bdf8" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <span className="help-glossary-more-text">{item.learnMore}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.div>
 
       {/* Footer CTA */}
       <motion.div

@@ -10,6 +10,8 @@ const instrumentDetailSchema = new mongoose.Schema({
   lockIn: Number,
   tags: [String],
   taxNotes: String,
+  sharpeRatio: Number,
+  allocationWeight: Number,
 }, { _id: false });
 
 const recommendationSchema = new mongoose.Schema({

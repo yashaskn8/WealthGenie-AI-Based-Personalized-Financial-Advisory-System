@@ -8,6 +8,8 @@ import { RefreshCw, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
  * Green dot = live (derived from Yahoo Finance index data)
  * Amber dot = static (hardcoded, manually reviewed)
  */
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
+
 const DataFreshnessBar = ({ instruments = [] }) => {
   const [dataSources, setDataSources] = useState(null);
   const [refreshCooldown, setRefreshCooldown] = useState(false);
@@ -15,12 +17,12 @@ const DataFreshnessBar = ({ instruments = [] }) => {
 
   const fetchSources = useCallback(async () => {
     try {
-      const res = await fetch('/api/market/rates');
+      const res = await fetch(`${API_BASE}/market/rates`);
       if (res.ok) {
         const data = await res.json();
         setDataSources(data);
       }
-    } catch (_) {
+    } catch {
       // Graceful degradation — hide bar if market API is unavailable
     }
   }, []);
@@ -34,7 +36,7 @@ const DataFreshnessBar = ({ instruments = [] }) => {
     setRefreshing(true);
     try {
       const token = localStorage.getItem('wg_token');
-      await fetch('/api/market/refresh', {
+      await fetch(`${API_BASE}/market/refresh`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -43,7 +45,7 @@ const DataFreshnessBar = ({ instruments = [] }) => {
       setTimeout(() => setRefreshCooldown(false), 60000);
       // Refetch after a brief delay
       setTimeout(() => fetchSources(), 3500);
-    } catch (_) {
+    } catch {
       // Ignore — refresh is best-effort
     } finally {
       setRefreshing(false);

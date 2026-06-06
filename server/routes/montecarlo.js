@@ -19,7 +19,7 @@ const router = Router();
  *   2. Post-tax adjusted returns (from the user's marginal slab)
  */
 router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(async (req, res) => {
-  const { instrument, monthly_investment, years, target_amount, profileId } = req.body;
+  const { instrument, monthly_investment, years, target_amount, profileId, current_savings } = req.body;
 
   // ── Step 1: Fetch live instrument parameters (Nifty-derived for equity) ──
   const liveResult = await getLiveInstrumentParams();
@@ -53,7 +53,9 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
           liveParams.mean,
           annualIncome,
           years,
-          regime
+          regime,
+          monthly_investment,   // monthlySIP for accurate FD TDS / ELSS LTCG
+          profile.age || 30     // userAge for senior citizen TDS thresholds
         );
 
         effectiveRate = postTaxResult.postTaxReturn;
@@ -62,6 +64,7 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
           post_tax_rate: postTaxResult.postTaxReturn,
           tax_type: postTaxResult.taxType,
           tax_rate: postTaxResult.taxRate,
+          tds_applicable: postTaxResult.tdsApplicable || false,
           regime,
         };
       } catch (taxErr) {
@@ -85,6 +88,7 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
     years,
     simulations: 10000,
     targetAmount: target_amount || null,
+    currentSavings: current_savings || 0,
   });
 
   // ── Step 5: Build Recharts-friendly chart data ──
@@ -96,6 +100,10 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
     p75: result.p75[i],
     p90: result.p90[i],
     mean: result.mean[i],
+    // Inflation-adjusted (real) values
+    p10_real: result.p10_real ? result.p10_real[i] : undefined,
+    p50_real: result.p50_real ? result.p50_real[i] : undefined,
+    p90_real: result.p90_real ? result.p90_real[i] : undefined,
     standard_error: result.standard_error ? result.standard_error[i] : undefined,
   }));
 
@@ -122,12 +130,22 @@ router.post('/montecarlo', verifyJWT, validate(monteCarloSchema), asyncHandler(a
       p75: result.p75[termIdx],
       p90: result.p90[termIdx],
     },
+    percentile_summary_real: result.p50_real ? {
+      p10: result.p10_real[termIdx],
+      p25: result.p25_real[termIdx],
+      p50: result.p50_real[termIdx],
+      p75: result.p75_real[termIdx],
+      p90: result.p90_real[termIdx],
+    } : null,
     confidence_interval_width: ciWidth,
     data_source: dataSource,
     post_tax_rate_used: effectiveRate,
     volatility_used: effectiveVolatility,
     nifty_derived: dataSource === 'live',
     post_tax_info: postTaxInfo,
+    sequence_of_returns_risk: result.sequence_of_returns_risk || null,
+    sharpe_ratio_sensitivity: result.sharpe_ratio_sensitivity || null,
+    inflation_rate: result.inflation_rate || 0.05,
     cached: false,
   };
 

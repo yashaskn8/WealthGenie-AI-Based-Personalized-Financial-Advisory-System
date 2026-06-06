@@ -19,7 +19,24 @@ router.get('/compute', validateQuery(taxComputeSchema), asyncHandler(async (req,
     return res.status(400).json({ error: 'Income must be a valid positive number.' });
   }
 
-  const result = computeTax(income, regime);
+  const deductions = {
+    section80C: Number(req.query.section80C) || 0,
+    nps80CCD1B: Number(req.query.nps80CCD1B) || 0,
+    nps80CCD2: Number(req.query.nps80CCD2) || 0,
+    basicSalary: req.query.basicSalary !== undefined ? Number(req.query.basicSalary) : undefined,
+    isGovtEmployee: req.query.isGovtEmployee === 'true' || req.query.isGovtEmployee === true,
+    section80D: Number(req.query.section80D) || 0,
+    section80D_self: req.query.section80D_self !== undefined ? Number(req.query.section80D_self) : undefined,
+    section80D_parents: req.query.section80D_parents !== undefined ? Number(req.query.section80D_parents) : undefined,
+    parents_senior: req.query.parents_senior === 'true' || req.query.parents_senior === true,
+    self_senior: req.query.self_senior === 'true' || req.query.self_senior === true,
+    hra: Number(req.query.hra) || 0,
+    homeLoanInterest: Number(req.query.homeLoanInterest) || 0,
+    other: Number(req.query.other) || 0,
+    age: req.query.age !== undefined ? Number(req.query.age) : undefined,
+  };
+
+  const result = computeTax(income, regime, deductions, req.query.incomeSource);
   res.json(result);
 }));
 
@@ -34,7 +51,24 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
     return res.status(400).json({ error: 'Income must be a valid positive number.' });
   }
 
-  const { newRegime, oldRegime, recommended } = compareTaxRegimes(income);
+  const deductions = {
+    section80C: Number(req.query.section80C) || 0,
+    nps80CCD1B: Number(req.query.nps80CCD1B) || 0,
+    nps80CCD2: Number(req.query.nps80CCD2) || 0,
+    basicSalary: req.query.basicSalary !== undefined ? Number(req.query.basicSalary) : undefined,
+    isGovtEmployee: req.query.isGovtEmployee === 'true' || req.query.isGovtEmployee === true,
+    section80D: Number(req.query.section80D) || 0,
+    section80D_self: req.query.section80D_self !== undefined ? Number(req.query.section80D_self) : undefined,
+    section80D_parents: req.query.section80D_parents !== undefined ? Number(req.query.section80D_parents) : undefined,
+    parents_senior: req.query.parents_senior === 'true' || req.query.parents_senior === true,
+    self_senior: req.query.self_senior === 'true' || req.query.self_senior === true,
+    hra: Number(req.query.hra) || 0,
+    homeLoanInterest: Number(req.query.homeLoanInterest) || 0,
+    other: Number(req.query.other) || 0,
+    age: req.query.age !== undefined ? Number(req.query.age) : undefined,
+  };
+
+  const { newRegime, oldRegime, recommended } = compareTaxRegimes(income, deductions, req.query.incomeSource);
   const saving = Math.abs(newRegime.taxAmount - oldRegime.taxAmount);
 
   res.json({
@@ -48,6 +82,8 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
       marginal_relief_applied: newRegime.marginalReliefApplied || false,
       marginal_relief_amount: newRegime.marginalReliefAmount || 0,
       cess: Math.round(newRegime.taxAmount * CESS_RATE / (1 + CESS_RATE)),
+      nps80CCD2: newRegime.nps80CCD2 || 0,
+      allowed80D: newRegime.allowed80D || 0,
     },
     old_regime: {
       tax: oldRegime.taxAmount,
@@ -58,6 +94,8 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
       marginal_relief_applied: oldRegime.marginalReliefApplied || false,
       marginal_relief_amount: oldRegime.marginalReliefAmount || 0,
       cess: Math.round(oldRegime.taxAmount * CESS_RATE / (1 + CESS_RATE)),
+      nps80CCD2: oldRegime.nps80CCD2 || 0,
+      allowed80D: oldRegime.allowed80D || 0,
     },
     recommended_regime: recommended,
     saving,

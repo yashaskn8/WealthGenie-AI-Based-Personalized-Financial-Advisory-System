@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { generateRecommendations } from '../recommendationEngine';
 
@@ -18,18 +19,27 @@ export function UserProvider({ children }) {
     return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
   });
 
-  const [recommendations, setRecommendations] = useState([]);
   const [isProfileComplete, setIsProfileComplete] = useState(() => {
     return localStorage.getItem('wg_profile_complete') === 'true';
   });
 
-  // Regenerate recommendations when profile changes
-  useEffect(() => {
+  const [recommendations, setRecommendations] = useState(() => {
+    const saved = localStorage.getItem('wg_profile');
+    const prof = saved ? JSON.parse(saved) : DEFAULT_PROFILE;
+    const complete = localStorage.getItem('wg_profile_complete') === 'true';
+    return complete ? generateRecommendations(prof) : [];
+  });
+
+  const [prevProfileForRecs, setPrevProfileForRecs] = useState(profile);
+  const [prevIsCompleteForRecs, setPrevIsCompleteForRecs] = useState(isProfileComplete);
+
+  if (profile !== prevProfileForRecs || isProfileComplete !== prevIsCompleteForRecs) {
+    setPrevProfileForRecs(profile);
+    setPrevIsCompleteForRecs(isProfileComplete);
     if (isProfileComplete) {
-      const recs = generateRecommendations(profile);
-      setRecommendations(recs);
+      setRecommendations(generateRecommendations(profile));
     }
-  }, [profile, isProfileComplete]);
+  }
 
   // Persist profile
   useEffect(() => {

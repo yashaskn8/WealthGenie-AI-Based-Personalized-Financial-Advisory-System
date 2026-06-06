@@ -8,6 +8,7 @@
 
 import axios from 'axios';
 import { getCache, setCache } from '../config/redis.js';
+import { INSTRUMENT_PARAMS, updateLiveParam } from './instrumentConstants.js';
 
 const CACHE_TTL = {
   MF_NAV: 86400,       // 24 hours — AMFI updates daily
@@ -86,7 +87,7 @@ export async function fetchIndexStatistics(symbol = '^NSEI') {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WealthGenie/2.0)' },
     });
 
-    const prices = response.data.chart.result[0].indicators.quote[0].close
+    const prices = (response.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
       .filter(p => p !== null);
 
     if (prices.length < 13) {
@@ -147,7 +148,16 @@ export async function fetchIndexStatistics(symbol = '^NSEI') {
 export async function getLiveInstrumentParams(userPostTaxFDRate) {
   const cacheKey = 'mc:instrument:params:live';
   const cached = await getCache(cacheKey);
-  if (cached) return { params: cached, cached: true };
+  if (cached) {
+    // Apply cached values dynamically via updateLiveParam
+    for (const [key, val] of Object.entries(cached)) {
+      if (INSTRUMENT_PARAMS[key] && val.mean !== undefined) {
+        const nominalRate = parseFloat((val.mean * 100).toFixed(2));
+        updateLiveParam(key, nominalRate, val.stdDev);
+      }
+    }
+    return { params: cached, cached: true };
+  }
 
   let niftyStats;
   try {
@@ -170,7 +180,7 @@ export async function getLiveInstrumentParams(userPostTaxFDRate) {
   }
 
   const params = {
-    ELSS:       { mean: equityMean,          stdDev: equityVol,         source: 'live' },
+    ELSS:       { mean: equityMean * 0.95,   stdDev: equityVol,         source: 'live' },
     Equity_MF:  { mean: equityMean * 0.95,   stdDev: equityVol,         source: 'live' },
     ETF:        { mean: equityMean * 0.98,   stdDev: equityVol * 0.95,  source: 'live' },
     Debt_MF:    { mean: 0.07,                stdDev: 0.03,              source: 'static' },
@@ -184,6 +194,14 @@ export async function getLiveInstrumentParams(userPostTaxFDRate) {
     Liquid_MF:  { mean: 0.065,               stdDev: 0.005,             source: 'static' },
     Arbitrage_MF: { mean: 0.07,              stdDev: 0.02,              source: 'static' },
   };
+
+  // Apply the live rates dynamically via updateLiveParam
+  for (const [key, val] of Object.entries(params)) {
+    if (INSTRUMENT_PARAMS[key]) {
+      const nominalRate = parseFloat((val.mean * 100).toFixed(2));
+      updateLiveParam(key, nominalRate, val.stdDev);
+    }
+  }
 
   await setCache(cacheKey, params, CACHE_TTL.LIVE_PARAMS);
   return { params, cached: false, nifty_stats: niftyStats };

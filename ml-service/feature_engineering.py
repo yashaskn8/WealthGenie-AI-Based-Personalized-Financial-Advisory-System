@@ -2,6 +2,25 @@
 WealthGenie Feature Engineering
 Transforms raw financial profile inputs into ML-ready features
 with domain-specific derived variables.
+
+=========================================================================
+📘 BEGINNER NOTE: WHAT IS FEATURE ENGINEERING & WHY DOES IT MATTER?
+=========================================================================
+Machine learning models are only as good as the data they are fed. Raw numbers 
+like "Age: 30" or "Income: ₹12,00,000" are helpful, but they don't paint the full
+picture for a financial decision.
+
+"Feature Engineering" is the process of using domain expertise to create *new* 
+clues (features) from the raw inputs. These clues help the model learn more easily.
+
+For example, we derive:
+1. Savings Rate: Knowing a user saves ₹50,000 is okay. But knowing they save 50% 
+   of their income is a massive clue about their financial discipline!
+2. Retirement Horizon (retirement_years): Subtracting age from 60 tells the model 
+   how many years the user's money has to compound.
+3. Risk-Age Composite (risk_age_score): High risk tolerance is fine at age 25, 
+   but dangerous at age 58. Combining risk score and age gives the model a single 
+   clue about whether the user is taking age-appropriate risks.
 """
 import numpy as np
 from dataclasses import dataclass

@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, ReferenceLine } from 'recharts';
 import { ChevronRight, ChevronDown, Filter, Info, Shield, TrendingUp, Zap, Trophy, BarChart3, AlertCircle, Calendar, Target, Activity, Wallet, PiggyBank, Clock, HelpCircle, Building2, MapPin, Star } from 'lucide-react';
 import { investmentDatabase, RISK_COLORS, CHART_COLORS } from './investmentDatabase';
-import { generateRecommendations, getEligibleInvestments, getWhy, computePostTaxReturn, GOAL_PROFILES } from './recommendationEngine';
+import { generateRecommendations, getEligibleInvestments, getWhy, GOAL_PROFILES } from './recommendationEngine';
 import { getConfidenceLabel } from './utils/confidenceLabels';
-import { validatePortfolio } from './utils/portfolioValidation';
 import { INSTRUMENT_EXPLAINERS, CARD_SUBTITLES, RISK_PLAIN_LABELS, getLockInWarning, detectRiskAgeMismatch } from './utils/instrumentExplainers';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
 import SebiDisclaimer from './components/SebiDisclaimer';
+import { formatCompactINR } from './utils/indianNumberFormat';
+import JargonTooltip from './components/JargonTooltip';
 
 import './Dashboard.css';
 
@@ -65,10 +66,10 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
     if (derivedRiskLabel === (userProfile?.risk_appetite || 'Medium')) {
       return propRecommendations;
     }
-    // Otherwise, re-generate locally with the overridden risk appetite
-    const modifiedProfile = { ...userProfile, risk_appetite: derivedRiskLabel };
+    // Otherwise, re-generate locally with the overridden risk appetite + current horizon
+    const modifiedProfile = { ...userProfile, risk_appetite: derivedRiskLabel, investment_horizon: horizon };
     return generateRecommendations(modifiedProfile);
-  }, [derivedRiskLabel, userProfile, propRecommendations]);
+  }, [derivedRiskLabel, userProfile, propRecommendations, horizon]);
   const [expandedRows, setExpandedRows] = useState({});
   const [expandedWhyCards, setExpandedWhyCards] = useState({});
 
@@ -88,7 +89,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
 
   // Eligibility stats — goal-aware
   const isEmergencyFundGoal = (userProfile?.investment_goals || [])[0] === 'Emergency Fund';
-  const totalInstruments = 17; // investmentDatabase has 17 instruments (incl. PMVVY)
+  const totalInstruments = investmentDatabase.length;
   const displayedCount = recommendations?.length || 0;
   const eligibleCount = useMemo(() => {
     if (!userProfile) return 0;
@@ -106,13 +107,19 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
   };
 
   // Dynamic Data Calculation based on recommendations
-  const { allocationDataOuter, allocationDataInner, tableData, performanceData, currentMonthly, totalProjected } = useMemo(() => {
+  const { allocationDataOuter, tableData, performanceData, currentMonthly, totalProjected } = useMemo(() => {
     if (!recommendations || recommendations.length === 0) return {
-      allocationDataOuter: [], allocationDataInner: [], tableData: [], performanceData: [], currentMonthly: 0, totalProjected: 0
+      allocationDataOuter: [], tableData: [], performanceData: [], currentMonthly: 0, totalProjected: 0
+    };
+
+    // Filter out instruments with zero allocation (dropped by budget constraints)
+    const activeRecs = recommendations.filter(r => (r.monthly_allocation || 0) > 0);
+    if (activeRecs.length === 0) return {
+      allocationDataOuter: [], tableData: [], performanceData: [], currentMonthly: 0, totalProjected: 0
     };
 
     // First pass: compute total monthly SIP for proportional initial capital split
-    const finalTotalMonthly = recommendations.reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);
+    const finalTotalMonthly = activeRecs.reduce((sum, r) => sum + (r.monthly_allocation || 0), 0);
 
     let totalMonthly = 0;
     let proj = 0;
@@ -122,7 +129,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
 
     let colorIndex = 0;
 
-    recommendations.forEach((rec) => {
+    activeRecs.forEach((rec) => {
       totalMonthly += rec.monthly_allocation;
       
       // Calculate projection with step-up SIP and initial capital share
@@ -134,9 +141,11 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
         rateMin = Math.max(0, rateMin - 6.0);
       }
 
-      // Use AVERAGE rate for the headline projected value (donut center)
-      // This is the expected/most-likely scenario, not the optimistic best-case
-      const avgRate = (rateMin + rate) / 2;
+      // Use SKEWED AVERAGE rate for the headline projected value (donut center)
+      // Equity returns have positive skew — the expected/average outcome is closer
+      // to nominal (max) than worst-case (min). Using 60% max / 40% min prevents
+      // the inversion where Medium risk projects higher than High risk.
+      const avgRate = rateMin * 0.4 + rate * 0.6;
       
       // Step-up SIP FV: iterate year-by-year, each year's SIP grows by stepUpPct%
       const avgRateMonth = (avgRate / 100) / 12;
@@ -231,7 +240,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
       if (yr === 0) {
         return { year: yr.toString(), worst: initialCapital + totalMonthly, average: initialCapital + totalMonthly, best: initialCapital + totalMonthly };
       }
-      recommendations.forEach(r => {
+      activeRecs.forEach(r => {
          let rate = r.rate || r.expected_return_max || 10;
          let minRate = r.expected_return_min || (rate * 0.65);
          
@@ -240,7 +249,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
              minRate = Math.max(0, minRate - 6.0);
          }
          
-         const midRate = (minRate + rate) / 2;
+         const midRate = minRate * 0.4 + rate * 0.6;
          // Step-up SIP FV for each scenario
          worst += calcStepUpFV(r.monthly_allocation, minRate, yr);
          best += calcStepUpFV(r.monthly_allocation, rate, yr);
@@ -264,7 +273,6 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
 
     return {
       allocationDataOuter: outerData,
-      allocationDataInner: innerMap,
       tableData: formattedTable,
       performanceData: perfData,
       currentMonthly: totalMonthly,
@@ -281,7 +289,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
       medium: recommendations.filter(r => (r.risk || 0) === 3),
       high: recommendations.filter(r => (r.risk || 0) >= 4),
     };
-  }, [recommendations, userProfile]);
+  }, [recommendations]);
 
   const benchMarkData = useMemo(() => {
     // Compute user's weighted portfolio CAGR from recommendations
@@ -405,12 +413,12 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
         
         <div className="dashboard-header" style={{position: 'relative', paddingBottom: 20, marginBottom: 6}}>
           <div className="dashboard-title-group">
-            <span className="dashboard-subtitle">PERSONAL WEALTH STRATEGY</span>
+            <span className="dashboard-subtitle">YOUR INVESTMENT PLAN</span>
             <h1 className="dashboard-title" style={{fontSize: '1.8rem'}}>
-              Genie's Plan for <span style={{ 
+              Your Personalized Plan <span style={{ 
                 background: 'linear-gradient(135deg, #38bdf8, #818cf8)', 
                 WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' 
-              }}>{userProfile?.name || 'You'}</span>
+              }}>{userProfile?.name ? `for ${userProfile.name}` : ''}</span>
             </h1>
           </div>
           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
@@ -430,6 +438,8 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
           {/* Gradient divider */}
           <div style={{position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.15), rgba(139,92,246,0.1), transparent)'}} />
         </div>
+
+
 
         {/* ─── ELIGIBILITY NOTICE ─── */}
         {excludedCount > 0 && (
@@ -542,12 +552,12 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
           {/* Panel 1: Portfolio Parameters */}
           <div className="panel-card">
             <div className="panel-header">
-               <span className="panel-title">Portfolio Parameters</span>
+               <span className="panel-title">Adjust Your Settings</span>
             </div>
             
             {/* Inflation Toggle — Premium pill design */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, background: 'rgba(10,16,30,0.5)', padding: '8px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.03)' }}>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Projections</span>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Show values as</span>
               <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 2, gap: 2 }}>
                 <button 
                   onClick={() => setInflationAdjusted(false)}
@@ -567,7 +577,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
             <input type="range" min="1" max="30" value={horizon} onChange={e => setHorizon(Number(e.target.value))} className="dash-range" style={{'--value': `${(horizon/30)*100}%`, marginBottom: 16}} />
 
             <div className="param-row">
-              <span>Initial Capital</span>
+              <span>Starting Amount (if any)</span>
               <div className="param-input-group">
                 <span style={{color:'#64748b', fontSize:'0.8rem'}}>₹</span>
                 <input 
@@ -583,18 +593,18 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
             </div>
 
             <div className="param-row" style={{ marginTop: 10 }}>
-              <span>Monthly SIP</span>
+              <span><JargonTooltip term="SIP">Monthly SIP</JargonTooltip></span>
               <span style={{color: '#4ade80', fontWeight: 700, fontSize: '0.9rem'}}>₹{currentMonthly.toLocaleString()}</span>
             </div>
             <div className="param-row" style={{ marginTop: 2 }}>
-              <span style={{fontSize: '0.75rem', color: '#64748b'}}>Annual Step-Up</span>
+              <span style={{fontSize: '0.75rem', color: '#64748b'}}>Yearly SIP Increase</span>
               <div className="param-input-group" style={{padding: '2px 6px'}}><input type="text" value={`${stepUpPct}%`} onChange={e => { const v = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10); if (!isNaN(v) && v >= 0 && v <= 50) setStepUpPct(v); }} style={{width: 32, fontSize: '0.78rem'}} /></div>
             </div>
 
             <div style={{height: 1, background: 'rgba(255,255,255,0.04)', margin: '14px 0'}} />
 
             <div className="param-row">
-              <span>Risk Profile</span>
+              <span><JargonTooltip term="Risk Profile">Risk Comfort Level</JargonTooltip></span>
               <span style={{background: derivedRiskLabel === 'High' ? 'rgba(244, 63, 94, 0.12)' : derivedRiskLabel === 'Low' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(223, 189, 105, 0.12)', color: derivedRiskLabel === 'High' ? '#f43f5e' : derivedRiskLabel === 'Low' ? '#22c55e' : '#dfbd69', padding: '3px 10px', borderRadius: 6, fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.5px', border: `1px solid ${derivedRiskLabel === 'High' ? 'rgba(244, 63, 94, 0.2)' : derivedRiskLabel === 'Low' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(223, 189, 105, 0.2)'}`}}>{derivedRiskLabel}</span>
             </div>
             <input type="range" min="1" max="10" value={riskValue} onChange={e => setRiskValue(e.target.value)} className="dash-range" style={{'--value': `${((riskValue - 1) / 9) * 100}%`}} />
@@ -606,7 +616,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
           {/* Panel 2: Multi-Layered Asset Allocation */}
           <div className="panel-card" style={{ position: 'relative' }}>
             <div className="panel-header" style={{ marginBottom: 8 }}>
-               <span className="panel-title">Asset Allocation</span>
+               <span className="panel-title"><JargonTooltip term="Asset Allocation">Your Investment Mix</JargonTooltip></span>
             </div>
             <div style={{ height: 200, position: 'relative' }}>
               {isLoading ? (
@@ -646,37 +656,66 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                     </PieChart>
                   </ResponsiveContainer>
                   {/* Center projected value */}
-                   <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                     <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 20px rgba(56,189,248,0.15)' }}>₹{(totalProjected/100000).toFixed(1)}</div>
-                     <div style={{ fontSize: '0.55rem', color: '#546178', letterSpacing: '2px', textTransform: 'uppercase', marginTop: 3, fontWeight: 700 }}>LAKHS AVG.</div>
+                   <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', width: '100%' }}>
+                     {(() => {
+                       const val = Number(totalProjected) || 0;
+                       if (val >= 10000000) {
+                         return (
+                           <>
+                             <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 20px rgba(56,189,248,0.15)' }}>₹{(val / 10000000).toFixed(2)}</div>
+                             <div style={{ fontSize: '0.55rem', color: '#546178', letterSpacing: '1.5px', textTransform: 'uppercase', marginTop: 3, fontWeight: 700 }}>CRORES AVG.</div>
+                           </>
+                         );
+                       }
+                       return (
+                         <>
+                           <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 20px rgba(56,189,248,0.15)' }}>₹{(val / 100000).toFixed(1)}</div>
+                           <div style={{ fontSize: '0.55rem', color: '#546178', letterSpacing: '2px', textTransform: 'uppercase', marginTop: 3, fontWeight: 700 }}>LAKHS AVG.</div>
+                         </>
+                       );
+                     })()}
                    </div>
                  </>
                )}
             </div>
             {/* Category legend with proportion bars */}
              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 4px 0', marginTop: 8 }}>
-               {allocationDataOuter.map((item, i) => {
-                 const pct = currentMonthly > 0 ? ((item.value / currentMonthly) * 100) : 0;
-                 return (
-                   <div key={i} style={{
-                     display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.75rem',
-                     padding: '4px 8px', borderRadius: 8, transition: 'background 0.2s ease', cursor: 'default'
-                   }}
-                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                   >
-                     <span style={{
-                       width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0,
-                       boxShadow: `0 0 6px ${item.color}40`
-                     }} />
-                     <span style={{color: '#cbd5e1', flex: 1, fontSize: '0.75rem', fontWeight: 500}}>{item.name}</span>
-                     <div style={{width: 52, height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 3, overflow: 'hidden', flexShrink: 0}}>
-                       <div style={{width: `${pct}%`, height: '100%', background: `linear-gradient(90deg, ${item.color}cc, ${item.color})`, borderRadius: 3, transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'}} />
-                     </div>
-                     <span style={{color: '#f1f5f9', fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right', fontSize: '0.78rem'}}>{pct.toFixed(0)}%</span>
-                   </div>
-                 );
-               })}
+              {(() => {
+                // Pre-compute percentages using largest-remainder method so they always sum to 100%
+                const rawPcts = allocationDataOuter.map(item =>
+                  currentMonthly > 0 ? (item.value / currentMonthly) * 100 : 0
+                );
+                const floored = rawPcts.map(p => Math.floor(p));
+                let remainder = 100 - floored.reduce((s, f) => s + f, 0);
+                // Distribute remainder to items with largest fractional parts
+                const fracs = rawPcts.map((p, i) => ({ i, frac: p - floored[i] }));
+                fracs.sort((a, b) => b.frac - a.frac);
+                for (let k = 0; k < remainder && k < fracs.length; k++) {
+                  floored[fracs[k].i]++;
+                }
+                return allocationDataOuter.map((item, i) => {
+                  const pct = floored[i];
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.75rem',
+                      padding: '4px 8px', borderRadius: 8, transition: 'background 0.2s ease', cursor: 'default'
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0,
+                        boxShadow: `0 0 6px ${item.color}40`
+                      }} />
+                      <span style={{color: '#cbd5e1', flex: 1, fontSize: '0.75rem', fontWeight: 500}}>{item.name}</span>
+                      <div style={{width: 52, height: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 3, overflow: 'hidden', flexShrink: 0}}>
+                        <div style={{width: `${pct}%`, height: '100%', background: `linear-gradient(90deg, ${item.color}cc, ${item.color})`, borderRadius: 3, transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'}} />
+                      </div>
+                      <span style={{color: '#f1f5f9', fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right', fontSize: '0.78rem'}}>{pct}%</span>
+                    </div>
+                  );
+                });
+              })()}
              </div>
           </div>
 
@@ -967,14 +1006,6 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                        });
                        return (
                     <React.Fragment key={group.id}>
-                      {(() => {
-                        const classLower = (group.class || '').toLowerCase();
-                        const accentColor = classLower.includes('equity') ? '#38bdf8' 
-                          : classLower.includes('government') ? '#4ade80' 
-                          : classLower.includes('debt') || classLower.includes('hybrid') ? '#8b5cf6' 
-                          : classLower.includes('commodity') ? '#dfbd69' : '#546178';
-                        return null; // just compute, used below
-                      })()}
                       <tr style={{ 
                         background: expandedRows[group.id] 
                           ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.06) 0%, rgba(15, 23, 42, 0.4) 100%)' 
@@ -1095,12 +1126,12 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                       <>
                         <div>
                           <div style={{fontSize: '0.65rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: 4}}>Portfolio at Goal</div>
-                          <div style={{fontSize: '1.6rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums'}}>₹{(emergencyTarget/100000).toFixed(1)}L</div>
+                          <div style={{fontSize: '1.6rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums'}}>{formatCompactINR(emergencyTarget)}</div>
                           <div style={{fontSize: '0.7rem', color: '#64748b', marginTop: 2}}>Month {targetMonths}</div>
                         </div>
                         <div style={{textAlign: 'right'}}>
                           <div style={{fontSize: '0.65rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: 4}}>{horizon}-Year Total</div>
-                          <div style={{fontSize: '1.1rem', fontWeight: 700, color: '#e2e8f0'}}>₹{(totalProjected/100000).toFixed(2)}L</div>
+                          <div style={{fontSize: '1.1rem', fontWeight: 700, color: '#e2e8f0'}}>{formatCompactINR(totalProjected)}</div>
                           <div style={{fontSize: '0.65rem', color: '#64748b', marginTop: 2}}>incl. surplus</div>
                         </div>
                       </>
@@ -1112,8 +1143,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                       <div>
                         <div style={{fontSize: '0.65rem', color: '#546178', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, marginBottom: 4}}>Projected Value</div>
                         <div style={{fontSize: '1.6rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums'}}>
-                          ₹{(totalProjected/100000).toFixed(2)}
-                          <span style={{fontSize: '0.7rem', color: '#64748b', fontWeight: 400, marginLeft: 4}}>Lakhs</span>
+                          {formatCompactINR(totalProjected)}
                         </div>
                       </div>
                       <div style={{textAlign: 'right'}}>
@@ -1161,7 +1191,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                     </defs>
                     <XAxis type="number" tick={{fill: '#546178', fontSize: 9}} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
                     <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: 600}} width={90} />
-                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.03)'}} formatter={(val) => `${val}% CAGR`} contentStyle={{background: 'rgba(8, 13, 28, 0.96)', border: '1px solid rgba(56, 189, 248, 0.15)', borderRadius: 12, backdropFilter: 'blur(24px)', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)', fontSize: '0.78rem'}} itemStyle={{color: '#f8fafc'}}/>
+                    <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.03)'}} formatter={(val) => `${val}% Yearly Growth`} contentStyle={{background: 'rgba(8, 13, 28, 0.96)', border: '1px solid rgba(56, 189, 248, 0.15)', borderRadius: 12, backdropFilter: 'blur(24px)', boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6)', fontSize: '0.78rem'}} itemStyle={{color: '#f8fafc'}}/>
                     <Bar dataKey="value" barSize={10} radius={[0,6,6,0]} label={{ position: 'right', fill: '#94a3b8', fontSize: 11, fontWeight: 700, formatter: (v) => `${v}%` }}>
                       {benchMarkData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={`url(#barGrad-${index})`} />
@@ -1195,13 +1225,27 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
               <div className="panel-title" style={{marginBottom: 12, fontSize: '0.6rem'}}>PORTFOLIO INSIGHTS</div>
               {(() => {
                 const recs = recommendations || [];
-                const avgReturn = recs.length > 0 
-                  ? (recs.reduce((s, r) => {
-                      const rMax = r.rate || r.expected_return_max || 0;
-                      const rMin = r.expected_return_min || (rMax * 0.65);
-                      return s + ((rMin + rMax) / 2);
-                    }, 0) / recs.length).toFixed(1) 
-                  : '0';
+                const activeRecs = recs.filter(r => (r.monthly_allocation || 0) > 0);
+                const totalAllocated = activeRecs.reduce((s, r) => s + (r.monthly_allocation || 0), 0);
+                
+                let weightedReturn = 0;
+                if (totalAllocated > 0) {
+                  activeRecs.forEach(r => {
+                    const rMax = r.rate || r.expected_return_max || r.nominalReturn || 0;
+                    const rMin = r.expected_return_min ?? (r.expected_return_max ? r.expected_return_max * 0.85 : (r.rate ? r.rate * 0.85 : 0));
+                    const avg = (rMin + rMax) / 2;
+                    const weight = r.monthly_allocation / totalAllocated;
+                    weightedReturn += avg * weight;
+                  });
+                } else if (recs.length > 0) {
+                  const sum = recs.reduce((s, r) => {
+                    const rMax = r.rate || r.expected_return_max || r.nominalReturn || 0;
+                    const rMin = r.expected_return_min ?? (r.expected_return_max ? r.expected_return_max * 0.85 : (r.rate ? r.rate * 0.85 : 0));
+                    return s + ((rMin + rMax) / 2);
+                  }, 0);
+                  weightedReturn = sum / recs.length;
+                }
+                const avgReturn = (totalAllocated > 0 || recs.length > 0) ? weightedReturn.toFixed(1) : '0';
                 const taxSavers = recs.filter(r => r.tax_benefit);
                 const taxPct = currentMonthly > 0 
                   ? ((taxSavers.reduce((s, r) => s + (r.monthly_allocation || 0), 0) / currentMonthly) * 100).toFixed(0) 

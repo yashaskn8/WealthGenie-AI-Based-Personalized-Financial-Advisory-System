@@ -1,51 +1,31 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatINR } from './recommendationEngine';
-import { RISK_COLORS } from './investmentDatabase';
-import { X, Lock, Unlock, Droplets, Info, Search, Link, BarChart3, ArrowUpRight, ArrowDownRight, ChevronLeft, TrendingUp, Shield, Zap } from 'lucide-react';
+import { X, Lock, Unlock, Info, Search, Link, BarChart3, ArrowUpRight, ArrowDownRight, ChevronLeft, TrendingUp, Shield, Zap, Sparkles, HelpCircle } from 'lucide-react';
 import './ComparisonTableModal.css';
 
 const CATEGORY_COLORS = {
   'Debt': '#2dd4bf',
-  'Equity-Debt': '#fbbf24', // Yellowish neon for Hybrid
-  'Government': '#38bdf8', // Blue neon
-  'Equity': '#f43f5e', // Red neon
-  'Commodity': '#facc15', // Gold 
+  'Equity-Debt': '#fbbf24', 
+  'Government': '#38bdf8', 
+  'Equity': '#f43f5e', 
+  'Commodity': '#facc15', 
   'Alternative': '#fbbf24'
 };
 
 const INVESTMENT_ICONS = {
-  'ppf': 'PP',
-  'scss': 'SC',
-  'sukanya': 'SS',
-  'rbi_bonds': 'RB',
-  'fd': 'FD',
-  'debt_mf': 'DM',
-  'nps': 'NP',
-  'hybrid_mf': 'HM',
-  'index_mf': 'IX',
-  'gold_etf': 'AU',
-  'elss': 'EL',
-  'nifty_etf': 'NF',
-  'midcap_mf': 'MC',
-  'smallcap_mf': 'SM',
-  'direct_equity': 'EQ',
-  'pmvvy': 'PM',
-  'sgb': 'SG'
+  'ppf': 'PP', 'scss': 'SC', 'sukanya': 'SS', 'rbi_bonds': 'RB',
+  'fd': 'FD', 'debt_mf': 'DM', 'nps': 'NP', 'hybrid_mf': 'HM',
+  'index_mf': 'IX', 'gold_etf': 'AU', 'elss': 'EL', 'nifty_etf': 'NF',
+  'midcap_mf': 'MC', 'smallcap_mf': 'SM', 'direct_equity': 'EQ',
+  'liquid_mf': 'LQ', 'sgb': 'SG'
 };
 
 const RISK_LABEL_TO_LEVEL = {
-  'Very Low': 15,
-  'Low': 30,
-  'Low-Medium': 40,
-  'Medium-Low': 45,
-  'Medium': 60,
-  'High': 80,
-  'Very High': 95
+  'Very Low': 15, 'Low': 30, 'Low-Medium': 40, 'Medium-Low': 45, 'Medium': 60, 'High': 80, 'Very High': 95
 };
 
 const Sparkline = ({ color, category, riskLevel, rate, invId }) => {
-  // Deterministic pseudo-random based on invId so the graph looks the same on every render
   const seedStr = invId || 'default';
   let seed = 0;
   for (let i = 0; i < seedStr.length; i++) {
@@ -59,34 +39,29 @@ const Sparkline = ({ color, category, riskLevel, rate, invId }) => {
   const isDebt = category === 'Debt' || category === 'Government';
   const volMulti = (RISK_LABEL_TO_LEVEL[riskLevel] || 50) / 100;
   
-  // Map return rate (e.g., 5% to 16%) to final Y position (18 to 2)
   const clampedRate = Math.max(5, Math.min(16, rate || 8));
   const finalY = 18 - ((clampedRate - 5) / 11) * 16;
   
-  const pointsCount = isDebt ? 6 : 14; // Equity has more jagged, frequent points
+  const pointsCount = isDebt ? 6 : 14; 
   const dx = 100 / (pointsCount - 1);
   
   let points = [{ x: 0, y: 18 }];
   
   for (let i = 1; i < pointsCount - 1; i++) {
     const x = i * dx;
-    // Linear interpolation for the upward trend
     const progress = i / (pointsCount - 1);
     const trendY = 18 - (18 - finalY) * progress;
     
-    // Add volatility noise
     let noise = (random() - 0.5) * 20 * volMulti;
-    if (isDebt) noise *= 0.15; // Make debt extremely smooth with minimal noise
+    if (isDebt) noise *= 0.15; 
     
     points.push({ x, y: Math.max(2, Math.min(18, trendY + noise)) });
   }
   
   points.push({ x: 100, y: finalY });
   
-  // Construct SVG path
   let path = `M 0 18`;
   if (isDebt) {
-    // Smooth Bezier curves for stable investments
     for (let i = 1; i < points.length; i++) {
       const prev = points[i-1];
       const curr = points[i];
@@ -94,7 +69,6 @@ const Sparkline = ({ color, category, riskLevel, rate, invId }) => {
       path += ` C ${cpX} ${prev.y}, ${cpX} ${curr.y}, ${curr.x} ${curr.y}`;
     }
   } else {
-    // Jagged, sharp lines for volatile equity investments
     for (let i = 1; i < points.length; i++) {
       path += ` L ${points[i].x} ${points[i].y}`;
     }
@@ -102,10 +76,8 @@ const Sparkline = ({ color, category, riskLevel, rate, invId }) => {
 
   return (
     <svg className="sparkline-container" viewBox="0 0 100 20" style={{ width: '80px', height: '24px', flexShrink: 0, overflow: 'visible', filter: `drop-shadow(0 2px 4px ${color}40)` }}>
-      {/* Subtle background glow for volatile assets */}
       {!isDebt && <path d={`${path} L 100 20 L 0 20 Z`} fill={`${color}15`} />}
       <path d={path} fill="none" stroke={color} strokeWidth={isDebt ? "2" : "1.5"} strokeLinecap="round" strokeLinejoin="round" />
-      {/* End point dot */}
       <circle cx="100" cy={finalY} r="2.5" fill={color} />
     </svg>
   );
@@ -118,7 +90,6 @@ const RiskLiquidityVisual = ({ risk, liquidity }) => {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-      {/* Risk bar — segmented */}
       <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
         {[20, 40, 60, 80, 100].map((threshold, i) => (
           <div key={i} style={{
@@ -131,7 +102,6 @@ const RiskLiquidityVisual = ({ risk, liquidity }) => {
           }} />
         ))}
       </div>
-      {/* Liquidity dots — refined */}
       <div style={{ display: 'flex', gap: 3 }}>
         {[0,1,2,3,4].map(i => (
           <div key={i} style={{
@@ -152,10 +122,58 @@ const getLiquidityLevel = (lockIn) => {
   return 'Low';
 };
 
+const computeSuitabilityMatch = (inv, profile) => {
+  if (!profile) return 75; 
+  let score = 70; // baseline
+
+  const userRisk = profile.riskAppetite || 'Moderate';
+  const instRisk = inv.riskLabel || inv.risk_level || 'Medium';
+
+  // Congruence math
+  if (userRisk === 'Conservative') {
+    if (instRisk === 'Very Low' || instRisk === 'Low') score += 25;
+    else if (instRisk === 'Low-Medium' || instRisk === 'Medium-Low') score += 10;
+    else if (instRisk === 'High' || instRisk === 'Very High') score -= 35;
+  } else if (userRisk === 'Moderate') {
+    if (instRisk === 'Low-Medium' || instRisk === 'Medium-Low' || instRisk === 'Medium') score += 25;
+    else if (instRisk === 'Low' || instRisk === 'Very Low') score += 10;
+    else if (instRisk === 'Very High') score -= 20;
+  } else if (userRisk === 'Aggressive') {
+    if (instRisk === 'High' || instRisk === 'Very High') score += 25;
+    else if (instRisk === 'Medium') score += 15;
+    else if (instRisk === 'Very Low' || instRisk === 'Low') score -= 20;
+  }
+
+  // Horizon constraints
+  const horizon = profile.investment_horizon || 15;
+  const lockIn = inv.lock_in_years !== undefined ? inv.lock_in_years : (inv.lockIn !== undefined ? inv.lockIn : 0);
+  if (lockIn > horizon) {
+    score -= 40; 
+  } else if (horizon > 8 && lockIn > 0 && lockIn <= 5) {
+    score += 10; // compound intermediate bonus
+  }
+
+  // Tax adjustments
+  const hasTax = inv.taxType === "eee" || inv.taxType === "elss" || inv.taxType === "nps" || inv.tax_benefit;
+  if (hasTax) score += 10;
+
+  return Math.min(99, Math.max(5, score));
+};
+
 /* ── Deep Comparison Detail Panel ─────────────────────────── */
-const ComparisonDetailPanel = ({ selectedInvestments, onBack }) => {
+const ComparisonDetailPanel = ({ selectedInvestments, profile, onBack }) => {
+  const itemsWithScores = useMemo(() => {
+    if (!selectedInvestments.length) return [];
+    return selectedInvestments.map(inv => ({
+      ...inv,
+      matchScore: computeSuitabilityMatch(inv, profile)
+    }));
+  }, [selectedInvestments, profile]);
+
   if (!selectedInvestments.length) return null;
+
   const metrics = [
+    { key: 'matchScore', label: 'Match Score', fmt: v => `${v}%`, icon: <Sparkles size={14}/>, higher: true },
     { key: 'rate', label: 'Return Rate', fmt: v => `${v}%`, icon: <TrendingUp size={14}/>, higher: true },
     { key: 'riskLabel', label: 'Risk Level', fmt: v => v, icon: <Shield size={14}/> },
     { key: 'lockIn', label: 'Lock-in (yrs)', fmt: v => v === 0 ? 'None' : `${v} yrs`, icon: <Lock size={14}/>, higher: false },
@@ -164,6 +182,8 @@ const ComparisonDetailPanel = ({ selectedInvestments, onBack }) => {
   ];
   const bestRate = Math.max(...selectedInvestments.map(i => i.rate || 0));
   const bestLock = Math.min(...selectedInvestments.map(i => i.lockIn ?? i.lock_in_years ?? 99));
+
+  const bestMatch = Math.max(...itemsWithScores.map(i => i.matchScore));
 
   return (
     <motion.div className="comparison-detail-panel" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}>
@@ -174,7 +194,7 @@ const ComparisonDetailPanel = ({ selectedInvestments, onBack }) => {
       <div className="detail-grid" style={{ gridTemplateColumns: `200px repeat(${selectedInvestments.length}, 1fr)` }}>
         {/* Header row */}
         <div className="detail-cell detail-label-cell" />
-        {selectedInvestments.map(inv => (
+        {itemsWithScores.map(inv => (
           <div key={inv.id} className="detail-cell detail-header-cell">
             <div className="detail-inv-icon" style={{ background: `${(CATEGORY_COLORS[inv.cat] || '#888')}20`, borderColor: `${(CATEGORY_COLORS[inv.cat] || '#888')}40` }}>
               <span style={{ color: CATEGORY_COLORS[inv.cat], fontWeight: 800, fontSize: '0.7rem' }}>{INVESTMENT_ICONS[inv.id] || 'IN'}</span>
@@ -190,27 +210,29 @@ const ComparisonDetailPanel = ({ selectedInvestments, onBack }) => {
               <span className="detail-metric-icon">{m.icon}</span>
               {m.label}
             </div>
-            {selectedInvestments.map(inv => {
+            {itemsWithScores.map(inv => {
               const val = inv[m.key];
-              const isBest = m.key === 'rate' ? (inv.rate === bestRate) : m.key === 'lockIn' ? ((inv.lockIn ?? inv.lock_in_years ?? 99) === bestLock) : false;
+              const isBest = m.key === 'rate' ? (inv.rate === bestRate) 
+                : m.key === 'lockIn' ? ((inv.lockIn ?? inv.lock_in_years ?? 99) === bestLock)
+                : m.key === 'matchScore' ? (inv.matchScore === bestMatch)
+                : false;
               return (
                 <div key={inv.id} className={`detail-cell detail-value-cell ${isBest ? 'best-value' : ''}`}>
                   {m.fmt(val)}
-                  {isBest && m.higher !== undefined && <span className="best-badge">Best</span>}
+                  {isBest && m.higher !== undefined && <span className="best-badge" style={m.key === 'matchScore' ? { background: '#10b981', color: '#fff' } : {}}>Best</span>}
                 </div>
               );
             })}
           </React.Fragment>
         ))}
         {/* Verdict row */}
-        <div className="detail-cell detail-label-cell" style={{ fontWeight: 700, color: '#38bdf8' }}>Verdict</div>
-        {selectedInvestments.map(inv => {
-          const score = (inv.rate || 0) * 2 + (inv.lockIn === 0 ? 15 : 0) + (['eee','elss','nps'].includes(inv.taxType) ? 10 : 0);
-          const maxScore = Math.max(...selectedInvestments.map(i => (i.rate||0)*2 + (i.lockIn===0?15:0) + (['eee','elss','nps'].includes(i.taxType)?10:0)));
+        <div className="detail-cell detail-label-cell" style={{ fontWeight: 700, color: '#38bdf8' }}>AI Match Verdict</div>
+        {itemsWithScores.map(inv => {
+          const isWinner = inv.matchScore === bestMatch;
           return (
-            <div key={inv.id} className={`detail-cell detail-value-cell ${score === maxScore ? 'verdict-winner' : ''}`}>
-              {score === maxScore ? (
-                <span className="winner-badge"><ArrowUpRight size={12}/> Top Pick</span>
+            <div key={inv.id} className={`detail-cell detail-value-cell ${isWinner ? 'verdict-winner' : ''}`}>
+              {isWinner ? (
+                <span className="winner-badge"><ArrowUpRight size={12}/> AI Top Pick</span>
               ) : (
                 <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Good Option</span>
               )}
@@ -222,29 +244,98 @@ const ComparisonDetailPanel = ({ selectedInvestments, onBack }) => {
   );
 };
 
-const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => {
+const categoryInfo = [
+  {
+    key: 'Equity',
+    title: 'Equity (Shares)',
+    desc: 'Buy tiny pieces of companies. High growth, but values fluctuate.',
+    growth: 'High (12.5% - 23%)',
+    risk: 'High',
+    lockIn: 'None (except ELSS: 3 yrs)',
+    color: '#f43f5e'
+  },
+  {
+    key: 'Debt',
+    title: 'Debt (Savings & Bonds)',
+    desc: 'Lend money for stable interest. Safe and steady income.',
+    growth: 'Moderate (6.5% - 8.2%)',
+    risk: 'Low',
+    lockIn: 'Varies (0 - 15 yrs)',
+    color: '#2dd4bf'
+  },
+  {
+    key: 'Gold/Alternatives',
+    title: 'Gold & Alternatives',
+    desc: 'Tangible assets & balanced funds to shield from inflation.',
+    growth: 'Moderate-High (13% - 14%)',
+    risk: 'Medium',
+    lockIn: 'Varies (0 - 8 yrs)',
+    color: '#fbbf24'
+  }
+];
+
+const getRiskColor = (riskLabel) => {
+  const percent = RISK_LABEL_TO_LEVEL[riskLabel] || 50;
+  return percent <= 30 ? '#2dd4bf' : percent <= 60 ? '#fbbf24' : '#f43f5e';
+};
+
+const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded, profile }) => {
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterTax, setFilterTax] = useState(false);
   const [riskRange, setRiskRange] = useState(100);
   const [minInvRange, setMinInvRange] = useState(50000);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showComparison, setShowComparison] = useState(false);
+  const [sortBy, setSortBy] = useState('matchScore'); // default sort by Match Score
+  const [showDetailedComparison, setShowDetailedComparison] = useState(false);
 
   const filtered = useMemo(() => {
-    return allInvestments.filter(inv => {
+    // 1. Map suitability scores to all items
+    const scoredList = allInvestments.map(inv => {
+      const lockIn = inv.lock_in_years !== undefined ? inv.lock_in_years : (inv.lockIn !== undefined ? inv.lockIn : 0);
+      const riskLbl = inv.riskLabel || inv.risk_level || 'Medium';
+      const rate = inv.rate || inv.expected_return_max || 0;
+      return {
+        ...inv,
+        lockIn,
+        riskLbl,
+        rate,
+        matchScore: computeSuitabilityMatch(inv, profile)
+      };
+    });
+
+    // 2. Filter list based on criteria
+    const filteredList = scoredList.filter(inv => {
       const cat = inv.cat || inv.category || '';
-      if (filterCategory !== "All" && cat !== filterCategory) return false;
+      if (filterCategory !== "All") {
+        if (filterCategory === 'Equity') {
+          if (cat !== 'Equity') return false;
+        } else if (filterCategory === 'Debt') {
+          if (cat !== 'Debt' && cat !== 'Government') return false;
+        } else if (filterCategory === 'Gold/Alternatives') {
+          if (cat !== 'Commodity' && cat !== 'Equity-Debt') return false;
+        } else {
+          if (cat !== filterCategory) return false;
+        }
+      }
       const hasTax = inv.taxType === "eee" || inv.taxType === "elss" || inv.taxType === "nps" || inv.tax_benefit;
       if (filterTax && !hasTax) return false;
       const minInv = inv.minMonthlyInvestment || inv.min_investment_inr || 0;
       if (minInv > minInvRange) return false;
-      // Apply risk tolerance filter — map risk labels to numeric %
-      const riskLbl = inv.riskLabel || inv.risk_level || 'Medium';
-      const riskPct = RISK_LABEL_TO_LEVEL[riskLbl] || 50;
+      
+      const riskPct = RISK_LABEL_TO_LEVEL[inv.riskLbl] || 50;
       if (riskPct > riskRange) return false;
       return true;
     });
-  }, [allInvestments, filterCategory, filterTax, minInvRange, riskRange]);
+
+    // 3. Sort list based on sortBy choice
+    return [...filteredList].sort((a, b) => {
+      if (sortBy === 'matchScore') return b.matchScore - a.matchScore;
+      if (sortBy === 'rate') return b.rate - a.rate;
+      if (sortBy === 'name') return (a.abbr || a.name).localeCompare(b.abbr || b.name);
+      return 0;
+    });
+  }, [allInvestments, filterCategory, filterTax, minInvRange, riskRange, sortBy, profile]);
 
   if (!isOpen) return null;
 
@@ -275,7 +366,7 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
 
         <section className="filter-bar-container">
           <div className="filter-row filter-row-top">
-            <div className="category-group">
+            <div className="category-group" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ color: '#fff', fontSize: '0.85rem' }}>Category:</span>
               {categories.map(c => (
                 <button 
@@ -288,7 +379,7 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
               ))}
             </div>
             
-            <div className="toggle-group">
+            <div className="toggle-group" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Only Show Tax Beneficial</span>
               <label className="switch">
                 <input type="checkbox" checked={filterTax} onChange={e => setFilterTax(e.target.checked)} />
@@ -297,8 +388,9 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
             </div>
           </div>
 
-          <div className="filter-row" style={{ marginTop: 24, gap: 40 }}>
-            <div className="range-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+          <div className="filter-row" style={{ marginTop: 20, gap: 40 }}>
+            {/* Max Risk Slider */}
+            <div className="range-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                 <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Max Risk Tolerance</span>
                 <span style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.85rem' }}>{riskRange}%</span>
@@ -307,7 +399,7 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                 type="range" 
                 min="0" max="100" 
                 value={riskRange} 
-                onChange={e => setRiskRange(e.target.value)} 
+                onChange={e => setRiskRange(Number(e.target.value))} 
                 className="filter-range-slider"
                 style={{
                   '--filter-pct': `${riskRange}%`,
@@ -316,16 +408,17 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
               />
             </div>
 
-            <div className="range-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8 }}>
+            {/* Max Min Investment Slider */}
+            <div className="range-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Max Minimum Investment</span>
+                <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Max Minimum Monthly SIP</span>
                 <span style={{ color: '#38bdf8', fontWeight: 600, fontSize: '0.85rem' }}>₹{Number(minInvRange).toLocaleString()}</span>
               </div>
               <input 
                 type="range" 
                 min="500" max="50000" step="500" 
                 value={minInvRange} 
-                onChange={e => setMinInvRange(e.target.value)} 
+                onChange={e => setMinInvRange(Number(e.target.value))} 
                 className="filter-range-slider"
                 style={{
                   '--filter-pct': `${(minInvRange/50000)*100}%`,
@@ -333,104 +426,275 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                 }}
               />
             </div>
+
+            {/* Sorting group */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 160 }}>
+              <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Rank Priority:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                style={{
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10, padding: '8px 12px', color: '#e2e8f0', outline: 'none', cursor: 'pointer',
+                  fontSize: '0.85rem'
+                }}
+              >
+                <option value="matchScore">Suitability Match</option>
+                <option value="rate">Expected Return</option>
+                <option value="name">Alphabetical Name</option>
+              </select>
+            </div>
           </div>
         </section>
 
-        <div className="table-scroll">
-          <table className="comparison-grid-table">
-            <thead>
-              <tr>
-                <th>INVESTMENT NAME</th>
-                <th>RETURN RATE</th>
-                <th>RISK & LIQUIDITY</th>
-                <th>LOCK-IN <span style={{fontSize: '0.6rem'}}>(YRS)</span></th>
-                <th>TAX TREATMENT</th>
-                <th>MIN. INV.</th>
-                <th>SELECT</th>
-              </tr>
-            </thead>
-            <tbody>
+        {/* Category overview cards layout */}
+        <div className="category-cards-container">
+          {categoryInfo.map(cat => {
+            const isActive = filterCategory === cat.key;
+            return (
+              <div 
+                key={cat.key} 
+                className={`category-overview-card ${isActive ? 'active' : ''}`}
+                onClick={() => {
+                  if (isActive) {
+                    setFilterCategory("All");
+                  } else {
+                    setFilterCategory(cat.key);
+                  }
+                }}
+                style={{ borderColor: isActive ? cat.color : undefined }}
+              >
+                <div className="card-cat-header">
+                  <span className="card-cat-icon-wrapper" style={{ backgroundColor: `${cat.color}15` }}>
+                    {cat.key === 'Equity' ? <TrendingUp size={20} style={{ color: cat.color }} /> :
+                     cat.key === 'Debt' ? <Shield size={20} style={{ color: cat.color }} /> :
+                     <Sparkles size={20} style={{ color: cat.color }} />}
+                  </span>
+                  <h3>{cat.title}</h3>
+                </div>
+                <p className="card-cat-desc">{cat.desc}</p>
+                <div className="card-cat-tags">
+                  <span className="cat-tag" style={{ border: `1px solid ${cat.color}30`, background: `${cat.color}05` }}>
+                    <TrendingUp size={11} style={{ marginRight: 4 }} />
+                    Growth: {cat.growth}
+                  </span>
+                  <span className="cat-tag" style={{ border: `1px solid ${cat.color}30`, background: `${cat.color}05` }}>
+                    <Shield size={11} style={{ marginRight: 4 }} />
+                    Risk: {cat.risk}
+                  </span>
+                  <span className="cat-tag" style={{ border: `1px solid ${cat.color}30`, background: `${cat.color}05` }}>
+                    <Lock size={11} style={{ marginRight: 4 }} />
+                    Lock-in: {cat.lockIn}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="toggle-details-container">
+          <button 
+            className="compare-action-btn secondary"
+            onClick={() => setShowDetailedComparison(prev => !prev)}
+            style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}
+          >
+            {showDetailedComparison ? (
+              <>
+                <Info size={14}/>
+                Show Simplified Cards
+              </>
+            ) : (
+              <>
+                <BarChart3 size={14}/>
+                Show Detailed Comparison Table
+              </>
+            )}
+          </button>
+        </div>
+
+        {showDetailedComparison ? (
+          <div className="table-scroll">
+            <table className="comparison-grid-table">
+              <thead>
+                <tr>
+                  <th>INVESTMENT NAME</th>
+                  <th>AI SUITABILITY</th>
+                  <th>EXPECTED return</th>
+                  <th>RISK & LIQUIDITY</th>
+                  <th>LOCK-IN <span style={{fontSize: '0.6rem'}}>(YRS)</span></th>
+                  <th>TAX TREATMENT</th>
+                  <th>MIN. INV.</th>
+                  <th>SELECT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(inv => {
+                  const cat = inv.cat || inv.category || '';
+                  const lockIn = inv.lockIn;
+                  const riskLbl = inv.riskLbl;
+                  const liquidity = getLiquidityLevel(lockIn);
+                  const hasTax = inv.taxType === "eee" || inv.taxType === "elss" || inv.taxType === "nps" || inv.tax_benefit;
+                  const taxLabel = inv.taxType ? inv.taxType.toUpperCase() : (inv.tax_section || 'None');
+                  const minInv = inv.minMonthlyInvestment || inv.min_investment_inr || 0;
+                  const rate = inv.rate;
+                  const invId = inv.id;
+                  const isSelected = selectedIds.includes(invId);
+                  const matchScore = inv.matchScore;
+
+                  let defaultTaxText = 'Slab';
+                  if (cat === 'Equity') {
+                    defaultTaxText = 'STCG / LTCG';
+                  } else if (cat === 'Equity-Debt') {
+                    defaultTaxText = 'Equity Tax / Slab';
+                  } else if (cat === 'Commodity') {
+                    defaultTaxText = 'LTCG / Slab';
+                  }
+
+                  const matchColor = matchScore >= 85 ? '#10b981' : matchScore >= 60 ? '#38bdf8' : '#64748b';
+                  const matchBg = matchScore >= 85 ? 'rgba(16,185,129,0.12)' : matchScore >= 60 ? 'rgba(56,189,248,0.12)' : 'rgba(100,116,139,0.12)';
+                  const matchBorder = matchScore >= 85 ? 'rgba(16,185,129,0.3)' : matchScore >= 60 ? 'rgba(56,189,248,0.3)' : 'rgba(100,116,139,0.3)';
+
+                  return (
+                    <tr key={invId} className={isSelected ? 'selected-row' : ''}>
+                      <td>
+                        <div className="inv-name-group">
+                          <div className="inv-icon-wrapper" style={{
+                            background: `linear-gradient(135deg, ${(CATEGORY_COLORS[cat] || '#888')}18, ${(CATEGORY_COLORS[cat] || '#888')}08)`,
+                            borderColor: `${(CATEGORY_COLORS[cat] || '#888')}30`
+                          }}>
+                            <span style={{
+                              fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.5px',
+                              color: CATEGORY_COLORS[cat] || '#94a3b8',
+                              fontFamily: 'Inter, monospace'
+                            }}>{INVESTMENT_ICONS[invId] || inv.abbr?.substring(0,2) || 'IN'}</span>
+                          </div>
+                          <div className="inv-name-details">
+                            <div className="inv-title">{inv.abbr || inv.name}</div>
+                            <div className="inv-category-pill" style={{
+                              color: isSelected ? undefined : CATEGORY_COLORS[cat],
+                              borderColor: isSelected ? undefined : `${(CATEGORY_COLORS[cat] || '#888')}30`,
+                              background: isSelected ? undefined : `${(CATEGORY_COLORS[cat] || '#888')}0a`
+                            }}>{cat}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{
+                            color: matchColor, background: matchBg, border: `1px solid ${matchBorder}`,
+                            padding: '4px 10px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 800,
+                            boxShadow: matchScore >= 85 ? '0 0 10px rgba(16,185,129,0.1)' : 'none'
+                          }}>
+                            {matchScore}% Match
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 700, minWidth: '45px' }}>{rate}%</span>
+                          <Sparkline 
+                            color={CATEGORY_COLORS[cat] || '#888'} 
+                            category={cat}
+                            riskLevel={riskLbl}
+                            rate={rate}
+                            invId={invId}
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <RiskLiquidityVisual risk={riskLbl} liquidity={liquidity} />
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                           <span style={{ fontWeight: 600 }}>{lockIn || 'None'}</span>
+                           {lockIn ? <Lock size={12} color="#f43f5e" /> : <Unlock size={12} color="#64748b" />}
+                        </div>
+                      </td>
+                      <td>
+                        {hasTax ? (
+                          <span className="tax-benefit-tag" style={taxLabel==='NPS'?{color:'#38bdf8', borderColor:'rgba(56,189,248,0.3)', background:'rgba(56,189,248,0.1)'}:{}}>{taxLabel}</span>
+                        ) : (
+                          <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{defaultTaxText}</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6}}>
+                          {formatINR(minInv)}
+                          <Link size={12} color="#fbbf24" style={{opacity: 0.8}} />
+                        </div>
+                      </td>
+                      <td>
+                        <label className="switch">
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected}
+                            onChange={() => toggleSelect(invId)}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="simple-cards-scroll">
+            <div className="simple-cards-grid">
               {filtered.map(inv => {
                 const cat = inv.cat || inv.category || '';
-                const lockIn = inv.lock_in_years !== undefined ? inv.lock_in_years : (inv.lockIn !== undefined ? inv.lockIn : 0);
-                const riskLbl = inv.riskLabel || inv.risk_level || 'Medium';
-                const liquidity = getLiquidityLevel(lockIn);
-                const hasTax = inv.taxType === "eee" || inv.taxType === "elss" || inv.taxType === "nps" || inv.tax_benefit;
-                const taxLabel = inv.taxType ? inv.taxType.toUpperCase() : (inv.tax_section || 'None');
-                const minInv = inv.minMonthlyInvestment || inv.min_investment_inr || 0;
-                const rate = inv.rate || inv.expected_return_max || 0;
+                const lockIn = inv.lockIn;
+                const riskLbl = inv.riskLbl;
+                const rate = inv.rate;
                 const invId = inv.id;
                 const isSelected = selectedIds.includes(invId);
-
-                let defaultTaxText = 'Slab';
-                if (cat === 'Equity') {
-                  defaultTaxText = 'STCG / LTCG';
-                } else if (cat === 'Equity-Debt') {
-                  defaultTaxText = 'Equity Tax / Slab';
-                } else if (cat === 'Commodity') {
-                  defaultTaxText = 'LTCG / Slab';
-                }
-
+                const matchScore = inv.matchScore;
+                
+                const matchColor = matchScore >= 85 ? '#10b981' : matchScore >= 60 ? '#38bdf8' : '#64748b';
+                const matchBg = matchScore >= 85 ? 'rgba(16,185,129,0.1)' : matchScore >= 60 ? 'rgba(56,189,248,0.1)' : 'rgba(100,116,139,0.1)';
+                
                 return (
-                  <tr key={invId} className={isSelected ? 'selected-row' : ''}>
-                    <td>
-                      <div className="inv-name-group">
-                        <div className="inv-icon-wrapper" style={{
-                          background: `linear-gradient(135deg, ${(CATEGORY_COLORS[cat] || '#888')}18, ${(CATEGORY_COLORS[cat] || '#888')}08)`,
-                          borderColor: `${(CATEGORY_COLORS[cat] || '#888')}30`
-                        }}>
-                          <span style={{
-                            fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.5px',
-                            color: CATEGORY_COLORS[cat] || '#94a3b8',
-                            fontFamily: 'Inter, monospace'
-                          }}>{INVESTMENT_ICONS[invId] || inv.abbr?.substring(0,2) || 'IN'}</span>
+                  <div 
+                    key={invId} 
+                    className={`simple-explorer-card ${isSelected ? 'selected' : ''}`}
+                    onClick={() => toggleSelect(invId)}
+                  >
+                    <div className="simple-card-header">
+                      <div className="simple-card-title-group">
+                        <div className="simple-card-icon" style={{ color: CATEGORY_COLORS[cat], border: `1px solid ${(CATEGORY_COLORS[cat] || '#888')}30`, background: `${(CATEGORY_COLORS[cat] || '#888')}12` }}>
+                          {INVESTMENT_ICONS[invId] || inv.abbr?.substring(0,2) || 'IN'}
                         </div>
-                        <div className="inv-name-details">
-                          <div className="inv-title">{inv.abbr || inv.name}</div>
-                          <div className="inv-category-pill" style={{
-                            color: isSelected ? undefined : CATEGORY_COLORS[cat],
-                            borderColor: isSelected ? undefined : `${(CATEGORY_COLORS[cat] || '#888')}30`,
-                            background: isSelected ? undefined : `${(CATEGORY_COLORS[cat] || '#888')}0a`
-                          }}>{cat}</div>
+                        <div>
+                          <h4>{inv.abbr || inv.name}</h4>
+                          <span className="simple-card-cat" style={{ color: CATEGORY_COLORS[cat] }}>{cat}</span>
                         </div>
                       </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600, minWidth: '45px' }}>{rate}%</span>
-                        <Sparkline 
-                          color={CATEGORY_COLORS[cat] || '#888'} 
-                          category={cat}
-                          riskLevel={riskLbl}
-                          rate={rate}
-                          invId={invId}
-                        />
+                      <span className="simple-card-match" style={{ color: matchColor, background: matchBg, borderColor: `${matchColor}30` }}>
+                        {matchScore}% Match
+                      </span>
+                    </div>
+
+                    <p className="simple-card-desc">{inv.desc}</p>
+
+                    <div className="simple-card-metrics">
+                      <div className="simple-card-metric">
+                        <span className="metric-label">Expected Growth</span>
+                        <span className="metric-value highlight">{rate}%</span>
                       </div>
-                    </td>
-                    <td>
-                      <RiskLiquidityVisual risk={riskLbl} liquidity={liquidity} />
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                         <span style={{ fontWeight: 600 }}>{lockIn || 'None'}</span>
-                         {lockIn ? <Lock size={12} color="#f43f5e" /> : <Unlock size={12} color="#64748b" />}
+                      <div className="simple-card-metric">
+                        <span className="metric-label">Risk Level</span>
+                        <span className="metric-value" style={{ color: getRiskColor(riskLbl) }}>{riskLbl}</span>
                       </div>
-                    </td>
-                    <td>
-                      {hasTax ? (
-                        <span className="tax-benefit-tag" style={taxLabel==='NPS'?{color:'#38bdf8', borderColor:'rgba(56,189,248,0.3)', background:'rgba(56,189,248,0.1)'}:{}}>{taxLabel}</span>
-                      ) : (
-                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>{defaultTaxText}</span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6}}>
-                        {formatINR(minInv)}
-                        <Link size={12} color="#fbbf24" style={{opacity: 0.8}} />
+                      <div className="simple-card-metric">
+                        <span className="metric-label">Lock-in</span>
+                        <span className="metric-value">{lockIn ? `${lockIn} Years` : 'None'}</span>
                       </div>
-                    </td>
-                    <td>
-                      <label className="switch">
+                    </div>
+
+                    <div className="simple-card-footer">
+                      <span className="select-action-text">{isSelected ? '✓ Selected for Compare' : 'Click to Select'}</span>
+                      <label className="switch" onClick={e => e.stopPropagation()}>
                         <input 
                           type="checkbox" 
                           checked={isSelected}
@@ -438,19 +702,20 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
                         />
                         <span className="slider"></span>
                       </label>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        )}
 
         {/* Deep Comparison Panel */}
         <AnimatePresence>
           {showComparison && (
             <ComparisonDetailPanel
               selectedInvestments={allInvestments.filter(i => selectedIds.includes(i.id))}
+              profile={profile}
               onBack={() => setShowComparison(false)}
             />
           )}
@@ -491,14 +756,12 @@ const ComparisonTableModal = ({ isOpen, onClose, allInvestments, embedded }) => 
           ) : (
             <>
               <div className="legend">
-                <span className="legend-item"><span style={{color: '#2dd4bf'}}>●</span> Low</span>
-                <span className="legend-item"><span style={{color: '#fbbf24'}}>●</span> Moderate</span>
-                <span className="legend-item"><span style={{color: '#f43f5e'}}>●</span> High</span>
+                <span className="legend-item"><span style={{color: '#2dd4bf'}}>●</span> Low Risk</span>
+                <span className="legend-item"><span style={{color: '#fbbf24'}}>●</span> Moderate Risk</span>
+                <span className="legend-item"><span style={{color: '#f43f5e'}}>●</span> High Risk</span>
               </div>
               <div className="pagination">
                 <span>1-{filtered.length} of {allInvestments.length} investments</span>
-                <button className="page-btn"><X size={12}/></button>
-                <button className="page-btn" style={{background: '#1e293b', borderColor: '#334155'}}>1</button>
               </div>
             </>
           )}

@@ -5,7 +5,7 @@ import { Target, PieChart as PieChartIcon, TrendingUp, Landmark, Briefcase, Wall
 import { computeAllocation } from '../recommendationEngine';
 import { getEligibleInvestments } from '../recommendationEngine';
 import { CONCENTRATION_CAPS, RISK_COLORS } from '../investmentDatabase';
-import { formatINR } from '../utils/indianNumberFormat';
+import JargonTooltip from './JargonTooltip';
 import './AllocationPlanner.css';
 
 const getCategoryIcon = (cat) => {
@@ -16,13 +16,37 @@ const getCategoryIcon = (cat) => {
   return <Wallet size={20} />;
 };
 
+const RISK_PRESETS = ['Safe & Stable', 'Balanced Growth', 'Aggressive Growth'];
+
+const CATEGORY_EXPLANATIONS = {
+  'Equity': 'Company Shares (High Growth, High Risk)',
+  'Debt': 'Fixed Income & FD (Steady Yield, Medium Risk)',
+  'Government': 'Government-Backed Savings (Highest Safety, Steady Return)',
+  'Equity-Debt': 'Hybrid Mix (Balanced Safety & Growth)',
+  'Commodity': 'Gold & Precious Metals (Inflation Shield, Stable)',
+  'Alternative': 'Alternative Investments (High Diversification)',
+  'Gold': 'Gold & Precious Metals (Inflation Shield, Stable)'
+};
+
 const AllocationPlanner = ({ profile }) => {
   const savings = Number(profile?.monthly_savings) || 12000;
   const eligible = useMemo(() => getEligibleInvestments(profile || {}), [profile]);
-  const baseAllocation = useMemo(() => computeAllocation(profile || {}, eligible), [profile, eligible]);
+
+  // Risk view toggle state
+  const [riskView, setRiskView] = useState(
+    profile?.risk_appetite === 'High' ? 'Aggressive Growth' : 
+    profile?.risk_appetite === 'Low' ? 'Safe & Stable' : 'Balanced Growth'
+  );
+
+  // Compute allocation for the selected risk view
+  const baseAllocation = useMemo(() => {
+    const overrideRisk = riskView === 'Aggressive Growth' ? 'High' : riskView === 'Safe & Stable' ? 'Low' : 'Medium';
+    return computeAllocation({ ...profile, risk_appetite: overrideRisk }, eligible);
+  }, [profile, eligible, riskView]);
 
   const [overrides, setOverrides] = useState(null);
   const [warning, setWarning] = useState(null);
+  const [showManualAdjust, setShowManualAdjust] = useState(false);
 
   const allocation = overrides || baseAllocation;
 
@@ -37,7 +61,13 @@ const AllocationPlanner = ({ profile }) => {
   const debtGovtExposure = useMemo(() =>
     allocation.filter(a => a.cat === "Government" || a.cat === "Debt" || a.cat === "Equity-Debt").reduce((s, a) => s + a.allocationPct, 0), [allocation]);
   const altExposure = useMemo(() =>
-    allocation.filter(a => a.cat === "Commodity").reduce((s, a) => s + a.allocationPct, 0), [allocation]);
+    allocation.filter(a => a.cat === "Commodity" || a.cat === "Alternative").reduce((s, a) => s + a.allocationPct, 0), [allocation]);
+  
+  const rationaleText = useMemo(() => {
+    if (riskView === 'Aggressive Growth') return "Focuses on growing your money as much as possible over the long term. This uses high company shares (equity) concentration to beat inflation, with more short-term ups and downs.";
+    if (riskView === 'Safe & Stable') return "Prioritizes keeping your money safe and getting steady returns. This relies heavily on government-backed and safer debt savings, with minimal exposure to company shares.";
+    return "Combines safety and growth. This spreads your money across different categories to capture stock market growth while protecting your capital with safe assets.";
+  }, [riskView]);
 
   const handleSliderChange = (id, newPct) => {
     setWarning(null);
@@ -113,12 +143,54 @@ const AllocationPlanner = ({ profile }) => {
       >
         <div className="ap-page-badge">
           <PieChartIcon size={11} />
-          AI-Optimized Allocation
+          AI-Optimized <JargonTooltip term="Asset Allocation">Asset Mix</JargonTooltip>
         </div>
-        <h1 className="ap-page-title">Portfolio Allocation Planner</h1>
+        <h1 className="ap-page-title">Decide Your Investment Mix (<JargonTooltip term="Asset Allocation">Allocation Planner</JargonTooltip>)</h1>
         <p className="ap-page-subtitle">
-          Suggested split for ₹{savings.toLocaleString("en-IN")}/month across your top-ranked eligible instruments.
+          Strategic distribution for your ₹{savings.toLocaleString("en-IN")}/month <JargonTooltip term="SIP">SIP</JargonTooltip> to maximize returns while managing risk.
         </p>
+
+        {/* Risk Presets Segmented Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+          <div className="risk-presets-segmented" style={{ 
+            display: 'inline-flex', 
+            background: 'rgba(15, 23, 42, 0.6)', 
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: 4, 
+            borderRadius: 14,
+            boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.4)'
+          }}>
+            {RISK_PRESETS.map(preset => {
+              const isActive = riskView === preset;
+              return (
+                <button
+                  key={preset}
+                  onClick={() => { setRiskView(preset); setOverrides(null); }}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: isActive ? 'linear-gradient(135deg, #0ea5e9, #38bdf8)' : 'transparent',
+                    color: isActive ? '#fff' : '#94a3b8',
+                    fontWeight: isActive ? 800 : 600,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                    boxShadow: isActive ? '0 4px 15px rgba(14, 165, 233, 0.4)' : 'none'
+                  }}
+                >
+                  {preset}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ 
+          maxWidth: 600, margin: '14px auto 0', fontSize: '0.85rem', color: '#cbd5e1', 
+          background: 'rgba(15,23,42,0.6)', padding: '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)'
+        }}>
+          <strong>Rationale:</strong> {rationaleText}
+        </div>
       </motion.div>
       <div className="ap-header-divider" />
 
@@ -198,6 +270,9 @@ const AllocationPlanner = ({ profile }) => {
                   <div>
                     <div className="ap-card-name" style={{ textShadow: `0 0 10px ${a.color}40` }}>{a.abbr || a.name}</div>
                     <div className="ap-card-fullname">{a.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 4, fontWeight: 500 }}>
+                      {CATEGORY_EXPLANATIONS[a.cat] || CATEGORY_EXPLANATIONS[a.name] || a.cat || ''}
+                    </div>
                   </div>
                 </div>
                 <div className="ap-card-pct" style={{ color: a.color, textShadow: `0 0 15px ${a.color}60` }}>
@@ -206,7 +281,7 @@ const AllocationPlanner = ({ profile }) => {
               </div>
               <div className="ap-card-details">
                 <span>₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo</span>
-                <span>Post-tax: {a.postTaxRate}%</span>
+                <span>After Tax: {a.postTaxRate}%</span>
                 <span className="ap-risk-badge" style={{ color: RISK_COLORS[a.riskLabel] || '#f59e0b' }}>
                   {a.riskLabel}
                 </span>
@@ -226,84 +301,110 @@ const AllocationPlanner = ({ profile }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
       >
-        <div className="ap-blended-label">Blended Portfolio Post-Tax Return</div>
+        <div className="ap-blended-label">Your Combined Return (After-Tax)</div>
         <div className="ap-blended-value">{blendedReturn.toFixed(1)}%</div>
-        <div className="ap-blended-sub">Estimated blended post-tax return across your portfolio</div>
+        <div className="ap-blended-sub">The estimated average return of your combined investments after accounting for taxes.</div>
       </motion.div>
 
       {/* KPI Cards */}
       <div className="ap-kpi-row">
         <div className="ap-kpi-card">
-          <div className="ap-kpi-label">Equity Exposure</div>
+          <div className="ap-kpi-label">Stock Market (<JargonTooltip term="ELSS">Equity</JargonTooltip>) Exposure</div>
           <div className="ap-kpi-value" style={{ color: '#a855f7' }}>{equityExposure.toFixed(0)}%</div>
         </div>
         <div className="ap-kpi-card">
-          <div className="ap-kpi-label">Debt/Govt Exposure</div>
+          <div className="ap-kpi-label">Safer / Govt (<JargonTooltip term="Debt Fund">Debt</JargonTooltip>) Exposure</div>
           <div className="ap-kpi-value" style={{ color: '#3b82f6' }}>{debtGovtExposure.toFixed(0)}%</div>
         </div>
         <div className="ap-kpi-card">
-          <div className="ap-kpi-label">Alternative Exposure</div>
+          <div className="ap-kpi-label">Gold & Other (Alternative) Exposure</div>
           <div className="ap-kpi-value" style={{ color: '#eab308' }}>{altExposure.toFixed(0)}%</div>
         </div>
       </div>
 
-      {/* Manual Override Sliders */}
-      <div className="ap-slider-section">
-        <div className="ap-slider-header">
-          <h3>Adjust Allocation Manually</h3>
-          {overrides && (
-            <button className="ap-reset-btn" onClick={resetOverrides}>Reset to AI Suggestion</button>
-          )}
-        </div>
-
-        {warning && (
-          <div className="ap-warning">{warning}</div>
-        )}
-
-        {allocation.map(a => {
-          const rawPct = ((a.allocationPct - 5) / ((a.maxPct || 40) - 5));
-          const pctDecimal = Math.max(0, Math.min(1, rawPct));
-          const pctVal = pctDecimal * 100;
-          return (
-            <div key={a.id} className="ap-slider-row">
-              <div className="ap-slider-label">
-                <div style={{ 
-                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: `linear-gradient(135deg, ${a.color}20, ${a.color}05)`,
-                    color: a.color, border: `1px solid ${a.color}30`,
-                    boxShadow: `inset 0 0 10px ${a.color}10`
-                  }}>
-                    {getCategoryIcon(a.cat || a.name)}
-                </div>
-                <span style={{ textShadow: `0 0 10px ${a.color}40`, fontWeight: 800 }}>{a.abbr || a.name}</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max={a.maxPct || 40}
-                step="1"
-                value={Math.round(a.allocationPct)}
-                onChange={e => handleSliderChange(a.id, Number(e.target.value))}
-                className="ap-range"
-                style={{ 
-                  '--ap-pct': `${pctVal}%`,
-                  '--ap-pct-decimal': pctDecimal,
-                  '--ap-track-color': a.color || '#0ea5e9'
-                }}
-              />
-              <div className="ap-slider-values">
-                <div className="ap-slider-badge-pct" style={{ backgroundColor: `${a.color}20`, color: a.color, border: `1px solid ${a.color}40` }}>
-                  {a.allocationPct.toFixed(0)}%
-                </div>
-                <div className="ap-slider-badge-amt">
-                  ₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      {/* Toggle Manual Override */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+        <button
+          onClick={() => setShowManualAdjust(!showManualAdjust)}
+          style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            padding: '10px 20px',
+            color: '#0ea5e9',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {showManualAdjust ? 'Hide Manual Tuning Sliders' : 'Adjust Investment Mix Manually (Advanced)'}
+        </button>
       </div>
+
+      {/* Manual Override Sliders */}
+      {showManualAdjust && (
+        <div className="ap-slider-section">
+          <div className="ap-slider-header">
+            <h3>Adjust Investment Mix Manually</h3>
+            {overrides && (
+              <button className="ap-reset-btn" onClick={resetOverrides}>Reset to Recommended Mix</button>
+            )}
+          </div>
+
+          {warning && (
+            <div className="ap-warning">{warning}</div>
+          )}
+
+          {allocation.map(a => {
+            const rawPct = ((a.allocationPct - 5) / ((a.maxPct || 40) - 5));
+            const pctDecimal = Math.max(0, Math.min(1, rawPct));
+            const pctVal = pctDecimal * 100;
+            return (
+              <div key={a.id} className="ap-slider-row">
+                <div className="ap-slider-label">
+                  <div style={{ 
+                      width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: `linear-gradient(135deg, ${a.color}20, ${a.color}05)`,
+                      color: a.color, border: `1px solid ${a.color}30`,
+                      boxShadow: `inset 0 0 10px ${a.color}10`
+                    }}>
+                      {getCategoryIcon(a.cat || a.name)}
+                  </div>
+                  <span style={{ textShadow: `0 0 10px ${a.color}40`, fontWeight: 800 }}>{a.abbr || a.name}</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max={a.maxPct || 40}
+                  step="1"
+                  value={Math.round(a.allocationPct)}
+                  onChange={e => handleSliderChange(a.id, Number(e.target.value))}
+                  className="ap-range"
+                  style={{ 
+                    '--ap-pct': `${pctVal}%`,
+                    '--ap-pct-decimal': pctDecimal,
+                    '--ap-track-color': a.color || '#0ea5e9'
+                  }}
+                />
+                <div className="ap-slider-values">
+                  <div className="ap-slider-badge-pct" style={{ backgroundColor: `${a.color}20`, color: a.color, border: `1px solid ${a.color}40` }}>
+                    {a.allocationPct.toFixed(0)}%
+                  </div>
+                  <div className="ap-slider-badge-amt">
+                    ₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

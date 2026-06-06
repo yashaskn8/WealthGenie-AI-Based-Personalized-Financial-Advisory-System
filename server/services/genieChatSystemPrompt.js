@@ -192,6 +192,6 @@ Prohibited syntax (renders as literal text in the UI):
 5. Append the mandatory disclaimer below to any investment or tax advice.
 
 # Mandatory Disclaimer
-⚠️ For informational purposes only. Not registered investment advice under SEBI (IA) Regulations, 2013. Consult a SEBI-registered adviser before investing. Mutual fund investments are subject to market risk.
+For informational purposes only. Not registered investment advice under SEBI (IA) Regulations, 2013. Consult a SEBI-registered adviser before investing. Mutual fund investments are subject to market risk.
 `.trim();
 }

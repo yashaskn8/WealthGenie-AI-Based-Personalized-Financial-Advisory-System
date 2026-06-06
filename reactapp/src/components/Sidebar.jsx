@@ -14,20 +14,20 @@ const NAV_GROUPS = [
     title: 'OVERVIEW',
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'health', label: 'Health Score', icon: Activity },
+      { id: 'health', label: 'Financial Health', icon: Activity },
       { id: 'goals', label: 'My Goals', icon: Target },
     ]
   },
   {
     title: 'TOOLS',
     items: [
-      { id: 'rebalancer', label: 'Rebalancer', icon: ArrowLeftRight },
-      { id: 'sip-planner', label: 'SIP Step-Up', icon: TrendingUp },
-      { id: 'goal-planner', label: 'Goal Planner', icon: Crosshair },
-      { id: 'allocation', label: 'Allocation', icon: PieChart },
-      { id: 'post-tax', label: 'Post-Tax', icon: FileText },
-      { id: 'tax-optimizer', label: 'Tax Optimizer', icon: Shield },
-      { id: 'compare', label: 'Compare', icon: Layers },
+      { id: 'rebalancer', label: 'Mix Balancer', icon: ArrowLeftRight },
+      { id: 'sip-planner', label: 'Growth Planner', icon: TrendingUp },
+      { id: 'goal-planner', label: 'Goal Setup', icon: Crosshair },
+      { id: 'allocation', label: 'Investment Mix', icon: PieChart },
+      { id: 'post-tax', label: 'Actual Returns', icon: FileText },
+      { id: 'tax-optimizer', label: 'Tax Saver', icon: Shield },
+      { id: 'compare', label: 'Investment Explorer', icon: Layers },
     ]
   },
   {

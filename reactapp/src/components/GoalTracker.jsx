@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Palmtree, Diamond, FileText, Shield, TrendingUp, AlertTriangle, CheckCircle, Clock, Zap, IndianRupee, ArrowRight, Lightbulb, Wallet } from 'lucide-react';
+import { Target, Palmtree, Diamond, FileText, Shield, TrendingUp, AlertTriangle, CheckCircle, Clock, Zap, IndianRupee, ArrowRight, Lightbulb, Wallet, Save, Sparkles, RefreshCw, Layers } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import { calculateSIPFutureValue } from '../utils/sipCalculator';
+import api from '../services/api';
+import JargonTooltip from './JargonTooltip';
 import './GoalTracker.css';
 
 /* ─── Smart defaults computed from actual profile ────────────────── */
@@ -21,18 +23,19 @@ function computeSmartDefaults(profile) {
   return {
     'Retirement': {
       target: retirementTarget,
-      currentSaved: Math.round(savings * 6), 
+      currentSaved: 0, 
       icon: Palmtree,
       themeColor: '#0ea5e9', // Cyan
       themeColorRGB: '14, 165, 233',
       returnRate: 12,
       yearsToGoal: yearsToRetire,
-      description: `Build ${formatShort(retirementTarget)} corpus (25× annual expenses) by age ${retirementAge}`,
-      tip: `Based on your ₹${monthlyExpenses.toLocaleString('en-IN')}/mo expenses, you need ~25× annual expenses at retirement.`,
+      description: `Build ${formatShort(retirementTarget)} fund (roughly 25 times your annual expenses) by age ${retirementAge}`,
+      tip: `Based on your ₹${monthlyExpenses.toLocaleString('en-IN')}/mo expenses, you need about 25 times your annual expenses saved for a comfortable retirement.`,
+      priority: 'High',
     },
     'Wealth Growth': {
       target: Math.round(annualIncome * 5 / 100000) * 100000,
-      currentSaved: Math.round(savings * 3),
+      currentSaved: 0,
       icon: Diamond,
       themeColor: '#a855f7', // Purple
       themeColorRGB: '168, 85, 247',
@@ -40,6 +43,7 @@ function computeSmartDefaults(profile) {
       yearsToGoal: Math.min(horizon, 10),
       description: `Accumulate 5× annual income (₹${(annualIncome * 5 / 100000).toFixed(0)}L) in ${Math.min(horizon, 10)} years`,
       tip: 'A common wealth milestone is 5× your annual income in liquid investments.',
+      priority: 'Medium',
     },
     'Tax Saving': {
       target: 150000,
@@ -49,8 +53,9 @@ function computeSmartDefaults(profile) {
       themeColorRGB: '244, 63, 94',
       returnRate: 10,
       yearsToGoal: 1,
-      description: 'Maximize ₹1.5L Section 80C deduction this financial year',
-      tip: 'ELSS has the shortest 3-year lock-in among all 80C options.',
+      description: <span>Save tax on up to ₹1.5 Lakhs under <JargonTooltip term="Section 80C">Section 80C</JargonTooltip></span>,
+      tip: <span><JargonTooltip term="ELSS">ELSS</JargonTooltip> (tax-saving equity funds) has the shortest 3-year lock-in period compared to other options.</span>,
+      priority: 'Low',
     },
     'Emergency Fund': {
       target: Math.round(monthlyExpenses * 6 / 10000) * 10000,
@@ -60,8 +65,9 @@ function computeSmartDefaults(profile) {
       themeColorRGB: '16, 185, 129',
       returnRate: 7,
       yearsToGoal: 1.5,
-      description: `Build a ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L safety net (6× monthly expenses)`,
-      tip: 'Keep in liquid MFs or savings account. Must be accessible within 24 hours.',
+      description: `Build a ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L safety net (6 months of expenses)`,
+      tip: <span>Keep in <JargonTooltip term="Debt Fund">liquid mutual funds</JargonTooltip> or a savings account. Must be accessible within 24 hours.</span>,
+      priority: 'Critical',
     },
   };
 }
@@ -72,6 +78,13 @@ function formatShort(val) {
   if (val >= 1000) return `₹${(val / 1000).toFixed(0)}K`;
   return `₹${val}`;
 }
+
+const PRIORITY_CONFIG = {
+  Critical: { color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)' },
+  High:     { color: '#f97316', bg: 'rgba(249, 115, 22, 0.15)', border: 'rgba(249, 115, 22, 0.3)' },
+  Medium:   { color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.15)', border: 'rgba(14, 165, 233, 0.3)' },
+  Low:      { color: '#64748b', bg: 'rgba(100, 116, 139, 0.15)', border: 'rgba(100, 116, 139, 0.3)' },
+};
 
 const MAX_TARGET = 1000000000;
 const MAX_SAVED = 500000000;
@@ -84,74 +97,120 @@ function clampValue(val, min = 0, max = MAX_TARGET) {
 }
 
 /* ─── Goal Card ───────────────────────────────────────────────────── */
-const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurrentChange, monthlyAllocation, horizon, returnRate, index, totalSavings }) => {
+const GoalCard = ({ 
+  goalName, 
+  defaults, 
+  goalObj, 
+  onSaveUpdates, 
+  monthlyAllocation, 
+  horizon, 
+  returnRate, 
+  index, 
+  totalSavings 
+}) => {
+  // Use DB object values if available, otherwise local defaults (for computed sandbox)
+  const isDbGoal = !!goalObj;
+  const initialTarget = isDbGoal ? goalObj.target_amount : defaults.target;
+  const initialSaved = isDbGoal ? goalObj.current_savings : defaults.currentSaved;
+
+  const [target, setTarget] = useState(initialTarget);
+  const [currentSaved, setCurrentSaved] = useState(initialSaved);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Re-sync with state changes
+  useEffect(() => {
+    setTarget(initialTarget);
+    setCurrentSaved(initialSaved);
+  }, [initialTarget, initialSaved]);
+
   const actualTarget = Number(target) || 0;
   const actualSaved = Number(currentSaved) || 0;
   const lumpSumGrowth = actualSaved > 0 ? actualSaved * Math.pow(1 + returnRate / 100, horizon) : 0;
-  const projectedValue = calculateSIPFutureValue(monthlyAllocation, returnRate, horizon) + lumpSumGrowth;
+  
+  // Projected value calculation
+  const projectedValue = isDbGoal && goalObj.monte_carlo_summary?.p50
+    ? goalObj.monte_carlo_summary.p50
+    : calculateSIPFutureValue(monthlyAllocation, returnRate, horizon) + lumpSumGrowth;
+
   const progressPercent = Math.min((actualSaved / (actualTarget || 1)) * 100, 100);
   const projectedPercent = Math.min((projectedValue / (actualTarget || 1)) * 100, 100);
 
   const gap = actualTarget - projectedValue;
   const gapPositive = gap > 0;
 
-  const requiredExtraSIP = useMemo(() => {
-    if (gap <= 0 || horizon <= 0) return 0;
-    const r = (returnRate / 100) / 12;
-    const n = horizon * 12;
-    if (r === 0) return Math.ceil(gap / n);
-    const fvFactor = ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
-    return Math.ceil(gap / fvFactor / 100) * 100;
-  }, [gap, horizon, returnRate]);
-
-  const extraWaitYears = useMemo(() => {
-    if (gap <= 0 || monthlyAllocation <= 0) return 0;
-    for (let y = 1; y <= 200; y++) {
-      const totalYrs = horizon + y;
-      const sipFV = calculateSIPFutureValue(monthlyAllocation, returnRate, totalYrs);
-      const lumpFV = actualSaved * Math.pow(1 + returnRate / 100, totalYrs);
-      if (sipFV + lumpFV >= actualTarget) return y;
-    }
-    return 999;
-  }, [gap, monthlyAllocation, returnRate, horizon, actualSaved, actualTarget]);
-
   const completionPct = Math.min(Math.round((projectedValue / (actualTarget || 1)) * 100), 999);
 
   let status, statusClass, StatusIcon;
-  if (completionPct >= 100) {
-    status = 'On Track'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
-  } else if (completionPct >= 70) {
-    status = 'Almost There'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
-  } else if (completionPct >= 40) {
-    status = 'Needs Attention'; statusClass = 'status--attention'; StatusIcon = AlertTriangle;
+  if (isDbGoal) {
+    if (goalObj.status === 'on_track') {
+      status = 'Highly Probable (On Track)'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
+    } else if (goalObj.status === 'at_risk') {
+      status = 'Fair Chance (Need Boost)'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
+    } else {
+      status = 'At Risk (Action Needed)'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
+    }
   } else {
-    status = 'Behind Schedule'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
+    if (completionPct >= 100) {
+      status = 'Highly Probable (On Track)'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
+    } else if (completionPct >= 70) {
+      status = 'Fair Chance (Need Boost)'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
+    } else if (completionPct >= 40) {
+      status = 'At Risk (Action Needed)'; statusClass = 'status--attention'; StatusIcon = AlertTriangle;
+    } else {
+      status = 'At Risk (Action Needed)'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
+    }
   }
 
-  const IconComponent = defaults.icon;
+  const IconComponent = defaults.icon || Target;
+  const priority = isDbGoal ? goalObj.priority || 'Medium' : defaults.priority || 'Medium';
+
+  const hasChanged = target !== initialTarget || currentSaved !== initialSaved;
+
+  const handleCommitUpdates = async () => {
+    if (!isDbGoal) return;
+    setIsUpdating(true);
+    try {
+      await onSaveUpdates(goalObj._id || goalObj.goalId, {
+        target_amount: actualTarget,
+        current_savings: actualSaved,
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <motion.div
       className="goal-card-item premium-glass"
       style={{
-        '--theme-color': defaults.themeColor,
-        '--theme-color-rgb': defaults.themeColorRGB
+        '--theme-color': defaults.themeColor || '#6366f1',
+        '--theme-color-rgb': defaults.themeColorRGB || '99, 102, 241'
       }}
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 + (index * 0.1), type: 'spring', stiffness: 100, damping: 20 }}
-      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      transition={{ delay: 0.1 + (index * 0.05), type: 'spring', stiffness: 100, damping: 20 }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
     >
       <div className="card-glow-bg"></div>
 
       {/* Header */}
       <div className="goal-card-header">
-        <div className="goal-card-icon-wrapper" style={{ boxShadow: `0 0 20px rgba(${defaults.themeColorRGB}, 0.2)` }}>
-          <IconComponent size={20} color={defaults.themeColor} />
+        <div className="goal-card-icon-wrapper" style={{ boxShadow: `0 0 20px rgba(${defaults.themeColorRGB || '99,102,241'}, 0.2)` }}>
+          <IconComponent size={20} color={defaults.themeColor || '#6366f1'} />
         </div>
         <div style={{ flex: 1 }}>
-          <h3 className="goal-card-title">{goal}</h3>
-          <p className="goal-card-desc">{defaults.description}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h3 className="goal-card-title">{goalName}</h3>
+            <span className={`goal-priority-badge badge-glow-${priority === 'Critical' ? 'rose' : priority === 'High' ? 'amber' : priority === 'Medium' ? 'cyan' : 'emerald'}`} style={{
+              fontSize: '0.65rem', padding: '2px 8px', borderRadius: 6, fontWeight: 800,
+              textTransform: 'uppercase', letterSpacing: '0.6px'
+            }}>
+              {priority}
+            </span>
+          </div>
+          <p className="goal-card-desc">{isDbGoal && goalObj.recommended_instrument ? `Targeted via ${goalObj.recommended_instrument.replace('_', ' ')}` : defaults.description}</p>
         </div>
         <span className={`goal-status-badge ${statusClass}`}>
           <StatusIcon size={12} style={{ marginRight: 4 }} /> {status}
@@ -162,7 +221,7 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
       <div className="goal-inputs-row">
         <div className="goal-input-group">
           <div className="goal-input-label-row">
-            <label><Target size={12} style={{marginRight:4, verticalAlign:'-1px', color:'#38bdf8'}} /> Target Amount</label>
+            <label><Target size={12} style={{marginRight:4, color:'#38bdf8'}} /> Target Goal</label>
             <span className="goal-input-hint-badge">{formatShort(actualTarget)}</span>
           </div>
           <div className="goal-input-wrapper">
@@ -171,38 +230,17 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
               type="number"
               value={target}
               placeholder="0"
-              min={0}
+              min={1000}
               max={MAX_TARGET}
-              onChange={e => onTargetChange(clampValue(e.target.value, 0, MAX_TARGET))}
+              disabled={!isDbGoal}
+              onChange={e => setTarget(clampValue(e.target.value, 1000, MAX_TARGET))}
               className="goal-amount-input"
             />
-          </div>
-          <div className="goal-presets">
-            {goal === 'Retirement' && [5000000, 10000000, 20000000, 50000000].map(v => (
-              <button key={v} className={`preset-btn ${actualTarget === v ? 'preset-active' : ''}`} onClick={() => onTargetChange(v)}>
-                {formatShort(v)}
-              </button>
-            ))}
-            {goal === 'Wealth Growth' && [2000000, 5000000, 10000000, 25000000].map(v => (
-              <button key={v} className={`preset-btn ${actualTarget === v ? 'preset-active' : ''}`} onClick={() => onTargetChange(v)}>
-                {formatShort(v)}
-              </button>
-            ))}
-            {goal === 'Tax Saving' && [50000, 100000, 150000].map(v => (
-              <button key={v} className={`preset-btn ${actualTarget === v ? 'preset-active' : ''}`} onClick={() => onTargetChange(v)}>
-                {formatShort(v)}
-              </button>
-            ))}
-            {goal === 'Emergency Fund' && [100000, 300000, 500000, 1000000].map(v => (
-              <button key={v} className={`preset-btn ${actualTarget === v ? 'preset-active' : ''}`} onClick={() => onTargetChange(v)}>
-                {formatShort(v)}
-              </button>
-            ))}
           </div>
         </div>
         <div className="goal-input-group">
           <div className="goal-input-label-row">
-            <label><Wallet size={12} style={{marginRight:4, verticalAlign:'-1px', color:'#10b981'}} /> Already Saved</label>
+            <label><Wallet size={12} style={{marginRight:4, color:'#10b981'}} /> My Savings</label>
             <span className="goal-input-hint-badge">{formatShort(actualSaved)}</span>
           </div>
           <div className="goal-input-wrapper">
@@ -213,12 +251,33 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
               placeholder="0"
               min={0}
               max={MAX_SAVED}
-              onChange={e => onCurrentChange(clampValue(e.target.value, 0, MAX_SAVED))}
+              disabled={!isDbGoal}
+              onChange={e => setCurrentSaved(clampValue(e.target.value, 0, MAX_SAVED))}
               className="goal-amount-input"
             />
           </div>
         </div>
       </div>
+
+      {/* Save Button for DB Goal changes */}
+      {isDbGoal && hasChanged && (
+        <motion.button
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={handleCommitUpdates}
+          disabled={isUpdating}
+          style={{
+            background: 'linear-gradient(135deg, #0ea5e9, #10b981)', border: 'none',
+            borderRadius: 10, padding: '8px 16px', color: '#fff', fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: '0.8rem', width: '100%', justifyContent: 'center', marginBottom: 20,
+            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+          }}
+        >
+          {isUpdating ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+          Save Changes & Recompute Progress
+        </motion.button>
+      )}
 
       {/* Visual Progress */}
       <div className="goal-progress-section">
@@ -229,7 +288,7 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
           </div>
           <div className="progress-label-right">
             <span className="label-title">Target</span>
-            <span className="label-value" style={{ color: defaults.themeColor }}>{formatShort(actualTarget)}</span>
+            <span className="label-value" style={{ color: defaults.themeColor || '#6366f1' }}>{formatShort(actualTarget)}</span>
           </div>
         </div>
         
@@ -238,26 +297,26 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
             className="goal-progress-fill goal-progress-fill--projected" 
             style={{ 
               width: `${Math.min(projectedPercent, 100)}%`,
-              background: `linear-gradient(90deg, rgba(${defaults.themeColorRGB}, 0.2), rgba(${defaults.themeColorRGB}, 0.5))`
+              background: `linear-gradient(90deg, rgba(${defaults.themeColorRGB || '99,102,241'}, 0.2), rgba(${defaults.themeColorRGB || '99,102,241'}, 0.5))`
             }} 
           />
           <div 
             className="goal-progress-fill goal-progress-fill--current" 
             style={{ 
               width: `${progressPercent}%`,
-              background: `linear-gradient(90deg, ${defaults.themeColor}, #fff)`,
-              boxShadow: `0 0 10px rgba(${defaults.themeColorRGB}, 0.5)`
+              background: `linear-gradient(90deg, ${defaults.themeColor || '#6366f1'}, #fff)`,
+              boxShadow: `0 0 10px rgba(${defaults.themeColorRGB || '99,102,241'}, 0.5)`
             }} 
           />
         </div>
         
         <div className="goal-progress-legend">
           <div className="legend-item">
-            <span className="legend-dot" style={{ background: defaults.themeColor, boxShadow: `0 0 6px rgba(${defaults.themeColorRGB}, 0.8)` }}></span>
+            <span className="legend-dot" style={{ background: defaults.themeColor || '#6366f1', boxShadow: `0 0 6px rgba(${defaults.themeColorRGB || '99,102,241'}, 0.8)` }}></span>
             Saved <span className="legend-pct">({progressPercent.toFixed(0)}%)</span>
           </div>
           <div className="legend-item">
-            <span className="legend-dot" style={{ background: defaults.themeColor, opacity: 0.5 }}></span>
+            <span className="legend-dot" style={{ background: defaults.themeColor || '#6366f1', opacity: 0.5 }}></span>
             Projected <span className="legend-pct">({completionPct}%)</span>
           </div>
         </div>
@@ -266,59 +325,45 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
       {/* Key Metrics Grid */}
       <div className="goal-card-footer">
         <div className="goal-metric">
-          <span className="goal-metric-label"><IndianRupee size={12} /> SIP</span>
+          <span className="goal-metric-label"><IndianRupee size={12} /> <JargonTooltip term="SIP">Monthly SIP</JargonTooltip></span>
           <span className="goal-metric-value">{formatINR(monthlyAllocation)}</span>
           <span className="goal-metric-sub">{totalSavings > 0 ? `${Math.round((monthlyAllocation / totalSavings) * 100)}% of total` : '--'}</span>
         </div>
         <div className="goal-metric">
-          <span className="goal-metric-label"><Clock size={12} /> Time</span>
-          <span className="goal-metric-value">{defaults.yearsToGoal}y</span>
-          <span className="goal-metric-sub">@ {returnRate}% CAGR</span>
+          <span className="goal-metric-label"><Clock size={12} /> Years to Goal</span>
+          <span className="goal-metric-value">{horizon}y</span>
+          <span className="goal-metric-sub">@ {returnRate}% <JargonTooltip term="CAGR">yearly growth</JargonTooltip></span>
         </div>
         <div className="goal-metric">
           <span className="goal-metric-label"><TrendingUp size={12} /> Projected</span>
-          <span className="goal-metric-value" style={{ color: defaults.themeColor }}>{formatShort(projectedValue)}</span>
-          <span className="goal-metric-sub">{completionPct >= 100 ? 'Met' : `${completionPct}%`}</span>
+          <span className="goal-metric-value" style={{ color: defaults.themeColor || '#6366f1' }}>{formatShort(projectedValue)}</span>
+          <span className="goal-metric-sub">{completionPct >= 100 ? 'Fully Met' : `${completionPct}% Met`}</span>
         </div>
         <div className="goal-metric">
           <span className="goal-metric-label">{gapPositive ? 'Shortfall' : 'Surplus'}</span>
           <span className="goal-metric-value" style={{ color: gapPositive ? '#f43f5e' : '#10b981' }}>
             {formatShort(Math.abs(gap))}
           </span>
-          <span className="goal-metric-sub">{gapPositive ? 'Action req.' : 'On Track'}</span>
+          <span className="goal-metric-sub">{gapPositive ? 'Needs more saving' : 'On Track'}</span>
         </div>
       </div>
 
       {/* Actionable Insight */}
       <div className="goal-action-container">
-        {gapPositive && requiredExtraSIP > 0 ? (
-          <motion.div 
-            className="goal-action-card"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <div className="action-card-highlight"></div>
-            <Zap size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2, zIndex: 1 }} />
-            <div style={{ zIndex: 1 }}>
-              <strong>To close gap:</strong> Increase SIP by <span className="highlight-text">₹{requiredExtraSIP.toLocaleString('en-IN')}/mo</span>,
-              or wait <span className="highlight-text">{extraWaitYears}y</span> more.
+        {isDbGoal && goalObj.gemini_advice ? (
+          <motion.div className="goal-action-card">
+            <div className="action-card-highlight" style={{ background: gapPositive ? '#eab308' : '#10b981' }}></div>
+            <Sparkles size={16} color={gapPositive ? '#eab308' : '#10b981'} style={{ flexShrink: 0, marginTop: 2, zIndex: 1 }} />
+            <div style={{ zIndex: 1, fontSize: '0.8rem' }}>
+              <strong>Advisor Recommendations:</strong>
+              {goalObj.gemini_advice}
             </div>
           </motion.div>
-        ) : completionPct >= 100 ? (
-          <motion.div className="goal-action-card goal-action-card--success">
-            <div className="action-card-highlight"></div>
-            <CheckCircle size={16} color="#10b981" style={{ flexShrink: 0, marginTop: 2, zIndex: 1 }} />
-            <div style={{ zIndex: 1 }}>
-              <strong>Target Secured!</strong> At ₹{monthlyAllocation.toLocaleString('en-IN')}/mo,
-              you will easily meet this goal.
-            </div>
-          </motion.div>
+        ) : defaults.tip ? (
+          <div className="goal-tip" style={{ borderLeftColor: defaults.themeColor || '#6366f1' }}>
+            <Lightbulb size={14} color={defaults.themeColor || '#6366f1'} style={{ flexShrink: 0, marginRight: 4 }} /> {defaults.tip}
+          </div>
         ) : null}
-      </div>
-
-      {/* Contextual Tips */}
-      <div className="goal-tip" style={{ borderLeftColor: defaults.themeColor }}>
-        <Lightbulb size={14} color={defaults.themeColor} style={{ flexShrink: 0, marginRight: 4 }} /> {defaults.tip}
       </div>
     </motion.div>
   );
@@ -326,50 +371,176 @@ const GoalCard = ({ goal, defaults, currentSaved, target, onTargetChange, onCurr
 
 /* ─── Main Component ──────────────────────────────────────────────── */
 const GoalTracker = ({ profile, recommendations }) => {
-  const goals = profile?.investment_goals || ['Retirement', 'Wealth Growth'];
+  const [dbGoals, setDbGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
+
   const horizon = profile?.investment_horizon || 15;
   const totalSavings = Number(profile?.monthly_savings) || 0;
 
   const smartDefaults = useMemo(() => computeSmartDefaults(profile), [profile]);
 
-  const [targets, setTargets] = useState(() => {
-    const t = {};
-    goals.forEach(g => { t[g] = smartDefaults[g]?.target || 1000000; });
-    return t;
-  });
+  useEffect(() => {
+    fetchActiveGoals();
+  }, []);
 
-  const [currentSaved, setCurrentSaved] = useState(() => {
-    const c = {};
-    goals.forEach(g => { c[g] = smartDefaults[g]?.currentSaved || 0; });
-    return c;
-  });
+  const fetchActiveGoals = async () => {
+    try {
+      setLoading(true);
+      const res = await api.getGoals();
+      setDbGoals(res.goals || []);
+    } catch (e) {
+      console.error("Failed to load goals for tracker:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleInitializeDefaults = async () => {
+    setIsInitializing(true);
+    try {
+      const defaultKeys = Object.keys(smartDefaults);
+      for (const key of defaultKeys) {
+        const def = smartDefaults[key];
+        const targetDate = new Date();
+        targetDate.setMonth(targetDate.getMonth() + Math.round(def.yearsToGoal * 12));
+        
+        await api.createGoal({
+          goal_name: key,
+          target_amount: def.target,
+          target_date: targetDate.toISOString().split('T')[0],
+          current_savings: def.currentSaved,
+          profileId: profile?._id || profile?.profileId,
+          priority: def.priority || 'Medium',
+        });
+      }
+      // Re-fetch list
+      const fresh = await api.getGoals();
+      setDbGoals(fresh.goals || []);
+    } catch (err) {
+      alert("Failed to bootstrap default portfolio: " + (err.message || "Unknown error"));
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  const handleGoalCardUpdate = async (goalId, patchData) => {
+    try {
+      const res = await api.updateGoal(goalId, patchData);
+      if (res.success) {
+        // Fetch list to ensure recalculations are pulled
+        const freshList = await api.getGoals();
+        setDbGoals(freshList.goals || []);
+      }
+    } catch (err) {
+      alert("Failed to save changes: " + (err.message || "Unknown error"));
+    }
+  };
+
+  // Determine whether to show custom database goals or local sandbox defaults
+  const showDbGoals = dbGoals.length > 0;
+
+  // Goals list to map in UI
+  const mappedGoals = useMemo(() => {
+    if (showDbGoals) {
+      return dbGoals.map(g => ({
+        name: g.goal_name,
+        isDb: true,
+        obj: g,
+        key: g._id || g.goalId,
+        horizon: g.years_remaining || horizon,
+        returnRate: 11,
+        // Match icon/theme from presets, or default
+        defaults: smartDefaults[g.goal_name] || {
+          icon: Target,
+          themeColor: '#0ea5e9',
+          themeColorRGB: '14, 165, 233',
+          description: `Custom goal targeted in ${Math.round(g.years_remaining || horizon)}y`,
+          tip: 'Create structured savings plans to meet targets.',
+          priority: g.priority || 'Medium',
+        }
+      }));
+    } else {
+      // Local fallback
+      const defaultGoals = profile?.investment_goals || ['Retirement', 'Wealth Growth'];
+      return defaultGoals.map(g => ({
+        name: g,
+        isDb: false,
+        obj: null,
+        key: g,
+        horizon: smartDefaults[g]?.yearsToGoal || (g === 'Emergency Fund' ? Math.min(2, horizon) : horizon),
+        returnRate: smartDefaults[g]?.returnRate || 10,
+        defaults: smartDefaults[g] || { icon: Target, themeColor: '#6366f1', themeColorRGB: '99, 102, 241', description: '', tip: '', yearsToGoal: horizon, returnRate: 10, priority: 'Medium' }
+      }));
+    }
+  }, [showDbGoals, dbGoals, profile, smartDefaults, horizon]);
+
+  // Compute total monthly allocations per goal
   const goalAllocations = useMemo(() => {
     const allocs = {};
-    goals.forEach(g => { allocs[g] = 0; });
+    mappedGoals.forEach(g => { allocs[g.name] = 0; });
+    
+    // Dynamic matching of allocations from recommendations
     (recommendations || []).forEach(inv => {
-      (inv.suitable_for_goals || []).forEach(g => {
-        if (allocs[g] !== undefined) {
-          allocs[g] += (inv.monthly_allocation || 0) / inv.suitable_for_goals.length;
+      (inv.suitable_for_goals || []).forEach(gName => {
+        if (allocs[gName] !== undefined) {
+          allocs[gName] += (inv.monthly_allocation || 0) / inv.suitable_for_goals.length;
         }
       });
     });
+
     const totalAllocated = Object.values(allocs).reduce((a, b) => a + b, 0);
     if (totalAllocated === 0 && totalSavings > 0) {
-      goals.forEach(g => { allocs[g] = totalSavings / goals.length; });
+      mappedGoals.forEach(g => { allocs[g.name] = totalSavings / mappedGoals.length; });
     }
     return allocs;
-  }, [goals, recommendations, totalSavings]);
+  }, [mappedGoals, recommendations, totalSavings]);
 
-  const totalTarget = Object.values(targets).reduce((a, b) => a + (Number(b) || 0), 0);
-  const totalCurrent = Object.values(currentSaved).reduce((a, b) => a + (Number(b) || 0), 0);
-  const totalProjected = goals.reduce((sum, g) => {
-    const yr = smartDefaults[g]?.yearsToGoal || horizon;
-    const rate = smartDefaults[g]?.returnRate || 10;
-    return sum + calculateSIPFutureValue(goalAllocations[g] || 0, rate, yr) + (Number(currentSaved[g]) || 0) * Math.pow(1 + rate / 100, yr);
-  }, 0);
-  const totalMonthlySIP = Object.values(goalAllocations).reduce((a, b) => a + b, 0);
+  // Combined calculations for the HUD
+  const totalTarget = useMemo(() => {
+    if (showDbGoals) {
+      return dbGoals.reduce((sum, g) => sum + (Number(g.target_amount) || 0), 0);
+    }
+    return mappedGoals.reduce((sum, g) => sum + (smartDefaults[g.name]?.target || 1000000), 0);
+  }, [showDbGoals, dbGoals, mappedGoals, smartDefaults]);
+
+  const totalCurrent = useMemo(() => {
+    if (showDbGoals) {
+      return dbGoals.reduce((sum, g) => sum + (Number(g.current_savings) || 0), 0);
+    }
+    return mappedGoals.reduce((sum, g) => sum + (smartDefaults[g.name]?.currentSaved || 0), 0);
+  }, [showDbGoals, dbGoals, mappedGoals, smartDefaults]);
+
+  const totalProjected = useMemo(() => {
+    return mappedGoals.reduce((sum, g) => {
+      if (g.isDb && g.obj.monte_carlo_summary?.p50) {
+        return sum + g.obj.monte_carlo_summary.p50;
+      }
+      const yr = g.horizon;
+      const rate = g.returnRate;
+      const localAlloc = goalAllocations[g.name] || 0;
+      const localSaved = g.isDb ? g.obj.current_savings : (smartDefaults[g.name]?.currentSaved || 0);
+      return sum + calculateSIPFutureValue(localAlloc, rate, yr) + Number(localSaved) * Math.pow(1 + rate / 100, yr);
+    }, 0);
+  }, [mappedGoals, goalAllocations, smartDefaults]);
+
+  const totalMonthlySIP = useMemo(() => {
+    if (showDbGoals) {
+      return dbGoals.reduce((sum, g) => sum + (g.recommended_sip || 0), 0);
+    }
+    return Object.values(goalAllocations).reduce((a, b) => a + b, 0);
+  }, [showDbGoals, dbGoals, goalAllocations]);
+
   const overallHealth = totalTarget > 0 ? Math.min(Math.round((totalProjected / totalTarget) * 100), 100) : 0;
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+        <RefreshCw size={44} color="#06b6d4" className="animate-spin" />
+        <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Syncing portfolio goal data...</span>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -392,34 +563,74 @@ const GoalTracker = ({ profile, recommendations }) => {
       >
         <div className="gt-page-badge">
           <Target size={11} />
-          Personalized Financial Goals
+          {showDbGoals ? 'Your Saved Goals' : 'Suggested Goals (Preview)'}
         </div>
         <h1 className="gt-page-title">My Financial Goals</h1>
         <p className="gt-page-subtitle">
-          Personalized targets based on ₹{(Number(profile?.monthly_income) || 0).toLocaleString('en-IN')}/mo income & Age {profile?.age || 30}
+          Based on your ₹{(Number(profile?.monthly_income) || 0).toLocaleString('en-IN')}/mo income over {profile?.investment_horizon || 15} years
         </p>
         <div className="gt-header-divider" />
       </motion.div>
+
+      {/* Bootstrap Defaults Banner */}
+      {!showDbGoals && (
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+            border: '1px solid rgba(6, 182, 212, 0.3)',
+            borderRadius: 20, padding: 24, marginBottom: 32, display: 'flex',
+            alignItems: 'center', justifySelf: 'center', gap: 20, flexWrap: 'wrap',
+            boxShadow: '0 8px 32px rgba(6, 182, 212, 0.05)'
+          }}
+        >
+          <div style={{ background: 'rgba(6, 182, 212, 0.1)', padding: 12, borderRadius: 12, display: 'flex' }}>
+            <Layers size={28} color="#38bdf8" />
+          </div>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <h4 style={{ color: '#fff', margin: '0 0 6px 0', fontSize: '1.05rem', fontWeight: 800 }}>Welcome to your Goals Dashboard</h4>
+            <p style={{ color: '#cbd5e1', margin: 0, fontSize: '0.88rem', lineHeight: 1.4 }}>
+              We've suggested <strong>{mappedGoals.length} starter goals</strong> based on your income. Click "Save My Goals" to save them and see how they might grow!
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            disabled={isInitializing}
+            onClick={handleInitializeDefaults}
+            style={{
+              background: 'linear-gradient(135deg, #0ea5e9, #8b5cf6)', border: 'none',
+              padding: '12px 24px', borderRadius: 12, color: '#fff', fontWeight: 700,
+              cursor: isInitializing ? 'not-allowed' : 'pointer', fontSize: '0.88rem',
+              display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 15px rgba(6, 182, 212, 0.2)'
+            }}
+          >
+            {isInitializing ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {isInitializing ? 'Saving Goals...' : 'Save My Goals'}
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* ── Overview Card ────────────────────────────────── */}
       <motion.div
         className="goal-overview-card premium-glass"
         initial={{ scale: 0.98, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, type: 'spring', stiffness: 120, damping: 20 }}
+        transition={{ delay: 0.15, type: 'spring', stiffness: 120, damping: 20 }}
       >
         <div className="overview-glow-line"></div>
         
         <div className="goal-overview-stat">
-          <span className="goal-overview-label">Total Target</span>
+          <span className="goal-overview-label">Total Goal Amount</span>
           <span className="goal-overview-value text-gradient-primary">{formatShort(totalTarget)}</span>
-          <span className="goal-overview-sub">Across {goals.length} goals</span>
+          <span className="goal-overview-sub">Across {mappedGoals.length} goals</span>
         </div>
         
         <div className="goal-overview-divider"></div>
         
         <div className="goal-overview-stat">
-          <span className="goal-overview-label">Currently Saved</span>
+          <span className="goal-overview-label">Total Saved So Far</span>
           <span className="goal-overview-value">{formatShort(totalCurrent)}</span>
           <span className="goal-overview-sub">{totalTarget > 0 ? `${Math.round((totalCurrent / totalTarget) * 100)}% of target` : ''}</span>
         </div>
@@ -427,15 +638,15 @@ const GoalTracker = ({ profile, recommendations }) => {
         <div className="goal-overview-divider"></div>
         
         <div className="goal-overview-stat">
-          <span className="goal-overview-label">Projected Corpus</span>
+          <span className="goal-overview-label">Expected Growth</span>
           <span className="goal-overview-value">{formatShort(totalProjected)}</span>
-          <span className="goal-overview-sub">At ₹{Math.round(totalMonthlySIP).toLocaleString('en-IN')}/mo SIP</span>
+          <span className="goal-overview-sub">Target Contribution: {showDbGoals ? `₹${Math.round(totalMonthlySIP).toLocaleString('en-IN')}/mo` : `₹${Math.round(totalSavings).toLocaleString('en-IN')}/mo`}</span>
         </div>
         
         <div className="goal-overview-divider"></div>
         
         <div className="goal-overview-stat">
-          <span className="goal-overview-label">Goal Health</span>
+          <span className="goal-overview-label">Overall Progress</span>
           <span className="goal-overview-value health-value" style={{
             color: overallHealth >= 80 ? '#10b981' : overallHealth >= 50 ? '#f59e0b' : '#ef4444',
             textShadow: `0 0 20px ${overallHealth >= 80 ? 'rgba(16,185,129,0.4)' : overallHealth >= 50 ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.4)'}`
@@ -447,7 +658,7 @@ const GoalTracker = ({ profile, recommendations }) => {
               backgroundColor: overallHealth >= 80 ? '#10b981' : overallHealth >= 50 ? '#f59e0b' : '#ef4444',
               boxShadow: `0 0 10px ${overallHealth >= 80 ? '#10b981' : overallHealth >= 50 ? '#f59e0b' : '#ef4444'}`
             }} />
-            {overallHealth >= 80 ? 'Healthy' : overallHealth >= 50 ? 'Needs Boost' : 'Action Needed'}
+            {overallHealth >= 80 ? 'On Track' : overallHealth >= 50 ? 'Needs higher investment' : 'Needs attention'}
           </span>
         </div>
       </motion.div>
@@ -455,19 +666,17 @@ const GoalTracker = ({ profile, recommendations }) => {
       {/* ── Goal Cards ────────────────────────────────────── */}
       <div className="goal-cards-grid">
         <AnimatePresence>
-          {goals.map((g, index) => (
+          {mappedGoals.map((g, index) => (
             <GoalCard
-              key={g}
+              key={g.key}
               index={index}
-              goal={g}
-              defaults={smartDefaults[g] || { icon: Target, themeColor: '#6366f1', themeColorRGB: '99, 102, 241', description: '', tip: '', yearsToGoal: horizon, returnRate: 10 }}
-              target={targets[g]}
-              currentSaved={currentSaved[g]}
-              onTargetChange={(val) => setTargets(prev => ({ ...prev, [g]: val }))}
-              onCurrentChange={(val) => setCurrentSaved(prev => ({ ...prev, [g]: val }))}
-              monthlyAllocation={goalAllocations[g] || 0}
-              horizon={smartDefaults[g]?.yearsToGoal || (g === 'Emergency Fund' ? Math.min(2, horizon) : horizon)}
-              returnRate={smartDefaults[g]?.returnRate || 10}
+              goalName={g.name}
+              defaults={g.defaults}
+              goalObj={g.obj}
+              onSaveUpdates={handleGoalCardUpdate}
+              monthlyAllocation={goalAllocations[g.name] || 0}
+              horizon={g.horizon}
+              returnRate={g.returnRate}
               totalSavings={totalSavings}
             />
           ))}

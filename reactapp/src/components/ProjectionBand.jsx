@@ -1,10 +1,32 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const formatINR = (value) => {
   if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)} Cr`;
   if (value >= 100000) return `₹${(value / 100000).toFixed(1)} L`;
   return `₹${Math.round(value).toLocaleString('en-IN')}`;
+};
+
+const CustomTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  return (
+    <div style={{
+      background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(6, 182, 212, 0.3)',
+      borderRadius: 12, padding: '14px 18px', color: '#e2e8f0', fontSize: '0.85rem',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 200,
+    }}>
+      <div style={{ fontWeight: 700, marginBottom: 8, color: '#06b6d4' }}>Year {d.year}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', gap: '4px 16px' }}>
+        <span style={{ color: '#94a3b8' }}>90th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p90)}</span>
+        <span style={{ color: '#94a3b8' }}>75th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p75)}</span>
+        <span style={{ color: '#06b6d4' }}>Median:</span><span style={{ fontWeight: 700, color: '#06b6d4' }}>{formatINR(d.p50)}</span>
+        <span style={{ color: '#94a3b8' }}>25th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p25)}</span>
+        <span style={{ color: '#94a3b8' }}>10th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p10)}</span>
+      </div>
+    </div>
+  );
 };
 
 const ProjectionBand = ({ chartData, targetAmount, goalProbability, instrumentName, simulationsRun }) => {
@@ -16,30 +38,6 @@ const ProjectionBand = ({ chartData, targetAmount, goalProbability, instrumentNa
   }, []);
 
   if (!chartData || chartData.length === 0) return null;
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0]?.payload;
-    if (!d) return null;
-    return (
-      <div style={{
-        background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(6, 182, 212, 0.3)',
-        borderRadius: 12, padding: '14px 18px', color: '#e2e8f0', fontSize: '0.85rem',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)', minWidth: 200,
-      }}>
-        <div style={{ fontWeight: 700, marginBottom: 8, color: '#06b6d4' }}>Year {d.year}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', gap: '4px 16px' }}>
-          <span style={{ color: '#94a3b8' }}>90th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p90)}</span>
-          <span style={{ color: '#94a3b8' }}>75th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p75)}</span>
-          <span style={{ color: '#06b6d4' }}>Median:</span><span style={{ fontWeight: 700, color: '#06b6d4' }}>{formatINR(d.p50)}</span>
-          <span style={{ color: '#94a3b8' }}>25th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p25)}</span>
-          <span style={{ color: '#94a3b8' }}>10th %ile:</span><span style={{ fontWeight: 600 }}>{formatINR(d.p10)}</span>
-        </div>
-      </div>
-    );
-  };
-
-  const maxValue = Math.max(...chartData.map(d => d.p90));
 
   return (
     <div style={{

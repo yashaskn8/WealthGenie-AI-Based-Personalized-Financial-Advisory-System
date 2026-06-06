@@ -19,12 +19,13 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
     : 0;
 
   const profileFields = [
-    { key: 'age', label: 'Age', icon: <Clock size={20} color="#94a3b8" />, type: 'number', min: 18, max: 80 },
-    { key: 'monthly_income', label: 'Monthly Income', icon: <Banknote size={20} color="#34d399" />, type: 'currency', min: 1000, max: 100000000 },
-    { key: 'monthly_savings', label: 'Monthly Savings', icon: <Wallet size={20} color="#38bdf8" />, type: 'currency', min: 500, max: 100000000 },
-    { key: 'risk_appetite', label: 'Risk Appetite', icon: <Scale size={20} color="#fbbf24" />, type: 'risk' },
-    { key: 'investment_goals', label: 'Investment Goals', icon: <Target size={20} color="#fb7185" />, type: 'goals' },
-    { key: 'investment_horizon', label: 'Investment Horizon', icon: <Telescope size={20} color="#a78bfa" />, type: 'slider', min: 1, max: 30, suffix: ' years' },
+    { key: 'age', label: 'Age', icon: <Clock size={20} color="#94a3b8" />, type: 'number', min: 18, max: 80, help: 'Helps determine investment ratios (100 minus age rule).' },
+    { key: 'monthly_income', label: 'Monthly Income', icon: <Banknote size={20} color="#34d399" />, type: 'currency', min: 1000, max: 100000000, help: 'Helps us calculate tax slabs and budget health.' },
+    { key: 'monthly_savings', label: 'Investable Amount (SIP)', icon: <Wallet size={20} color="#38bdf8" />, type: 'currency', min: 500, max: 100000000, help: 'How much money you plan to save and invest monthly.' },
+    { key: 'risk_appetite', label: 'Risk Category', icon: <Scale size={20} color="#fbbf24" />, type: 'risk', help: 'Your comfort with short-term market ups and downs.' },
+    { key: 'taxRegime', label: 'Tax Regime', icon: <Banknote size={20} color="#a78bfa" />, type: 'regime', help: 'Old vs New tax regimes used to estimate post-tax returns.' },
+    { key: 'investment_goals', label: 'Investment Goals', icon: <Target size={20} color="#fb7185" />, type: 'goals', help: 'The main reasons why you are building wealth.' },
+    { key: 'investment_horizon', label: 'Investment Horizon', icon: <Telescope size={20} color="#a78bfa" />, type: 'slider', min: 1, max: 30, suffix: ' years', help: 'Number of years you plan to keep this money growing.' },
   ];
 
   const handleEdit = () => {
@@ -155,6 +156,37 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
       );
     }
 
+    if (field.type === 'regime') {
+      const regimes = ['old', 'new'];
+      const currentRegime = val || 'new';
+      return (
+        <div style={{ display: 'flex', gap: 8 }}>
+          {regimes.map(r => (
+            <button
+              key={r}
+              onClick={() => setDraft(prev => ({ ...prev, taxRegime: r }))}
+              style={{
+                flex: 1,
+                padding: '9px 14px',
+                borderRadius: 10,
+                border: currentRegime === r ? '1.5px solid #a78bfa' : '1px solid rgba(255,255,255,0.08)',
+                background: currentRegime === r ? 'rgba(167,139,250,0.15)' : 'rgba(15,23,42,0.4)',
+                color: currentRegime === r ? '#a78bfa' : '#94a3b8',
+                fontWeight: currentRegime === r ? 700 : 500,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textTransform: 'capitalize',
+                transition: 'all 0.2s',
+              }}
+            >
+              {r} Regime
+            </button>
+          ))}
+        </div>
+      );
+    }
+
     if (field.type === 'goals') {
       return (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -218,6 +250,9 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
     return <span style={{ color: '#f8fafc', fontWeight: 600 }}>{val}</span>;
   };
 
+  const basicFields = profileFields.filter(f => ['age', 'monthly_income', 'monthly_savings', 'investment_goals'].includes(f.key));
+  const advancedFields = profileFields.filter(f => ['risk_appetite', 'taxRegime', 'investment_horizon'].includes(f.key));
+
   return (
     <div style={{ padding: '40px 28px', maxWidth: 960, margin: '0 auto', color: '#fff', position: 'relative' }}>
       <div className="profile-mesh-bg" />
@@ -251,6 +286,10 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
         transition={{ delay: 0.2, duration: 0.5 }}
       >
         <div className="profile-summary-item">
+          <div className="summary-number" style={{ color: '#f43f5e' }}>₹{Number(draft.monthly_income * 12).toLocaleString('en-IN')}</div>
+          <div className="summary-label">Annual Income</div>
+        </div>
+        <div className="profile-summary-item">
           <div className="summary-number" style={{ color: '#34d399' }}>{savingsRate}%</div>
           <div className="summary-label">Savings Rate</div>
         </div>
@@ -259,8 +298,8 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
           <div className="summary-label">Monthly SIP Budget</div>
         </div>
         <div className="profile-summary-item">
-          <div className="summary-number" style={{ color: '#a78bfa' }}>{draft.investment_horizon}Y</div>
-          <div className="summary-label">Horizon</div>
+          <div className="summary-number" style={{ color: '#a78bfa', textTransform: 'capitalize' }}>{draft.taxRegime || 'new'}</div>
+          <div className="summary-label">Tax Regime</div>
         </div>
       </motion.div>
 
@@ -291,27 +330,72 @@ const ProfileEditor = ({ userProfile, onProfileUpdate }) => {
         transition={{ delay: 0.35, type: "spring", stiffness: 100 }}
         style={{ maxWidth: '100%' }}
       >
-        <div className="hud-profile-grid">
-          {profileFields.map((field, index) => (
-            <motion.div
-              key={field.key}
-              className="hud-stat-box"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 + (index * 0.08) }}
-              style={isEditing ? { padding: '18px 20px' } : {}}
-            >
-              <div className="hud-stat-icon">{field.icon}</div>
-              <div className="hud-stat-content" style={{ flex: 1, minWidth: 0 }}>
-                <span className="hud-stat-label">{field.label}</span>
-                {isEditing ? (
-                  renderEditField(field)
-                ) : (
-                  <span className="hud-stat-value">{renderValue(field)}</span>
-                )}
-              </div>
-            </motion.div>
-          ))}
+        <div className="profile-section-group">
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#38bdf8', marginBottom: 14, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9 }}>
+            Basic Information
+          </h3>
+          <div className="hud-profile-grid" style={{ marginBottom: 28 }}>
+            {basicFields.map((field, index) => (
+              <motion.div
+                key={field.key}
+                className="hud-stat-box"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + (index * 0.06) }}
+                style={isEditing ? { padding: '18px 20px' } : {}}
+              >
+                <div className="hud-stat-icon">{field.icon}</div>
+                <div className="hud-stat-content" style={{ flex: 1, minWidth: 0 }}>
+                  <span className="hud-stat-label">{field.label}</span>
+                  {isEditing ? (
+                    <>
+                      {renderEditField(field)}
+                      <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 4, display: 'block', lineHeight: 1.3 }}>{field.help}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="hud-stat-value">{renderValue(field)}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 4, display: 'block', lineHeight: 1.3 }}>{field.help}</span>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        <div className="profile-section-group" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 24, marginTop: 12 }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#a78bfa', marginBottom: 14, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.9 }}>
+            Advanced Preferences
+          </h3>
+          <div className="hud-profile-grid">
+            {advancedFields.map((field, index) => (
+              <motion.div
+                key={field.key}
+                className="hud-stat-box"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + (index * 0.06) }}
+                style={isEditing ? { padding: '18px 20px' } : {}}
+              >
+                <div className="hud-stat-icon">{field.icon}</div>
+                <div className="hud-stat-content" style={{ flex: 1, minWidth: 0 }}>
+                  <span className="hud-stat-label">{field.label}</span>
+                  {isEditing ? (
+                    <>
+                      {renderEditField(field)}
+                      <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 4, display: 'block', lineHeight: 1.3 }}>{field.help}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="hud-stat-value">{renderValue(field)}</span>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 4, display: 'block', lineHeight: 1.3 }}>{field.help}</span>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
         {/* Action Buttons */}

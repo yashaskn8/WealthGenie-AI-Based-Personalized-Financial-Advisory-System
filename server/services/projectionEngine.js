@@ -1,3 +1,5 @@
+import { toMonthlyRate } from './instrumentConstants.js';
+
 /**
  * WealthGenie Projection Engine
  * Generates wealth projections using Lump Sum (compound interest) and SIP formulas.
@@ -5,13 +7,17 @@
  *
  * Mathematical basis:
  *   SIP FV (annuity-due) = P × [((1+r)^n - 1) / r] × (1+r)
- *   Lump Sum FV = PV × (1+r)^n
- * Where r = annualRate/12 (monthly compounding), n = years × 12.
+ *   Lump Sum FV = PV × (1+r_m)^(years×12)
+ * Where r_m = toMonthlyRate(annualRate, true) (continuous monthly compounding equivalent), n = years × 12.
  */
 
 /**
- * Lump Sum (Compound Interest) Future Value.
- * FV = P × (1 + r)^n
+ * Lump Sum (Compound Interest) Future Value — Monthly Compounding.
+ * FV = P × (1 + r_m)^(years × 12)
+ *
+ * Uses monthly compounding to maintain consistency with sipFV, reverseSIP,
+ * and Monte Carlo (all of which compound monthly). Using annual compounding
+ * here would undervalue lump sums by up to 12.8% over 20 years at 12% returns.
  *
  * @param {number} principal - One-time investment amount (₹)
  * @param {number} annualRate - Post-tax annual return rate (decimal, e.g. 0.07)
@@ -24,7 +30,9 @@ export function lumpSumFV(principal, annualRate, years) {
   if (!Number.isFinite(annualRate)) return 0;
   // Clamp rate to prevent absurd values (max 50% p.a.)
   const safeRate = Math.max(-0.5, Math.min(annualRate, 0.50));
-  return Math.max(0, principal * Math.pow(1 + safeRate, years));
+  const r = toMonthlyRate(safeRate, true);
+  const n = years * 12;
+  return Math.max(0, principal * Math.pow(1 + r, n));
 }
 
 /**
@@ -46,13 +54,56 @@ export function sipFV(monthlyInvestment, annualRate, years) {
 
   // Clamp rate to prevent absurd values
   const safeRate = Math.max(-0.5, Math.min(annualRate, 0.50));
-  const r = safeRate / 12;
+  const r = toMonthlyRate(safeRate, true);
   const n = years * 12;
 
   // Edge case: zero rate → simple sum
   if (Math.abs(r) < 1e-10) return monthlyInvestment * n;
 
   return Math.max(0, monthlyInvestment * ((Math.pow(1 + r, n) - 1) / r) * (1 + r));
+}
+
+/**
+ * Step-Up SIP (Systematic Investment Plan) Future Value.
+ * Models annual increase in monthly SIP amount.
+ *
+ * @param {number} monthlyInvestment - Initial monthly SIP amount (₹)
+ * @param {number} annualRate - Post-tax annual return rate (decimal)
+ * @param {number} years - Number of years
+ * @param {number} annualStepUpRate - Annual step-up percentage (decimal, e.g. 0.10 for 10%)
+ * @returns {number} Future value (non-negative)
+ */
+export function stepUpSipFV(monthlyInvestment, annualRate, years, annualStepUpRate = 0.10) {
+  if (!Number.isFinite(monthlyInvestment) || monthlyInvestment <= 0) return 0;
+  if (!Number.isFinite(years) || years <= 0) return 0;
+  if (!Number.isFinite(annualRate)) return 0;
+  if (!Number.isFinite(annualStepUpRate) || annualStepUpRate < 0) annualStepUpRate = 0;
+
+  const r = toMonthlyRate(annualRate, true);
+  const g = annualStepUpRate;
+
+  let balance = 0;
+  let currentSIP = monthlyInvestment;
+
+  for (let y = 1; y <= years; y++) {
+    // Compound existing balance for 12 months
+    const compoundedBalance = balance * Math.pow(1 + r, 12);
+
+    // Contribution from this year's SIP (annuity-due)
+    let yearSipFV = 0;
+    if (Math.abs(r) < 1e-10) {
+      yearSipFV = currentSIP * 12;
+    } else {
+      yearSipFV = currentSIP * ((Math.pow(1 + r, 12) - 1) / r) * (1 + r);
+    }
+
+    balance = compoundedBalance + yearSipFV;
+
+    // Step up SIP for next year
+    currentSIP *= (1 + g);
+  }
+
+  return Math.max(0, balance);
 }
 
 /**
@@ -69,7 +120,7 @@ export function reverseSIPFromFV(targetFV, annualRate, years) {
   if (!Number.isFinite(years) || years <= 0) return 0;
   if (!Number.isFinite(annualRate)) return 0;
 
-  const r = annualRate / 12;
+  const r = toMonthlyRate(annualRate, true);
   const n = years * 12;
 
   if (Math.abs(r) < 1e-10) return targetFV / n;
@@ -89,7 +140,9 @@ export function computeCAGR(initialValue, finalValue, years) {
   if (!Number.isFinite(initialValue) || initialValue <= 0) return 0;
   if (!Number.isFinite(finalValue) || finalValue <= 0) return 0;
   if (!Number.isFinite(years) || years <= 0) return 0;
-  return Math.pow(finalValue / initialValue, 1 / years) - 1;
+  // Since lumpSumFV uses monthly compounding with continuous equivalent (Math.exp(rate/12)-1),
+  // the inverse is continuous compounding: rate = ln(FV/PV) / years
+  return Math.log(finalValue / initialValue) / years;
 }
 
 /**
@@ -97,10 +150,10 @@ export function computeCAGR(initialValue, finalValue, years) {
  * real_rate = ((1 + nominal) / (1 + inflation)) - 1
  *
  * @param {number} nominalRate - Nominal annual return (decimal)
- * @param {number} inflationRate - Annual inflation rate (decimal, default 6%)
+ * @param {number} inflationRate - Annual inflation rate (decimal, default 5%)
  * @returns {number} Real return as decimal
  */
-export function realReturn(nominalRate, inflationRate = 0.06) {
+export function realReturn(nominalRate, inflationRate = 0.05) {
   if (!Number.isFinite(nominalRate)) return 0;
   if (!Number.isFinite(inflationRate) || inflationRate <= -1) return nominalRate;
   return ((1 + nominalRate) / (1 + inflationRate)) - 1;
@@ -120,7 +173,8 @@ export function generateProjections(
   instruments,
   postTaxRates,
   years = [5, 10, 15, 20],
-  inflationRate = 0.06
+  inflationRate = 0.05,
+  annualStepUpRate = 0.10
 ) {
   // Input guards
   if (!Number.isFinite(monthlyInvestment) || monthlyInvestment <= 0) {
@@ -129,14 +183,27 @@ export function generateProjections(
   if (!instruments || instruments.length === 0) {
     return { labels: years, series: [], totalInvested: {}, chartData: [] };
   }
-  if (!Number.isFinite(inflationRate) || inflationRate < 0) inflationRate = 0.06;
+  if (!Number.isFinite(inflationRate) || inflationRate < 0) inflationRate = 0.05;
+  if (!Number.isFinite(annualStepUpRate) || annualStepUpRate < 0) annualStepUpRate = 0.10;
 
   const labels = [...years].filter(y => Number.isFinite(y) && y > 0);
 
-  // Total invested at each year mark (nominal)
+  // Total invested at each year mark (nominal, flat SIP)
   const totalInvested = {};
   labels.forEach(y => {
     totalInvested[y] = monthlyInvestment * 12 * y;
+  });
+
+  // Total invested at each year mark (nominal, step-up SIP)
+  const totalInvestedStepUp = {};
+  labels.forEach(y => {
+    let sumInvested = 0;
+    let currentSIP = monthlyInvestment;
+    for (let yr = 1; yr <= y; yr++) {
+      sumInvested += currentSIP * 12;
+      currentSIP *= (1 + annualStepUpRate);
+    }
+    totalInvestedStepUp[y] = Math.round(sumInvested);
   });
 
   // Build series for each instrument
@@ -157,18 +224,26 @@ export function generateProjections(
       console.warn(`[Projection] Zero effective rate for ${inst.name}. Chart will show flat-line (no growth).`);
     }
 
-    // Nominal projections
+    // Nominal projections (flat SIP)
     const data = labels.map(y => Math.round(sipFV(monthlyInvestment, decimalRate, y)));
 
-    // Inflation-adjusted (real) projections
-    // Real rate: ((1 + nominal) / (1 + inflation)) - 1
+    // Inflation-adjusted (real) projections (flat SIP)
     const realRate = ((1 + decimalRate) / (1 + inflationRate)) - 1;
     const realData = labels.map(y => Math.round(sipFV(monthlyInvestment, realRate, y)));
+
+    // Step-up projections (nominal & real)
+    const stepUpData = labels.map(y => Math.round(stepUpSipFV(monthlyInvestment, decimalRate, y, annualStepUpRate)));
+    const stepUpRealRate = ((1 + decimalRate) / (1 + inflationRate)) - 1;
+    const stepUpRealData = labels.map(y => Math.round(stepUpSipFV(monthlyInvestment, stepUpRealRate, y, annualStepUpRate)));
 
     // Wealth multiplier: how many times your invested amount grows
     const finalNominal = data[data.length - 1] || 0;
     const finalInvested = totalInvested[labels[labels.length - 1]] || 1;
     const wealthMultiplier = parseFloat((finalNominal / finalInvested).toFixed(2));
+
+    const finalStepUpNominal = stepUpData[stepUpData.length - 1] || 0;
+    const finalStepUpInvested = totalInvestedStepUp[labels[labels.length - 1]] || 1;
+    const stepUpWealthMultiplier = parseFloat((finalStepUpNominal / finalStepUpInvested).toFixed(2));
 
     return {
       name: inst.name,
@@ -177,16 +252,25 @@ export function generateProjections(
       realRate: parseFloat((realRate * 100).toFixed(2)),
       data,
       realData,
+      stepUpData,
+      stepUpRealData,
       wealthMultiplier,
+      stepUpWealthMultiplier,
     };
   });
 
   // Recharts-friendly dataset (array of objects per year)
   const chartData = labels.map((year, idx) => {
-    const point = { year, invested: totalInvested[year] };
+    const point = {
+      year,
+      invested: totalInvested[year],
+      invested_stepUp: totalInvestedStepUp[year]
+    };
     series.forEach(s => {
       point[s.name] = s.data[idx];
       point[`${s.name}_real`] = s.realData[idx];
+      point[`${s.name}_stepUp`] = s.stepUpData[idx];
+      point[`${s.name}_stepUp_real`] = s.stepUpRealData[idx];
     });
     return point;
   });
@@ -195,8 +279,10 @@ export function generateProjections(
     labels,
     series,
     totalInvested,
+    totalInvestedStepUp,
     chartData,
     inflationRate,
+    annualStepUpRate,
   };
 }
 
@@ -208,7 +294,15 @@ export function generateProjections(
  */
 export function formatINR(value) {
   if (!Number.isFinite(value)) return '₹0';
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(2)} L`;
-  return `₹${value.toLocaleString('en-IN')}`;
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  const sign = isNegative ? '-' : '';
+
+  if (absValue >= 10000000) {
+    return `${sign}₹${(absValue / 10000000).toFixed(2)} Cr`;
+  }
+  if (absValue >= 100000) {
+    return `${sign}₹${(absValue / 100000).toFixed(2)} L`;
+  }
+  return `${sign}₹${Math.round(absValue).toLocaleString('en-IN')}`;
 }

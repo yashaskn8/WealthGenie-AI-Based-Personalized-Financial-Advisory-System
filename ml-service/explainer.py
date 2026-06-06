@@ -1,6 +1,29 @@
 """
 WealthGenie SHAP Explainability Layer
 Uses TreeExplainer for fast, exact SHAP values on RandomForest.
+
+=========================================================================
+📘 BEGINNER NOTE: SHAP & SHAPLEY VALUES
+=========================================================================
+1. Shapley Values (Game Theory):
+   Imagine a group of four friends (Age, Income, Savings, stated Risk) playing 
+   a cooperative game to build a portfolio recommendation. Together, they score 
+   some points (the model's prediction probability, e.g., 78% Aggressive).
+   How do you divide the credit fairly among the four friends?
+   Lloyd Shapley (a Nobel laureate in Economics) created a formula that calculates
+   the average contribution of each player across every possible combination of team sizes.
+   In ML, SHAP computes these exact values to show you exactly how much credit (or blame)
+   each of your inputs gets for the final recommendation.
+
+2. TreeExplainer vs. Fallback:
+   - TreeExplainer: A highly optimized mathematical algorithm designed specifically for
+     decision tree models (like Random Forests). It traverses the tree structures in 
+     polynomial time to compute exact SHAP values in milliseconds.
+   - Fallback Explainer: If the `shap` Python library is missing (common in restricted or
+     lightweight deployment environments), we fall back to a simpler approach: we use the
+     Random Forest's global feature importances, and compare the user's features against
+     standard population averages (e.g. comparing a user's age of 28 to the average of 35)
+     to deduce the direction of the contribution.
 """
 
 import numpy as np

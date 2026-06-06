@@ -1,4 +1,5 @@
 import { calculatePostTaxReturn, calculatePostTaxReturnSafe, validatePostTaxResult } from '../services/postTaxCalculator.js';
+import { CESS_RATE } from '../services/instrumentConstants.js';
 
 describe('Post-Tax Return Calculator — FY2025-26', () => {
 
@@ -66,7 +67,7 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
     test('Debt MF: taxed at slab regardless of holding', () => {
       // ₹15L income new regime: taxableIncome = 14.25L → 15% slab
       const r = calculatePostTaxReturn('Debt_MF', 0.07, 1500000, 5, 'new');
-      expect(r.taxRate).toBe(0.15);
+      expect(r.taxRate).toBeCloseTo(0.15 * (1 + CESS_RATE), 6);
     });
   });
 
@@ -169,8 +170,9 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       const r = calculatePostTaxReturnSafe(
         'FD', 0.0725, PROFILE.income, 1, PROFILE.regime
       );
-      expect(r.postTaxReturn).toBeCloseTo(0.068875, 4);
-      expect(r.taxRate).toBe(0.05);
+      const expectedTaxRate = 0.05 * (1 + CESS_RATE);
+      expect(r.postTaxReturn).toBeCloseTo(0.0725 * (1 - expectedTaxRate), 4);
+      expect(r.taxRate).toBeCloseTo(expectedTaxRate, 6);
     });
 
     test('validation: throws on post-tax exceeding nominal', () => {
@@ -203,8 +205,9 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       const r = calculatePostTaxReturnSafe(
         'Liquid_MF', 0.07, 780000, 1, 'new'
       );
-      expect(r.postTaxReturn).toBeCloseTo(0.0665, 3);
-      expect(r.taxRate).toBe(0.05);
+      const expectedTaxRate = 0.05 * (1 + CESS_RATE);
+      expect(r.postTaxReturn).toBeCloseTo(0.07 * (1 - expectedTaxRate), 4);
+      expect(r.taxRate).toBeCloseTo(expectedTaxRate, 6);
       expect(r.postTaxReturn).toBeLessThan(0.07);
     });
 
@@ -212,7 +215,30 @@ describe('Post-Tax Return Calculator — FY2025-26', () => {
       const r = calculatePostTaxReturnSafe(
         'Debt_MF', 0.075, 780000, 1, 'new'
       );
-      expect(r.postTaxReturn).toBeCloseTo(0.07125, 3);
+      const expectedTaxRate = 0.05 * (1 + CESS_RATE);
+      expect(r.postTaxReturn).toBeCloseTo(0.075 * (1 - expectedTaxRate), 4);
+    });
+
+    test('SGB: RBI early redemption (exempt) vs secondary market sale (LTCG taxable)', () => {
+      // Nominal rate: 12.5%. Coupon rate: 2.5%. Capital appreciation: 10%.
+      // 1. RBI redemption window (5 years, isSgbRedeemedWithRBI = true)
+      // Interest tax drag = 2.5% * marginalRate (0.05 * 1.04) = 0.13%
+      // Capital gains tax drag = 0
+      const rbiRes = calculatePostTaxReturn(
+        'SGB', 0.125, 780000, 5, 'new', 10000, 30, true
+      );
+      expect(rbiRes.taxType).toBe('Coupon taxable at slab; maturity gains exempt');
+      expect(rbiRes.postTaxReturn).toBeCloseTo(0.125 - (0.025 * 0.05 * 1.04), 4);
+
+      // 2. Secondary market sale (5 years, isSgbRedeemedWithRBI = false)
+      // Interest tax drag = 2.5% * marginalRate (0.05 * 1.04) = 0.13%
+      // Capital gains tax drag = 10% * 12.5% = 1.25%
+      // Total tax drag = 1.38%
+      const secondaryRes = calculatePostTaxReturn(
+        'SGB', 0.125, 780000, 5, 'new', 10000, 30, false
+      );
+      expect(secondaryRes.taxType).toBe('Secondary market sale (taxable)');
+      expect(secondaryRes.postTaxReturn).toBeCloseTo(0.125 - (0.025 * 0.05 * 1.04 + 0.10 * 0.125), 4);
     });
   });
 });

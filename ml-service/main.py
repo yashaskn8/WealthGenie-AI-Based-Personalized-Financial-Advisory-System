@@ -1,16 +1,36 @@
 """
 WealthGenie ML Microservice — FastAPI
 Serves RandomForest predictions with SHAP explainability on port 8000.
+
+=========================================================================
+📘 BEGINNER NOTE: RANDOM FOREST & SHAP VALUES
+=========================================================================
+1. Random Forest Classifier:
+   Imagine asking a single person for financial advice. They might have biases.
+   Now imagine asking 100 diverse financial advisors and letting them vote on
+   the best advice. This is a Random Forest!
+   It trains 100 individual "Decision Trees" on different subsets of data.
+   When a new prediction comes in, all 100 trees vote on which portfolio category
+   (e.g., Aggressive or Moderate) fits the user best. The category with the 
+   most votes is returned as the primary recommendation.
+
+2. SHAP (Shapley Additive exPlanations):
+   Machine learning models are often "black boxes" — we get an answer, but we
+   don't know *why*. SHAP uses game theory (Shapley values) to break down the
+   contribution of each feature.
+   It calculates: "By how much did your Age push the recommendation towards
+   Conservative?" or "How much did your high Income pull it towards Aggressive?"
+   This lets us explain the model's recommendation to the user in plain English.
 """
 
 import os
 import numpy as np
 import joblib
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import PredictRequest, PredictResponse, HealthResponse
-from explainer import load_explainer
+from explainer import load_explainer, ModelExplainer
 from feature_engineering import engineer_features, to_model_array
 from backtester import run_backtest, BacktestResult, INSTRUMENT_MARKET_SENSITIVITY
 from typing import List
@@ -47,12 +67,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[WARN] DecisionTree load failed: {e}")
 
-    # Initialize SHAP explainer
-    explainer_instance = load_explainer()
-    if explainer_instance:
-        print("[OK] SHAP Explainer initialized")
+    # Initialize SHAP explainer from preloaded model and label encoder to avoid double-loading
+    if model is not None and label_encoder is not None:
+        try:
+            explainer_instance = ModelExplainer(model, label_encoder)
+            print("[OK] SHAP Explainer initialized from preloaded model")
+        except Exception as e:
+            print(f"[WARN] SHAP Explainer initialization failed: {e}")
+            explainer_instance = None
     else:
-        print("[WARN] SHAP Explainer not available, predictions will work without explanations")
+        explainer_instance = None
+        print("[WARN] Model files not loaded, SHAP Explainer not available")
 
     yield
     # Cleanup on shutdown (if needed)
@@ -60,9 +85,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="WealthGenie ML Service", version="2.0.0", lifespan=lifespan)
 
+cors_origins_env = os.environ.get("CORS_ORIGINS")
+origins = cors_origins_env.split(",") if cors_origins_env else ["http://localhost:5000", "http://localhost:5173"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5000", "http://localhost:5173"],
+    allow_origins=origins,
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
@@ -103,6 +131,14 @@ def get_decision_path_description(age, income, risk_category):
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
+    """
+    Standard prediction endpoint.
+    
+    BEGINNER NOTE: STANDARD vs ENRICHED PREDICTIONS
+    This endpoint takes raw inputs (Age, Income, Savings, stated Risk Category)
+    and maps them to a risk score directly to predict the optimal portfolio class.
+    It returns the confidence scores and a SHAP explanation attributing features.
+    """
     if model is None or label_encoder is None:
         raise HTTPException(status_code=503, detail="Model not loaded. Run train.py first.")
 
@@ -161,8 +197,17 @@ def health():
 @app.post("/predict/enriched")
 async def predict_enriched(data: PredictRequest):
     """
-    Extended prediction endpoint that includes feature
-    engineering context in the response.
+    Extended prediction endpoint.
+    
+    BEGINNER NOTE: FEATURE ENGINEERING ENRICHMENT
+    Unlike the standard /predict endpoint, this endpoint feeds raw inputs through 
+    the feature engineering layer first. It derives advanced metrics like:
+    - Savings Rate (savings divided by monthly income)
+    - Retirement Horizon (years remaining until age 60)
+    - Risk Age Score (compounding risk score relative to age)
+    
+    These derived variables provide better mathematical context to the Random Forest model
+    to make more robust recommendations.
     """
     risk_score = RISK_ENCODING.get(data.risk_category, 2)
     features = engineer_features(
@@ -208,8 +253,8 @@ async def predict_enriched(data: PredictRequest):
 @app.get("/backtest/{instrument_type}")
 async def backtest_instrument(
     instrument_type: str,
-    monthly_sip: float = 10000,
-    years: int = 5
+    monthly_sip: float = Query(10000.0, gt=0, description="Monthly SIP amount (must be positive)"),
+    years: int = Query(5, gt=0, le=50, description="Holding period in years (must be between 1 and 50)")
 ):
     """
     Returns historical scenario analysis for an instrument type.
