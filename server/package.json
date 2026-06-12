@@ -7,8 +7,7 @@
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "seed": "node config/seedInstruments.js",
-    "test": "npx --node-options=--experimental-vm-modules jest --forceExit"
+    "seed": "node config/seedInstruments.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -24,9 +23,5 @@
     "mongoose": "^8.8.0",
     "morgan": "^1.10.0",
     "redis": "^4.7.0"
-  },
-  "devDependencies": {
-    "@jest/globals": "^30.3.0",
-    "jest": "^30.3.0"
   }
 }
