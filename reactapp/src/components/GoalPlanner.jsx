@@ -610,7 +610,7 @@ const GoalPlanner = ({ profile }) => {
                   {/* Probability progress bar */}
                   <div style={{ marginTop: 20 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}><JargonTooltip term="Success Probability">Success Probability</JargonTooltip></span>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}><JargonTooltip term="Success Probability">Chance of Reaching Goal</JargonTooltip></span>
                       <span style={{ fontSize: '0.85rem', color: cfg.color, fontWeight: 800, textShadow: `0 0 10px ${cfg.color}60` }}>
                         {Math.round(getLiveProbability(goal) * 100)}%
                       </span>
@@ -704,9 +704,9 @@ const GoalPlanner = ({ profile }) => {
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <MetricCard label="Target" value={formatINR(selectedGoal.target_amount)} icon={<Target size={16} />} />
-                    <MetricCard label="Required Monthly SIP" value={`${formatINR(selectedGoal.recommended_sip)}/mo`} icon={<TrendingUp size={16} />} />
+                    <MetricCard label="Recommended Monthly Savings" value={`${formatINR(selectedGoal.recommended_sip)}/mo`} icon={<TrendingUp size={16} />} />
                     <MetricCard label="Deadline" value={new Date(selectedGoal.target_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short' })} icon={<Calendar size={16} />} />
-                    <MetricCard label="Instrument" value={(selectedGoal.recommended_instrument || '').replace('_', ' ')} icon={<DollarSign size={16} />} />
+                    <MetricCard label="Suggested Plan" value={(selectedGoal.recommended_instrument || '').replace('_', ' ')} icon={<DollarSign size={16} />} />
                   </div>
                 )}
 
@@ -746,9 +746,9 @@ const GoalPlanner = ({ profile }) => {
                     fontSize: '0.9rem', color: '#fda4af', display: 'flex', alignItems: 'center', gap: 12,
                     boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05)'
                   }}>
-                    <AlertTriangle size={20} color="#f43f5e" />
+                    <AlertTriangle size={20} color="#f43f5e" style={{ flexShrink: 0 }} />
                     <div style={{ lineHeight: 1.5 }}>
-                      You need <strong style={{ color: '#fff' }}>{formatINR(selectedGoal.gap_amount)}</strong> more monthly contribution to achieve this goal on schedule.
+                      You need to save an extra <strong style={{ color: '#fff' }}>{formatINR(selectedGoal.gap_amount)}</strong> each month to reach your target on time.
                     </div>
                   </motion.div>
                 )}
@@ -758,7 +758,7 @@ const GoalPlanner = ({ profile }) => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                     <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       <Sliders size={14} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-                      See What Happens If You Save More (<JargonTooltip term="SIP">SIP</JargonTooltip> Simulator)
+                      See how saving more speeds up your goal (Savings Simulator)
                     </label>
                     <span style={{ color: '#fff', fontWeight: 800 }}>{formatINR(simulatedSips[selectedGoal._id || selectedGoal.goalId] || selectedGoal.recommended_sip)}/mo</span>
                   </div>
@@ -776,7 +776,7 @@ const GoalPlanner = ({ profile }) => {
                     <span>{formatINR(selectedGoal.recommended_sip * 2.5)}</span>
                   </div>
                   <div style={{ marginTop: 12, fontSize: '0.85rem', color: '#cbd5e1' }}>
-                    Adjust the slider to see how saving a different amount changes your projected growth and improves your chance of success to <strong style={{ color: STATUS_CONFIG[selectedGoal.status]?.color || '#10b981' }}>{Math.round(getLiveProbability(selectedGoal) * 100)}%</strong>.
+                    Use the slider to see how changing your monthly savings impacts your projected growth and increases your chance of meeting your target to <strong style={{ color: STATUS_CONFIG[selectedGoal.status]?.color || '#10b981' }}>{Math.round(getLiveProbability(selectedGoal) * 100)}%</strong>.
                   </div>
                 </div>
 

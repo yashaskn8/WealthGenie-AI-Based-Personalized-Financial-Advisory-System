@@ -9,27 +9,27 @@ import './components/TaxScreen.css';
 
 // Rich descriptions of Indian IT Act Tax Treatments
 const TAX_Nuances = {
-  'Triple Tax-Free (EEE)': {
+  'Fully Tax-Free (Triple Exempt - EEE)': {
     details: 'Triple Tax-Free (Exempt-Exempt-Exempt) status. Your deposits, the interest you earn, and the final maturity amount are 100% tax-free. Excellent for building wealth without tax liabilities.',
     examples: 'PPF, Sukanya Samriddhi Yojana (SSY)'
   },
-  'Added to Income Slab': {
+  'Taxed at Slab Rate': {
     details: 'Interest is added directly to your annual income and taxed at your regular tax bracket rate (up to 30% + cess). For example, fixed deposits and debt mutual funds are taxed this way.',
     examples: 'Fixed Deposits, Debt Mutual Funds, Recurring Deposits (RD)'
   },
-  'Equity Tax (12.5% LTCG)': {
+  'Equity Tax (12.5% Long-Term Gains)': {
     details: 'Long-Term Capital Gains are profits taxed at a flat rate of 12.5% when you sell an equity investment held for over 1 year, and only on profits above ₹1.25 Lakh per year.',
     examples: 'Equity Mutual Funds, Direct Stocks, Equity ETFs'
   },
-  'ELSS Tax-Saver (12.5% LTCG)': {
+  'ELSS Tax-Saver (12.5% Long-Term Gains)': {
     details: 'Equity Linked Savings Scheme (ELSS) long-term gains are taxed at 12.5% on profits above ₹1.25L. Qualifies for Section 80C tax deduction but has a 3-year lock-in.',
     examples: 'Tax-saving Equity Mutual Funds'
   },
-  'Retirement Scheme (Partial EET)': {
+  'Retirement Scheme (Partial Tax-Exempt)': {
     details: 'Exempt-Exempt-Taxed status. 60% of your retirement savings is completely tax-free on withdrawal at age 60. The remaining 40% must be used to buy a regular pension (annuity), which is taxed like regular income.',
     examples: 'National Pension System (NPS)'
   },
-  'Gold Bond (SGB) Rules': {
+  'Gold Bond (SGB) Tax Rules': {
     details: 'Annual interest of 2.5% is added to your income and taxed at your tax bracket. However, capital gains when gold bonds mature after 8 years are 100% tax-free! Very tax-efficient for gold.',
     examples: 'Sovereign Gold Bonds'
   }
@@ -162,9 +162,9 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
 
       // Determine tax type label from instrument
       const taxTypeLabels = {
-        eee: 'Triple Tax-Free (EEE)', slab: 'Added to Income Slab',
-        ltcg: 'Equity Tax (12.5% LTCG)', elss: 'ELSS Tax-Saver (12.5% LTCG)',
-        nps: 'Retirement Scheme (Partial EET)', sgb: 'Gold Bond (SGB) Rules',
+        eee: 'Fully Tax-Free (Triple Exempt - EEE)', slab: 'Taxed at Slab Rate',
+        ltcg: 'Equity Tax (12.5% Long-Term Gains)', elss: 'ELSS Tax-Saver (12.5% Long-Term Gains)',
+        nps: 'Retirement Scheme (Partial Tax-Exempt)', sgb: 'Gold Bond (SGB) Tax Rules',
       };
       const taxType = taxTypeLabels[inv.taxType] || 'Capital Gains';
 
@@ -206,7 +206,7 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
           <Scale size={11} style={{ marginRight: 4, verticalAlign: '-1px' }} />
           Actual Returns
         </div>
-        <h1 className="tax-page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+        <h1 className="tax-page-title" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
           Actual Returns (After Tax & Inflation)
         </h1>
         <p className="tax-page-subtitle">
@@ -257,13 +257,13 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
         <div className="tax-control-card" style={{ background: 'linear-gradient(155deg, rgba(15,23,42,0.85) 0%, rgba(7,11,20,0.6) 100%)' }}>
           <div className="tax-control-card-header">
             <div className="tax-control-card-icon" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa' }}><Percent size={20} /></div>
-            <label>Your Tax Bracket (TDS)</label>
+            <label>Your Tax Bracket (Slab Rate)</label>
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#f8fafc', margin: '4px 0 2px' }}>
-            {(marginalRate * 100).toFixed(0)}% <span style={{ fontSize: '0.88rem', color: '#64748b', fontWeight: 600 }}>Slab Rate</span>
+            {(marginalRate * 100).toFixed(0)}% <span style={{ fontSize: '0.88rem', color: '#64748b', fontWeight: 600 }}>Highest Slab</span>
           </div>
           <span style={{ fontSize: '0.75rem', color: '#a78bfa', fontWeight: 700 }}>
-            Effective Tax Rate: {(effectiveRate * 100).toFixed(1)}%
+            Overall Average Tax Rate: {(effectiveRate * 100).toFixed(1)}%
           </span>
         </div>
       </motion.div>
@@ -283,7 +283,7 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
         }}
       >
         <Sparkles size={28} color="#38bdf8" style={{ margin: '0 auto 12px' }} />
-        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>Money You Keep</h3>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>What You Actually Keep</h3>
         <p style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#e2e8f0', lineHeight: 1.5 }}>
           For every <strong style={{ color: '#38bdf8' }}>₹1,000</strong> of investment profits, you keep about <strong style={{ color: '#10b981', fontSize: '1.2rem', textShadow: '0 0 10px rgba(16,185,129,0.3)' }}>₹{bottomLineMetrics.keptAmount}</strong> after accounting for capital gains tax and {inflationRate}% price inflation.
         </p>
@@ -376,9 +376,9 @@ const PostTaxAnalysis = ({ profile, recommendations }) => {
                   <YAxis tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 500 }} tickFormatter={(val) => `${val}%`} axisLine={false} tickLine={false} />
                   <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)' }} contentStyle={{ background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(12px)', border: '1px solid rgba(14, 165, 233, 0.3)', borderRadius: 12, color: '#f8fafc', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }} />
                   <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '13px', paddingBottom: '16px', fontWeight: 600, color: '#94a3b8' }}/>
-                  <Bar dataKey="nominalReturn" name="Gross Growth Rate (Before Tax)" fill="url(#colorNominal)" radius={[6,6,0,0]} barSize={28} />
-                  <Bar dataKey="postTaxReturn" name="Post-Tax Growth Rate (What You Keep)" fill="url(#colorPostTax)" radius={[6,6,0,0]} barSize={28} />
-                  <Bar dataKey="realReturn" name="Actual Purchasing Power (After Inflation)" fill="url(#colorReal)" radius={[6,6,0,0]} barSize={28} />
+                  <Bar dataKey="nominalReturn" name="Estimated Return (Before Tax)" fill="url(#colorNominal)" radius={[6,6,0,0]} barSize={28} />
+                  <Bar dataKey="postTaxReturn" name="After-Tax Return (What You Keep)" fill="url(#colorPostTax)" radius={[6,6,0,0]} barSize={28} />
+                  <Bar dataKey="realReturn" name="Real Return (Adjusted for Inflation & Tax)" fill="url(#colorReal)" radius={[6,6,0,0]} barSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

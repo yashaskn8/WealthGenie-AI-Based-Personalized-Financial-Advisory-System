@@ -132,32 +132,37 @@ const GoalCard = ({
     ? goalObj.monte_carlo_summary.p50
     : calculateSIPFutureValue(monthlyAllocation, returnRate, horizon) + lumpSumGrowth;
 
-  const progressPercent = Math.min((actualSaved / (actualTarget || 1)) * 100, 100);
-  const projectedPercent = Math.min((projectedValue / (actualTarget || 1)) * 100, 100);
+  // MC projections target the inflation-adjusted amount, so compare against that
+  const comparisonTarget = isDbGoal && goalObj?.inflation_adjusted_target
+    ? goalObj.inflation_adjusted_target
+    : actualTarget;
 
-  const gap = actualTarget - projectedValue;
+  const progressPercent = Math.min((actualSaved / (actualTarget || 1)) * 100, 100);
+  const projectedPercent = Math.min((projectedValue / (comparisonTarget || 1)) * 100, 100);
+
+  const gap = comparisonTarget - projectedValue;
   const gapPositive = gap > 0;
 
-  const completionPct = Math.min(Math.round((projectedValue / (actualTarget || 1)) * 100), 999);
+  const completionPct = Math.min(Math.round((projectedValue / (comparisonTarget || 1)) * 100), 999);
 
   let status, statusClass, StatusIcon;
   if (isDbGoal) {
     if (goalObj.status === 'on_track') {
-      status = 'Highly Probable (On Track)'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
+      status = 'On Track (Highly Likely)'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
     } else if (goalObj.status === 'at_risk') {
-      status = 'Fair Chance (Need Boost)'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
+      status = 'Slightly Behind (Needs Boost)'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
     } else {
-      status = 'At Risk (Action Needed)'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
+      status = 'Off Track (Action Required)'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
     }
   } else {
     if (completionPct >= 100) {
-      status = 'Highly Probable (On Track)'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
+      status = 'On Track (Highly Likely)'; statusClass = 'status--ontrack'; StatusIcon = CheckCircle;
     } else if (completionPct >= 70) {
-      status = 'Fair Chance (Need Boost)'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
+      status = 'Slightly Behind (Needs Boost)'; statusClass = 'status--almost'; StatusIcon = TrendingUp;
     } else if (completionPct >= 40) {
-      status = 'At Risk (Action Needed)'; statusClass = 'status--attention'; StatusIcon = AlertTriangle;
+      status = 'Off Track (Action Required)'; statusClass = 'status--attention'; StatusIcon = AlertTriangle;
     } else {
-      status = 'At Risk (Action Needed)'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
+      status = 'Off Track (Action Required)'; statusClass = 'status--behind'; StatusIcon = AlertTriangle;
     }
   }
 
@@ -210,7 +215,7 @@ const GoalCard = ({
               {priority}
             </span>
           </div>
-          <p className="goal-card-desc">{isDbGoal && goalObj.recommended_instrument ? `Targeted via ${goalObj.recommended_instrument.replace('_', ' ')}` : defaults.description}</p>
+          <p className="goal-card-desc">{isDbGoal && goalObj.recommended_instrument ? `Saving through ${goalObj.recommended_instrument.replace('_', ' ')}` : defaults.description}</p>
         </div>
         <span className={`goal-status-badge ${statusClass}`}>
           <StatusIcon size={12} style={{ marginRight: 4 }} /> {status}
@@ -221,7 +226,7 @@ const GoalCard = ({
       <div className="goal-inputs-row">
         <div className="goal-input-group">
           <div className="goal-input-label-row">
-            <label><Target size={12} style={{marginRight:4, color:'#38bdf8'}} /> Target Goal</label>
+            <label><Target size={12} style={{marginRight:4, color:'#38bdf8'}} /> Goal Target</label>
             <span className="goal-input-hint-badge">{formatShort(actualTarget)}</span>
           </div>
           <div className="goal-input-wrapper">
@@ -240,7 +245,7 @@ const GoalCard = ({
         </div>
         <div className="goal-input-group">
           <div className="goal-input-label-row">
-            <label><Wallet size={12} style={{marginRight:4, color:'#10b981'}} /> My Savings</label>
+            <label><Wallet size={12} style={{marginRight:4, color:'#10b981'}} /> Current Savings</label>
             <span className="goal-input-hint-badge">{formatShort(actualSaved)}</span>
           </div>
           <div className="goal-input-wrapper">
@@ -275,7 +280,7 @@ const GoalCard = ({
           }}
         >
           {isUpdating ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-          Save Changes & Recompute Progress
+          Save Changes & Update Projections
         </motion.button>
       )}
 
@@ -283,11 +288,11 @@ const GoalCard = ({
       <div className="goal-progress-section">
         <div className="goal-progress-labels">
           <div className="progress-label-left">
-            <span className="label-title">Saved</span>
+            <span className="label-title">Saved So Far</span>
             <span className="label-value">{formatShort(actualSaved)}</span>
           </div>
           <div className="progress-label-right">
-            <span className="label-title">Target</span>
+            <span className="label-title">Goal Target</span>
             <span className="label-value" style={{ color: defaults.themeColor || '#6366f1' }}>{formatShort(actualTarget)}</span>
           </div>
         </div>
@@ -313,11 +318,11 @@ const GoalCard = ({
         <div className="goal-progress-legend">
           <div className="legend-item">
             <span className="legend-dot" style={{ background: defaults.themeColor || '#6366f1', boxShadow: `0 0 6px rgba(${defaults.themeColorRGB || '99,102,241'}, 0.8)` }}></span>
-            Saved <span className="legend-pct">({progressPercent.toFixed(0)}%)</span>
+            Saved <span className="legend-pct">({progressPercent.toFixed(0)}% of Target)</span>
           </div>
           <div className="legend-item">
             <span className="legend-dot" style={{ background: defaults.themeColor || '#6366f1', opacity: 0.5 }}></span>
-            Projected <span className="legend-pct">({completionPct}%)</span>
+            Projected <span className="legend-pct">({completionPct}% of Target)</span>
           </div>
         </div>
       </div>
@@ -325,26 +330,26 @@ const GoalCard = ({
       {/* Key Metrics Grid */}
       <div className="goal-card-footer">
         <div className="goal-metric">
-          <span className="goal-metric-label"><IndianRupee size={12} /> <JargonTooltip term="SIP">Monthly SIP</JargonTooltip></span>
+          <span className="goal-metric-label"><IndianRupee size={12} /> Monthly Savings</span>
           <span className="goal-metric-value">{formatINR(monthlyAllocation)}</span>
-          <span className="goal-metric-sub">{totalSavings > 0 ? `${Math.round((monthlyAllocation / totalSavings) * 100)}% of total` : '--'}</span>
+          <span className="goal-metric-sub">{totalSavings > 0 ? `${Math.round((monthlyAllocation / totalSavings) * 100)}% of your monthly savings` : '--'}</span>
         </div>
         <div className="goal-metric">
-          <span className="goal-metric-label"><Clock size={12} /> Years to Goal</span>
+          <span className="goal-metric-label"><Clock size={12} /> Time Remaining</span>
           <span className="goal-metric-value">{horizon}y</span>
-          <span className="goal-metric-sub">@ {returnRate}% <JargonTooltip term="CAGR">yearly growth</JargonTooltip></span>
+          <span className="goal-metric-sub">@ {returnRate}% expected yearly growth</span>
         </div>
         <div className="goal-metric">
-          <span className="goal-metric-label"><TrendingUp size={12} /> Projected</span>
+          <span className="goal-metric-label"><TrendingUp size={12} /> Expected Future Value</span>
           <span className="goal-metric-value" style={{ color: defaults.themeColor || '#6366f1' }}>{formatShort(projectedValue)}</span>
-          <span className="goal-metric-sub">{completionPct >= 100 ? 'Fully Met' : `${completionPct}% Met`}</span>
+          <span className="goal-metric-sub">{completionPct >= 100 ? 'Goal Fully Covered!' : `${completionPct}% of Target`}</span>
         </div>
         <div className="goal-metric">
-          <span className="goal-metric-label">{gapPositive ? 'Shortfall' : 'Surplus'}</span>
+          <span className="goal-metric-label">{gapPositive ? 'Still Need (Gap)' : 'Extra Savings'}</span>
           <span className="goal-metric-value" style={{ color: gapPositive ? '#f43f5e' : '#10b981' }}>
             {formatShort(Math.abs(gap))}
           </span>
-          <span className="goal-metric-sub">{gapPositive ? 'Needs more saving' : 'On Track'}</span>
+          <span className="goal-metric-sub">{gapPositive ? 'Save more to reach your goal' : 'You\'re ahead of target!'}</span>
         </div>
       </div>
 
@@ -355,7 +360,7 @@ const GoalCard = ({
             <div className="action-card-highlight" style={{ background: gapPositive ? '#eab308' : '#10b981' }}></div>
             <Sparkles size={16} color={gapPositive ? '#eab308' : '#10b981'} style={{ flexShrink: 0, marginTop: 2, zIndex: 1 }} />
             <div style={{ zIndex: 1, fontSize: '0.8rem' }}>
-              <strong>Advisor Recommendations:</strong>
+              <strong>Your Adviser Says:</strong>
               {goalObj.gemini_advice}
             </div>
           </motion.div>
@@ -478,6 +483,17 @@ const GoalTracker = ({ profile, recommendations }) => {
   // Compute total monthly allocations per goal
   const goalAllocations = useMemo(() => {
     const allocs = {};
+
+    // For DB goals, use the backend-computed recommended_sip for each goal
+    // (more accurate than reverse-engineering from recommendation matching)
+    if (showDbGoals) {
+      mappedGoals.forEach(g => {
+        allocs[g.name] = g.obj?.recommended_sip || 0;
+      });
+      return allocs;
+    }
+
+    // For local goals, distribute based on recommendation-goal matching
     mappedGoals.forEach(g => { allocs[g.name] = 0; });
     
     // Dynamic matching of allocations from recommendations
@@ -494,7 +510,7 @@ const GoalTracker = ({ profile, recommendations }) => {
       mappedGoals.forEach(g => { allocs[g.name] = totalSavings / mappedGoals.length; });
     }
     return allocs;
-  }, [mappedGoals, recommendations, totalSavings]);
+  }, [mappedGoals, recommendations, totalSavings, showDbGoals]);
 
   // Combined calculations for the HUD
   const totalTarget = useMemo(() => {
@@ -531,13 +547,21 @@ const GoalTracker = ({ profile, recommendations }) => {
     return Object.values(goalAllocations).reduce((a, b) => a + b, 0);
   }, [showDbGoals, dbGoals, goalAllocations]);
 
-  const overallHealth = totalTarget > 0 ? Math.min(Math.round((totalProjected / totalTarget) * 100), 100) : 0;
+  // MC projections target inflation-adjusted amounts, so use those for health calculation
+  const totalInflationAdjustedTarget = useMemo(() => {
+    if (showDbGoals) {
+      return dbGoals.reduce((sum, g) => sum + (Number(g.inflation_adjusted_target || g.target_amount) || 0), 0);
+    }
+    return totalTarget;
+  }, [showDbGoals, dbGoals, totalTarget]);
+
+  const overallHealth = totalInflationAdjustedTarget > 0 ? Math.min(Math.round((totalProjected / totalInflationAdjustedTarget) * 100), 100) : 0;
 
   if (loading) {
     return (
       <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
         <RefreshCw size={44} color="#06b6d4" className="animate-spin" />
-        <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Syncing portfolio goal data...</span>
+        <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>Loading your goals...</span>
       </div>
     );
   }
@@ -622,7 +646,7 @@ const GoalTracker = ({ profile, recommendations }) => {
         <div className="overview-glow-line"></div>
         
         <div className="goal-overview-stat">
-          <span className="goal-overview-label">Total Goal Amount</span>
+          <span className="goal-overview-label">What You're Saving For</span>
           <span className="goal-overview-value text-gradient-primary">{formatShort(totalTarget)}</span>
           <span className="goal-overview-sub">Across {mappedGoals.length} goals</span>
         </div>
@@ -630,7 +654,7 @@ const GoalTracker = ({ profile, recommendations }) => {
         <div className="goal-overview-divider"></div>
         
         <div className="goal-overview-stat">
-          <span className="goal-overview-label">Total Saved So Far</span>
+          <span className="goal-overview-label">Already Saved</span>
           <span className="goal-overview-value">{formatShort(totalCurrent)}</span>
           <span className="goal-overview-sub">{totalTarget > 0 ? `${Math.round((totalCurrent / totalTarget) * 100)}% of target` : ''}</span>
         </div>
@@ -640,7 +664,7 @@ const GoalTracker = ({ profile, recommendations }) => {
         <div className="goal-overview-stat">
           <span className="goal-overview-label">Expected Growth</span>
           <span className="goal-overview-value">{formatShort(totalProjected)}</span>
-          <span className="goal-overview-sub">Target Contribution: {showDbGoals ? `₹${Math.round(totalMonthlySIP).toLocaleString('en-IN')}/mo` : `₹${Math.round(totalSavings).toLocaleString('en-IN')}/mo`}</span>
+          <span className="goal-overview-sub">Monthly Savings Needed: {showDbGoals ? `₹${Math.round(totalMonthlySIP).toLocaleString('en-IN')}/mo` : `₹${Math.round(totalSavings).toLocaleString('en-IN')}/mo`}</span>
         </div>
         
         <div className="goal-overview-divider"></div>
@@ -658,7 +682,7 @@ const GoalTracker = ({ profile, recommendations }) => {
               backgroundColor: overallHealth >= 80 ? '#10b981' : overallHealth >= 50 ? '#f59e0b' : '#ef4444',
               boxShadow: `0 0 10px ${overallHealth >= 80 ? '#10b981' : overallHealth >= 50 ? '#f59e0b' : '#ef4444'}`
             }} />
-            {overallHealth >= 80 ? 'On Track' : overallHealth >= 50 ? 'Needs higher investment' : 'Needs attention'}
+            {overallHealth >= 80 ? 'On Track' : overallHealth >= 50 ? 'Could Use a Boost' : 'Needs Attention'}
           </span>
         </div>
       </motion.div>

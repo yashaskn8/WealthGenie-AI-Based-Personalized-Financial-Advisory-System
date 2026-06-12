@@ -143,11 +143,11 @@ const AllocationPlanner = ({ profile }) => {
       >
         <div className="ap-page-badge">
           <PieChartIcon size={11} />
-          AI-Optimized <JargonTooltip term="Asset Allocation">Asset Mix</JargonTooltip>
+          AI-Recommended <JargonTooltip term="Asset Allocation">Investment Split</JargonTooltip>
         </div>
-        <h1 className="ap-page-title">Decide Your Investment Mix (<JargonTooltip term="Asset Allocation">Allocation Planner</JargonTooltip>)</h1>
+        <h1 className="ap-page-title">Your Personalised Investment Plan</h1>
         <p className="ap-page-subtitle">
-          Strategic distribution for your ₹{savings.toLocaleString("en-IN")}/month <JargonTooltip term="SIP">SIP</JargonTooltip> to maximize returns while managing risk.
+          Here's how we suggest splitting your ₹{savings.toLocaleString("en-IN")}/month savings to grow your money while keeping risk in check.
         </p>
 
         {/* Risk Presets Segmented Toggle */}
@@ -189,7 +189,7 @@ const AllocationPlanner = ({ profile }) => {
           maxWidth: 600, margin: '14px auto 0', fontSize: '0.85rem', color: '#cbd5e1', 
           background: 'rgba(15,23,42,0.6)', padding: '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)'
         }}>
-          <strong>Rationale:</strong> {rationaleText}
+          <strong>Why this mix?</strong> {rationaleText}
         </div>
       </motion.div>
       <div className="ap-header-divider" />
@@ -281,7 +281,7 @@ const AllocationPlanner = ({ profile }) => {
               </div>
               <div className="ap-card-details">
                 <span>₹{a.monthlyAmount?.toLocaleString("en-IN")}/mo</span>
-                <span>After Tax: {a.postTaxRate}%</span>
+                <span>Returns (after tax): {a.postTaxRate}%</span>
                 <span className="ap-risk-badge" style={{ color: RISK_COLORS[a.riskLabel] || '#f59e0b' }}>
                   {a.riskLabel}
                 </span>
@@ -301,23 +301,23 @@ const AllocationPlanner = ({ profile }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
       >
-        <div className="ap-blended-label">Your Combined Return (After-Tax)</div>
+        <div className="ap-blended-label">Your Overall Return (After Taxes)</div>
         <div className="ap-blended-value">{blendedReturn.toFixed(1)}%</div>
-        <div className="ap-blended-sub">The estimated average return of your combined investments after accounting for taxes.</div>
+        <div className="ap-blended-sub">This is your estimated yearly return across all investments, after accounting for taxes.</div>
       </motion.div>
 
       {/* KPI Cards */}
       <div className="ap-kpi-row">
         <div className="ap-kpi-card">
-          <div className="ap-kpi-label">Stock Market (<JargonTooltip term="ELSS">Equity</JargonTooltip>) Exposure</div>
+          <div className="ap-kpi-label">Stocks & Mutual Funds</div>
           <div className="ap-kpi-value" style={{ color: '#a855f7' }}>{equityExposure.toFixed(0)}%</div>
         </div>
         <div className="ap-kpi-card">
-          <div className="ap-kpi-label">Safer / Govt (<JargonTooltip term="Debt Fund">Debt</JargonTooltip>) Exposure</div>
+          <div className="ap-kpi-label">Safer Investments (FDs, Bonds)</div>
           <div className="ap-kpi-value" style={{ color: '#3b82f6' }}>{debtGovtExposure.toFixed(0)}%</div>
         </div>
         <div className="ap-kpi-card">
-          <div className="ap-kpi-label">Gold & Other (Alternative) Exposure</div>
+          <div className="ap-kpi-label">Gold & Others</div>
           <div className="ap-kpi-value" style={{ color: '#eab308' }}>{altExposure.toFixed(0)}%</div>
         </div>
       </div>
@@ -342,7 +342,7 @@ const AllocationPlanner = ({ profile }) => {
             gap: '8px'
           }}
         >
-          {showManualAdjust ? 'Hide Manual Tuning Sliders' : 'Adjust Investment Mix Manually (Advanced)'}
+          {showManualAdjust ? 'Hide Manual Adjustments' : 'Tweak My Investment Mix (Advanced)'}
         </button>
       </div>
 
@@ -350,9 +350,9 @@ const AllocationPlanner = ({ profile }) => {
       {showManualAdjust && (
         <div className="ap-slider-section">
           <div className="ap-slider-header">
-            <h3>Adjust Investment Mix Manually</h3>
+            <h3>Fine-Tune Your Investment Split</h3>
             {overrides && (
-              <button className="ap-reset-btn" onClick={resetOverrides}>Reset to Recommended Mix</button>
+              <button className="ap-reset-btn" onClick={resetOverrides}>Reset to Recommended</button>
             )}
           </div>
 

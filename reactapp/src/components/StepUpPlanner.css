@@ -67,6 +67,7 @@
 }
 
 .sup-page-title {
+  display: inline-block;
   font-size: 2.6rem;
   font-weight: 900;
   margin: 0 0 12px;

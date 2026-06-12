@@ -18,7 +18,7 @@
  *   DO NOT add new tax computation logic here. If tax rules change,
  *   update server/services/taxEngine.js and server/services/postTaxCalculator.js.
  */
-import { investmentDatabase, TAX_INFO, RISK_COLORS, CHART_COLORS, CONCENTRATION_CAPS } from './investmentDatabase';
+import { investmentDatabase, TAX_INFO, RISK_COLORS, CHART_COLORS, CONCENTRATION_CAPS } from './investmentDatabase.js';
 
 // Re-export for backward compatibility
 export { TAX_INFO, RISK_COLORS, CHART_COLORS, CONCENTRATION_CAPS };

@@ -311,12 +311,12 @@ function exportHealthScorecard(score, metrics, profile) {
 /* ── FIX 2: Dynamic savings rate status ──────────────────────── */
 function getSavingsRateStatus(profile, recommendations) {
   if ((profile?.monthly_savings || 0) > 0 && recommendations?.length > 0) {
-    return 'SIP allocations active across portfolio';
+    return 'Your savings are being invested across your portfolio';
   }
   if ((profile?.monthly_savings || 0) > 0) {
-    return 'Savings capacity declared — awaiting portfolio setup';
+    return 'You have savings capacity — portfolio setup pending';
   }
-  return 'No savings capacity declared';
+  return 'No savings capacity set yet';
 }
 
 /* ── FIX 3: Regime-aware tax context ─────────────────────────── */
@@ -331,22 +331,22 @@ function getTaxShieldContext(profile, recommendations) {
     );
     if (hasLTCG && !hasSlab) {
       return {
-        status: 'Optimised for New Regime (LTCG strategy)',
-        explanation: 'Portfolio prioritises LTCG instruments (12.5% tax) over slab-taxed instruments. 80C/80CCD not applicable under New Regime.',
-        score_context: 'Score reflects post-tax efficiency, not deductions.',
+        status: 'Optimised for New Regime (lower tax on long-term gains)',
+        explanation: 'Your portfolio focuses on investments taxed at a flat 12.5% (long-term gains) instead of higher slab rates. Section 80C/80CCD deductions don\'t apply under the New Regime.',
+        score_context: 'Score reflects how tax-efficient your investments are, not deductions.',
       };
     }
     return {
-      status: 'New Regime — limited deductions available',
-      explanation: 'Under New Regime, 80C, 80CCD(1) and 80CCD(1B) deductions are not available. Only standard deduction (₹75K) applies.',
-      score_context: 'Switch to Old Regime to unlock 80C + 80CCD(1B) savings if deductions exceed ₹75,000 standard deduction benefit.',
+      status: 'New Tax Regime — fewer deductions available',
+      explanation: 'Under the New Tax Regime, deductions like 80C and 80CCD(1B) are not available. You only get a standard deduction of ₹75,000.',
+      score_context: 'Consider switching to Old Regime if your total deductions would exceed ₹75,000.',
     };
   }
   const elssAnnual = (recommendations || []).filter(r => (r.id || r.type) === 'ELSS').reduce((s, r) => s + (r.monthly_allocation || 0) * 12, 0);
   const npsAnnual = (recommendations || []).filter(r => (r.id || r.type) === 'NPS').reduce((s, r) => s + (r.monthly_allocation || 0) * 12, 0);
   const total = elssAnnual + npsAnnual;
   const util = Math.min(total / 200000, 1);
-  return { status: `${(util * 100).toFixed(0)}% of deduction limit used`, explanation: `₹${total.toLocaleString('en-IN')}/yr of ₹2,00,000 available (80C + 80CCD(1B)).` };
+  return { status: `${(util * 100).toFixed(0)}% of tax-saving limit used`, explanation: `₹${total.toLocaleString('en-IN')}/yr out of ₹2,00,000 available (Section 80C + 80CCD(1B)).` };
 }
 
 /* ── Score History Panel (profile-aware, dynamic dates) ───────── */
@@ -409,7 +409,7 @@ const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
 
   return (
     <div className="score-history-panel glass-panel">
-      <h4 className="panel-title"><TrendingUp size={14} />Score Progression</h4>
+      <h4 className="panel-title"><TrendingUp size={14} />Your Score Over Time</h4>
       <div className="history-list">
         {history.map((entry, i) => (
           <div key={i} className={`history-row ${entry.stage === 'current' ? 'history-row-active' : ''}`}>
@@ -428,11 +428,11 @@ const ScoreHistoryPanel = ({ currentScore, profile, subScores }) => {
         ))}
       </div>
       <div className="history-note">
-        <div className="note-badge"><Sparkles size={12} /> AI Insight</div>
+        <div className="note-badge"><Sparkles size={12} /> Personalised Tip</div>
         <p>
           {history.length === 1
-            ? `Welcome! Your starting score is ${currentScore}/100.${pointsToExcellent > 0 ? ` Set investment goals and build your portfolio to improve — focus on ${weakest?.label || 'your weakest metric'} first.` : " You've reached Excellent status!"}`
-            : `+${improvement} points since profile creation.${pointsToExcellent > 0 ? ` Need ${pointsToExcellent} more for "Excellent" (≥80) — focus on ${weakest?.label || 'lowest metric'} (${Math.round(weakest?.val || 0)}/100).` : " You've reached Excellent status!"}`
+            ? `Welcome! Your starting score is ${currentScore}/100.${pointsToExcellent > 0 ? ` Add your financial goals and start investing to improve — focus on ${weakest?.label || 'your weakest area'} first.` : " You've reached Excellent status!"}`
+            : `+${improvement} points since you started.${pointsToExcellent > 0 ? ` You need ${pointsToExcellent} more points for "Excellent" (80+) — focus on ${weakest?.label || 'your weakest area'} (${Math.round(weakest?.val || 0)}/100).` : " You've reached Excellent status!"}`
           }
         </p>
       </div>
@@ -465,7 +465,7 @@ const PeerComparisonPanel = ({ score, profile, subScores }) => {
 
   return (
     <div className="peer-comparison-panel glass-panel">
-      <h4 className="panel-title"><Users size={14} />How You Compare</h4>
+      <h4 className="panel-title"><Users size={14} />How You Compare to Others</h4>
       <div className="peer-stat">
         <span className="peer-percentile">Top {100 - percentile}%</span>
         <span className="peer-label">of {ageBracket}, {risk} Risk investors</span>
@@ -490,9 +490,9 @@ const PeerComparisonPanel = ({ score, profile, subScores }) => {
       )}
       <div className="peer-improvement">
         <Target size={16} color="#38bdf8" style={{ flexShrink: 0 }} />
-        <span>Improve {weakest?.label || 'your weakest metric'} ({Math.round(weakest?.val || 0)}/100) to reach {targetPercentile}.</span>
+        <span>Improve your {weakest?.label || 'weakest area'} ({Math.round(weakest?.val || 0)}/100) to reach the {targetPercentile}.</span>
       </div>
-      <span className="peer-disclaimer">Based on RBI savings benchmarks & AMFI investor surveys</span>
+      <span className="peer-disclaimer">Based on national savings data from RBI & mutual fund industry surveys</span>
     </div>
   );
 };
@@ -503,12 +503,12 @@ const ResolutionModal = ({ metric, onClose, onNavigate, profile }) => {
   const steps = {
     'Emergency Safety Net': {
       title: 'Build Your Emergency Safety Net',
-      why: `An emergency fund covering 3-6 months of expenses protects your long-term investments from forced liquidation during unexpected events.`,
+      why: `An emergency fund covering 3–6 months of expenses keeps your long-term investments safe when unexpected expenses come up (medical bills, job loss, etc.).`,
       target: `₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L (6× monthly expenses of ₹${monthlyExpenses.toLocaleString('en-IN')})`,
       steps: [
         { action: 'Set an Emergency Fund goal', detail: 'Go to Goal Planner → New Goal → Emergency Fund.', cta: 'Go to Goal Planner', route: 'goal-planner' },
-        { action: 'Allocate to liquid instruments', detail: 'Liquid MF and Bank FD are recommended — both have zero lock-in and T+1 to 7-day redemption.', cta: null },
-        { action: 'Set a 12-month timeline', detail: `At ₹${(profile?.monthly_savings || 0).toLocaleString('en-IN')}/month, a ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L emergency fund is achievable in approximately ${Math.ceil(monthlyExpenses * 6 / (profile?.monthly_savings || 1))} months.`, cta: null },
+        { action: 'Put it in easily accessible investments', detail: 'Liquid Mutual Funds and Bank FDs are best for emergency money — you can get your money back in 1–7 days.', cta: null },
+        { action: 'Build it over 12 months', detail: `Saving ₹${(profile?.monthly_savings || 0).toLocaleString('en-IN')}/month, you can build your ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L emergency fund in about ${Math.ceil(monthlyExpenses * 6 / (profile?.monthly_savings || 1))} months.`, cta: null },
       ],
     },
   };
@@ -573,16 +573,16 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
     let emergencyScore, emergencyExtra;
     if (!emergencyGoalDeclared) {
       emergencyScore = 10;
-      emergencyExtra = `No Emergency Fund goal declared. Add it via Goal Planner to build a ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L safety net (6× monthly expenses).`;
+      emergencyExtra = `No Emergency Fund goal set yet. Add one via Goal Planner to build a ₹${(monthlyExpenses * 6 / 100000).toFixed(1)}L safety cushion (6 months of expenses).`;
     } else if (emergencyAllocated === 0) {
       emergencyScore = 15;
-      emergencyExtra = 'Emergency Fund goal declared but no SIP allocated yet.\nAction: Allocate to Liquid MF or FD for instant-access safety net.';
+      emergencyExtra = 'Emergency Fund goal added but no monthly savings allocated yet.\nAction: Start putting money into Liquid Mutual Funds or FDs for quick access.';
     } else if (emergencyCoverage >= 0.8) {
       emergencyScore = 80 + Math.round(emergencyCoverage * 20);
-      emergencyExtra = 'Safety Net Secure';
+      emergencyExtra = 'Your Emergency Fund is well funded!';
     } else {
       emergencyScore = Math.round(emergencyCoverage * 80);
-      emergencyExtra = `${Math.round(emergencyCoverage * 100)}% funded. Alert: Target shortfall detected.\nRecommendation: Increase contribution.`;
+      emergencyExtra = `${Math.round(emergencyCoverage * 100)}% funded so far. You need to save more to reach your target.\nTip: Increase your monthly contribution.`;
     }
 
     // Only count categories with active allocations (> 0)
@@ -614,25 +614,25 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
     /* FIX 2: dynamic savings status */
     const savingsStatus = getSavingsRateStatus(profile, recommendations);
     const savingsRate = ((profile?.monthly_savings || 0) / (profile?.monthly_income || 1) * 100).toFixed(1);
-    const savingsRateNote = savingsRate >= 20 ? '★ Excellent — above recommended 20%' : savingsRate >= 15 ? '✓ Good — near recommended 20%' : '↑ Aim for 20% or higher';
+    const savingsRateNote = savingsRate >= 20 ? '★ Excellent — above the recommended 20%' : savingsRate >= 15 ? '✓ Good — close to the recommended 20%' : '↑ Try to save at least 20% of your income';
 
     /* FIX 3: tax shield context */
     const taxCtx = getTaxShieldContext(profile, recommendations);
 
     let g = 'Poor Fitness', c = '#ef4444';
-    if (total >= 40) { g = 'Average Fitness'; c = '#f59e0b'; }
-    if (total >= 60) { g = 'Good Fitness'; c = '#eab308'; }
-    if (total >= 80) { g = 'Excellent Fitness'; c = '#10b981'; }
+    if (total >= 40) { g = 'Average'; c = '#f59e0b'; }
+    if (total >= 60) { g = 'Good'; c = '#eab308'; }
+    if (total >= 80) { g = 'Excellent'; c = '#10b981'; }
 
     return {
       score: Math.round(total), grade: g, color: c,
       subScores: [
-        { label: 'Savings Rate Capacity', val: savingsScore, weight: 25, extra: `${savingsStatus}\n${savingsRate}% savings rate — ${savingsRateNote}`, alert: false },
+        { label: 'Savings Capacity', val: savingsScore, weight: 25, extra: `${savingsStatus}\n${savingsRate}% savings rate — ${savingsRateNote}`, alert: false },
         { label: 'Emergency Safety Net', val: emergencyScore, weight: 20, extra: emergencyExtra, alert: emergencyScore < 50, hasDisclaimer: true },
-        { label: 'Portfolio Diversification', val: divScore, weight: 20, extra: 'View Allocation Breakdown', alert: false },
-        { label: 'Tax Shield Efficiency', val: taxScore, weight: 15, extra: `${taxCtx.status}\n${taxCtx.explanation}${taxCtx.score_context ? '\n' + taxCtx.score_context : ''}`, alert: false },
-        { label: 'Goal Alignment', val: goalScore, weight: 10, extra: goalScore >= 80 ? 'Calendar view | Milestone markers' : `${coveredGoals.length}/${declaredGoals.length} goals with active SIP`, alert: goalScore < 50 },
-        { label: 'Time-Horizon Risk Match', val: riskScore, weight: 10, extra: 'Volatility synchronized', alert: false }
+        { label: 'Investment Variety', val: divScore, weight: 20, extra: 'See Your Investment Breakdown', alert: false },
+        { label: 'Tax Efficiency', val: taxScore, weight: 15, extra: `${taxCtx.status}\n${taxCtx.explanation}${taxCtx.score_context ? '\n' + taxCtx.score_context : ''}`, alert: false },
+        { label: 'Goal Coverage', val: goalScore, weight: 10, extra: goalScore >= 80 ? 'All goals have active savings' : `${coveredGoals.length} of ${declaredGoals.length} goals have active monthly savings`, alert: goalScore < 50 },
+        { label: 'Risk-Timeline Match', val: riskScore, weight: 10, extra: 'Your risk level matches your investment timeline', alert: false }
       ]
     };
   }, [profile, recommendations]);
@@ -652,12 +652,12 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
       {/* Top Header */}
       <div className="hs-header">
         <div>
-          <h1 className="hs-title">Financial Health Grading</h1>
-          <p className="hs-subtitle">A holistic analysis of your financial foundation and strategy.</p>
+          <h1 className="hs-title">Your Financial Health Score</h1>
+          <p className="hs-subtitle">A complete check-up of how well your money is working for you.</p>
         </div>
         <div className="hs-header-right">
-          <h2>WealthGenie Intelligence</h2>
-          <p>Automated Portfolio Grading</p>
+          <h2>WealthGenie</h2>
+          <p>AI-Powered Money Check-up</p>
         </div>
       </div>
 
@@ -741,19 +741,19 @@ const HealthScoreScreen = ({ profile, recommendations, onNavigate }) => {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}
         className="glass-panel metric-breakdown-panel">
         <h3 className="breakdown-title">
-          <Activity size={16} /> Metric Breakdown
-          <span className="breakdown-subtitle">Weighted scoring across {subScores.length} dimensions</span>
+          <Activity size={16} /> Detailed Score Breakdown
+          <span className="breakdown-subtitle">Scored across {subScores.length} key areas of your finances</span>
         </h3>
         <div className="breakdown-grid">
           {subScores.map((sub, i) => {
             const barColor = sub.val >= 80 ? '#4ade80' : sub.val >= 50 ? '#eab308' : '#ef4444';
             const icons = {
-              'Savings Rate Capacity': <Shield size={14} />,
+              'Savings Capacity': <Shield size={14} />,
               'Emergency Safety Net': <AlertTriangle size={14} />,
-              'Portfolio Diversification': <PieChart size={14} />,
-              'Tax Shield Efficiency': <Zap size={14} />,
-              'Goal Alignment': <Target size={14} />,
-              'Time-Horizon Risk Match': <Activity size={14} />,
+              'Investment Variety': <PieChart size={14} />,
+              'Tax Efficiency': <Zap size={14} />,
+              'Goal Coverage': <Target size={14} />,
+              'Risk-Timeline Match': <Activity size={14} />,
             };
             const icon = icons[sub.label] || (sub.alert ? <AlertTriangle size={14} color="#ef4444" /> : <ArrowUpRight size={14} color="#4ade80" />);
             return (

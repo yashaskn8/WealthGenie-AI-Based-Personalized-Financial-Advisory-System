@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scale, HelpCircle, ShieldCheck, ChevronDown, Activity, ArrowRight, Loader2 } from 'lucide-react';
+import { Scale, HelpCircle, ShieldCheck, ChevronDown, Activity, ArrowRight, Loader2, TrendingUp, Shield, CheckCircle2 } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import JargonTooltip from './JargonTooltip';
 import api from '../services/api';
@@ -225,14 +225,13 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
       >
         <div className="page-header-badge">
           <Scale size={12} />
-          <span>Portfolio Balancer</span>
+          <span>Investment Mix</span>
         </div>
         <h1 className="page-title">
-          Customize Your<br />
-          <span className="title-gradient">Investment Mix</span>
+          Customize Your <span className="title-gradient">Investment Mix</span>
         </h1>
         <p className="page-subtitle">
-          Adjust your target allocations to align your investments with your risk tolerance and financial goals.
+          Decide how your monthly savings are split across different investments. Adjust the sliders below to match your comfort level.
         </p>
       </motion.div>
 
@@ -248,9 +247,9 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           <HelpCircle size={18} color="#818cf8" />
         </div>
         <div className="why-balance-content">
-          <h4 className="why-balance-title">What is allocation mix?</h4>
+          <h4 className="why-balance-title">Why does this matter?</h4>
           <p className="why-balance-text">
-            Your asset mix determines the balance between risk and growth. By adjusting how much goes into different categories (like Equity, Debt, Gold, and FDs), you control your long-term return potential.
+            Your investment mix decides how fast your money can grow and how much risk you take. Putting more into Equity (stocks) can give higher returns but with ups and downs, while Debt (FDs, bonds) is steadier but grows slower. A good balance suits your comfort level.
           </p>
         </div>
       </motion.div>
@@ -265,16 +264,25 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
       >
         <div className="balance-hero-inner">
           <div className="balance-ring-container">
-            <svg className="balance-ring-svg" viewBox="0 0 150 150">
-              <circle className="balance-ring-bg" cx="75" cy="75" r="64" />
+            <svg className="balance-ring-svg" viewBox="0 0 180 180">
+              <circle className="balance-ring-bg" cx="90" cy="90" r="76" />
+              <circle
+                className="balance-ring-glow"
+                cx="90" cy="90" r="76"
+                stroke={statusColor}
+                style={{
+                  strokeDasharray: '478',
+                  strokeDashoffset: 478 - (478 * score) / 100
+                }}
+              />
               <circle
                 className="balance-ring-progress"
-                cx="75" cy="75" r="64"
+                cx="90" cy="90" r="76"
                 stroke={statusColor}
                 style={{
                   '--ring-color': statusColor,
-                  strokeDasharray: '402',
-                  strokeDashoffset: 402 - (402 * score) / 100
+                  strokeDasharray: '478',
+                  strokeDashoffset: 478 - (478 * score) / 100
                 }}
               />
             </svg>
@@ -283,7 +291,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                 {score}<span className="balance-ring-unit">%</span>
               </span>
               <span className="balance-ring-quality" style={{ color: statusColor }}>
-                {score >= 80 ? 'Optimal' : score >= 50 ? 'Warning' : 'Urgent'}
+                {score >= 80 ? 'WELL BALANCED' : score >= 50 ? 'NEEDS TWEAKING' : 'NEEDS ATTENTION'}
               </span>
             </div>
           </div>
@@ -291,22 +299,22 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           <div className="balance-status-info">
             <div className="balance-status-header">
               <span className="balance-status-title">
-                {score >= 80 ? 'Portfolio is Balanced' : score >= 50 ? 'Portfolio Drift Detected' : 'Action Required'}
+                {score >= 80 ? 'Your Investments Are Well Balanced' : score >= 50 ? 'Your Investments Have Shifted' : 'Your Investments Need Rebalancing'}
               </span>
             </div>
             <p className="balance-status-description">
               {score >= 80
-                ? 'Your current asset holdings match your target allocation mix. No rebalancing is needed.'
-                : `Your holdings have drifted from the target mix by ${driftIndex.toFixed(1)}%. Rebalancing will align your portfolio with your risk profile.`}
+                ? 'Great news! Your current investments match your chosen mix. No changes are needed right now.'
+                : `Your investments have shifted ${driftIndex.toFixed(1)}% away from your chosen mix. Adjusting them will bring everything back in line.`}
             </p>
             <div className={`balance-status-summary ${score >= 80 ? 'balanced' : ''}`}>
               {loading ? (
                 <div className="loading-inline">
                   <Loader2 size={14} className="spin-icon" style={{ animation: 'spin-anim 1s linear infinite' }} />
-                  <span>Computing live metrics...</span>
+                  <span>Calculating...</span>
                 </div>
               ) : (
-                <span>Severity: {rebalanceResult?.drift_severity || 'Low'} (Drift Index: {driftIndex.toFixed(1)}%)</span>
+                <span>Imbalance Level: {rebalanceResult?.drift_severity === 'Low' ? 'Minor' : rebalanceResult?.drift_severity === 'Medium' ? 'Moderate' : rebalanceResult?.drift_severity || 'Minor'} ({driftIndex.toFixed(1)}% off target)</span>
               )}
             </div>
           </div>
@@ -318,7 +326,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         <button className="disclosure-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
           <span className="disclosure-toggle-label">
             <Scale size={16} />
-            <span>Advanced Rebalancing Parameters</span>
+            <span>Advanced Settings (For Experts)</span>
           </span>
           <ChevronDown size={16} className={`disclosure-chevron ${showAdvanced ? 'open' : ''}`} style={{ transition: 'transform 0.25s ease', transform: showAdvanced ? 'rotate(180deg)' : 'none' }} />
         </button>
@@ -334,12 +342,12 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
             >
               <div className="advanced-settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 12 }}>
                 <div className="settings-card premium-glass">
-                  <h4 className="settings-card-title">Drift Threshold & Speed</h4>
-                  <p className="settings-card-desc">Set minimum drift before action is recommended, and the correction ratio.</p>
+                  <h4 className="settings-card-title">Sensitivity & Speed</h4>
+                  <p className="settings-card-desc">Control how much your mix can shift before we recommend changes, and how quickly to correct it.</p>
                   
                   <div className="setting-item">
                     <div className="setting-label-row">
-                      <span className="setting-label">Min Drift Threshold</span>
+                      <span className="setting-label">Minimum Shift Before Alert</span>
                       <span className="setting-value-badge">{threshold}%</span>
                     </div>
                     <input
@@ -361,7 +369,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
 
                   <div className="setting-item" style={{ marginTop: 12 }}>
                     <div className="setting-label-row">
-                      <span className="setting-label">Rebalancing Ratio (Speed)</span>
+                      <span className="setting-label">Correction Speed</span>
                       <span className="setting-value-badge">{partialRatio * 100}%</span>
                     </div>
                     <input
@@ -376,19 +384,19 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                       }}
                     />
                     <div className="range-labels">
-                      <span>10% (Staggered)</span>
-                      <span>100% (Instant)</span>
+                      <span>10% (Gradual)</span>
+                      <span>100% (All at Once)</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="settings-card premium-glass">
-                  <h4 className="settings-card-title">Holding Period & Analytics</h4>
-                  <p className="settings-card-desc">Holding period for short-term exit load checks, and rebalancing impact.</p>
+                  <h4 className="settings-card-title">Holding Period & Costs</h4>
+                  <p className="settings-card-desc">How long you've held your investments. This helps estimate any early withdrawal charges.</p>
 
                   <div className="setting-item">
                     <div className="setting-label-row">
-                      <span className="setting-label">Asset Holding Period</span>
+                      <span className="setting-label">How Long You've Held</span>
                       <span className="setting-value-badge">{holdingMonths} Months</span>
                     </div>
                     <input
@@ -411,11 +419,11 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                   {rebalanceResult && (
                     <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: '#94a3b8', marginBottom: 4 }}>
-                        <span>Tracking Error (Drift Variance):</span>
+                        <span>Portfolio Deviation:</span>
                         <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{(rebalanceResult.portfolio_tracking_error * 100).toFixed(2)}%</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: '#94a3b8' }}>
-                        <span>Total Transaction Cost / Exit Loads:</span>
+                        <span>Estimated Charges (if you rebalance now):</span>
                         <span style={{ color: '#ef4444', fontWeight: 600 }}>{formatINR(rebalanceResult.total_estimated_transaction_cost)}</span>
                       </div>
                     </div>
@@ -439,14 +447,14 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           <div className="sliders-summary-header" style={{ marginBottom: 20 }}>
             <div className="sliders-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="sliders-header-label" style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
-                <JargonTooltip term="Asset Allocation">Your Target Mix</JargonTooltip>
+                <JargonTooltip term="Asset Allocation">Your Investment Split</JargonTooltip>
               </span>
               <span className="sliders-total-badge" style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '4px 12px', borderRadius: '12px', fontSize: '0.82rem', color: '#38bdf8', fontWeight: 700 }}>
                 Total: 100%
               </span>
             </div>
             <p className="sliders-hint" style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 6 }}>
-              Drag any slider to change how your money is split. Other sliders will adjust automatically.
+              Drag any slider to change how much of your savings goes into each investment. The rest will adjust automatically to keep the total at 100%.
             </p>
           </div>
 
@@ -505,10 +513,10 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         >
           <div className="sliders-summary-header" style={{ marginBottom: 20 }}>
             <span className="sliders-header-label" style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>
-              Holdings Sandbox
+              Your Current Holdings
             </span>
             <p className="sliders-hint" style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 6 }}>
-              Enter your current rupee balance for each asset to calculate exact buy/sell directives.
+              Enter how much money you currently have in each investment. We'll tell you exactly what to buy or sell.
             </p>
           </div>
 
@@ -537,7 +545,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
           </div>
 
           <div className="sandbox-hint" style={{ marginTop: 16 }}>
-            <span>Note: By default, holdings are pre-populated with your target monthly recommendations.</span>
+            <span>Note: These are pre-filled with your recommended monthly amounts. Update them with your actual holdings for more accurate suggestions.</span>
           </div>
         </motion.div>
       </div>
@@ -545,14 +553,17 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
       {/* ─── Directives Grid / Output List ─── */}
       {activeDirectives.length === 0 ? (
         <div className="balanced-empty-state" style={{ marginBottom: 24 }}>
-          <span className="empty-state-title">Portfolio is Perfectly Balanced</span>
-          <span className="empty-state-text">No buy or sell transactions are required under the current drift threshold.</span>
+          <div className="empty-state-icon-wrap">
+            <CheckCircle2 size={36} />
+          </div>
+          <span className="empty-state-title">Everything Looks Good!</span>
+          <span className="empty-state-text">Your investments are already well balanced. No changes needed right now.</span>
         </div>
       ) : (
         <div className="rebal-directives-grid" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <Activity size={18} color="#818cf8" />
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Required Transactions</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Suggested Changes</h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {activeDirectives.map((asset, idx) => {
@@ -568,22 +579,22 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                   </div>
                   <div className="dir-info">
                     <div className="dir-action-label" style={{ color: '#fff' }}>
-                      {isBuy ? 'Invest ' : 'Withdraw '}
+                      {isBuy ? 'Add ' : 'Reduce '}
                       <strong>{formatINR(Math.abs(asset.suggested_correction))}</strong> in{' '}
                       <strong>{asset.name}</strong>
                     </div>
                     <div className="dir-sub-label">
-                      <span>Target allocation: {asset.target_pct}%</span>
+                      <span>Your target: {asset.target_pct}%</span>
                       <span>·</span>
                       <span>Current: {asset.current_pct}%</span>
                       <span>·</span>
                       <span className={`dir-drift-badge ${isBuy ? 'drift-buy' : 'drift-sell'}`}>
-                        {isBuy ? `Underweight by ${Math.abs(asset.drift_pct).toFixed(1)}%` : `Overweight by ${Math.abs(asset.drift_pct).toFixed(1)}%`}
+                        {isBuy ? `${Math.abs(asset.drift_pct).toFixed(1)}% below target` : `${Math.abs(asset.drift_pct).toFixed(1)}% above target`}
                       </span>
                       {asset.estimated_transaction_cost > 0 && (
                         <>
                           <span>·</span>
-                          <span style={{ color: '#fb7185' }}>Est. Cost: {formatINR(asset.estimated_transaction_cost)}</span>
+                          <span style={{ color: '#fb7185' }}>Charges: {formatINR(asset.estimated_transaction_cost)}</span>
                         </>
                       )}
                     </div>
@@ -600,21 +611,31 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
 
       {/* ─── Stats comparison ─── */}
       {rebalanceResult && (
-        <div className="why-balance-card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#64748b', fontWeight: 700 }}>Weighted CAGR (Expected Return)</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.9rem', textDecoration: 'line-through' }}>{rebalanceResult.before_stats.cagr.toFixed(1)}%</span>
-              <ArrowRight size={14} color="#64748b" />
-              <span style={{ color: '#34d399', fontSize: '1.2rem', fontWeight: 800 }}>{rebalanceResult.after_stats.cagr.toFixed(1)}%</span>
+        <div className="stats-comparison-grid" style={{ marginBottom: 24 }}>
+          <div className="stats-comparison-card">
+            <div className="stats-card-icon stats-card-icon--return">
+              <TrendingUp size={20} />
+            </div>
+            <div className="stats-card-content">
+              <span className="stats-card-label">Expected Annual Return</span>
+              <div className="stats-card-values">
+                <span className="stats-val-before">{rebalanceResult.before_stats.cagr.toFixed(1)}%</span>
+                <ArrowRight size={14} className="stats-arrow" />
+                <span className="stats-val-after stats-val-after--green">{rebalanceResult.after_stats.cagr.toFixed(1)}%</span>
+              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#64748b', fontWeight: 700 }}>Blended Portfolio Risk Score</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-              <span style={{ color: '#94a3b8', fontSize: '0.9rem', textDecoration: 'line-through' }}>{Math.round(rebalanceResult.before_stats.risk_score)}</span>
-              <ArrowRight size={14} color="#64748b" />
-              <span style={{ color: '#38bdf8', fontSize: '1.2rem', fontWeight: 800 }}>{Math.round(rebalanceResult.after_stats.risk_score)}</span>
+          <div className="stats-comparison-card">
+            <div className="stats-card-icon stats-card-icon--risk">
+              <Shield size={20} />
+            </div>
+            <div className="stats-card-content">
+              <span className="stats-card-label">Overall Risk Level</span>
+              <div className="stats-card-values">
+                <span className="stats-val-before">{Math.round(rebalanceResult.before_stats.risk_score)}</span>
+                <ArrowRight size={14} className="stats-arrow" />
+                <span className="stats-val-after stats-val-after--blue">{Math.round(rebalanceResult.after_stats.risk_score)}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -626,17 +647,12 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 12 }}
       >
-        <button 
-          className="btn-primary-glow" 
-          onClick={handleSave} 
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 28px', background: 'linear-gradient(135deg, #818cf8, #6366f1)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)' }}
-        >
+        <button className="btn-primary-glow" onClick={handleSave}>
           <ShieldCheck size={18} />
-          Save Allocation Mix
+          Save My Investment Mix
         </button>
-        <p className="cta-helper-text" style={{ fontSize: '0.78rem', color: '#64748b' }}>This will update your personalized investment target allocations</p>
+        <p className="cta-helper-text">This will save your chosen investment split and update all your projections</p>
       </motion.div>
     </div>
   );

@@ -73,6 +73,7 @@
 }
 
 .gt-page-title {
+  display: inline-block;
   font-size: 2.4rem;
   font-weight: 900;
   margin: 0 0 10px;
@@ -462,7 +463,7 @@
 /* ─── Footer Metrics Grid ───────────────────────────────────────── */
 .goal-card-footer {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   border-top: 1px solid rgba(255,255,255,0.05);
   padding-top: 20px;

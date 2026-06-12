@@ -570,22 +570,22 @@ const TaxScreen = ({ profile }) => {
       >
         <div className="tax-summary-card">
           <div className="tax-sum-icon"><Wallet size={20} /></div>
-          <span className="tax-sum-label">Income After Deductions</span>
+          <span className="tax-sum-label">Taxable Income</span>
           <span className="tax-sum-value" style={{ color: '#fff' }}>{formatINR(taxableIncome)}</span>
         </div>
         <div className="tax-summary-card">
           <div className="tax-sum-icon"><Receipt size={20} /></div>
-          <span className="tax-sum-label">Tax You'll Pay</span>
+          <span className="tax-sum-label">Estimated Tax Owed</span>
           <span className="tax-sum-value">{formatINR(totalTax)}</span>
         </div>
         <div className="tax-summary-card">
           <div className="tax-sum-icon"><Percent size={20} /></div>
-          <span className="tax-sum-label">Your Tax Rate</span>
+          <span className="tax-sum-label">Effective Tax Rate</span>
           <span className="tax-sum-value" style={{ color: '#a78bfa' }}>{effectiveRate}%</span>
         </div>
         <div className="tax-summary-card">
           <div className="tax-sum-icon"><PiggyBank size={20} /></div>
-          <span className="tax-sum-label">You Could Save</span>
+          <span className="tax-sum-label">Potential Tax Savings</span>
           <span className="tax-sum-value">{formatINR(potentialSaving)}</span>
         </div>
       </motion.div>

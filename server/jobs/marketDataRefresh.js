@@ -34,7 +34,7 @@ export function startMarketDataRefreshJobs() {
 
 /**
  * Simple cron scheduler using setTimeout/setInterval.
- * Supports the cron shapes used by this app: "minute hour * * *" and "minute */2 * * *".
+ * Supports the cron shapes used by this app: "minute hour * * *" and "minute * / 2 * * *".
  */
 function scheduleJob(cronExpr, name, fn) {
   const { initialDelayMs, intervalMs } = getScheduleTiming(cronExpr);
