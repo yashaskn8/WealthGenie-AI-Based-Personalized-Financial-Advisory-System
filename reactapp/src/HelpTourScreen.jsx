@@ -355,7 +355,7 @@ const HelpTourScreen = () => {
         </div>
         <h3 className="help-cta-title">Need Human Support?</h3>
         <p className="help-cta-desc">
-          While the algorithm calculates optimal paths, execution sometimes requires a human touch. Connect with our certified wealth management team.
+          While the algorithm calculates optimal paths, execution sometimes requires a human touch. Connect with a certified wealth advisor.
         </p>
           <button className="help-cta-btn help-cta-btn-primary" onClick={() => setShowContactModal(true)}>
             <Mail size={15} /> Contact Wealth Manager
@@ -366,7 +366,7 @@ const HelpTourScreen = () => {
       <AnimatePresence>
         {showContactModal && (
           <motion.div
-            className="help-modal-overlay"
+             className="help-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -390,7 +390,7 @@ const HelpTourScreen = () => {
                     <CheckCircle size={56} color="#10b981" />
                   </motion.div>
                   <h3>Request Submitted!</h3>
-                  <p>Our wealth management team will reach out within 24 hours.</p>
+                  <p>A certified wealth advisor will reach out within 24 hours.</p>
                 </div>
               ) : (
                 <>

@@ -11,7 +11,7 @@ Uses TreeExplainer for fast, exact SHAP values on RandomForest.
    some points (the model's prediction probability, e.g., 78% Aggressive).
    How do you divide the credit fairly among the four friends?
    Lloyd Shapley (a Nobel laureate in Economics) created a formula that calculates
-   the average contribution of each player across every possible combination of team sizes.
+   the average contribution of each player across every possible combination of coalition sizes.
    In ML, SHAP computes these exact values to show you exactly how much credit (or blame)
    each of your inputs gets for the final recommendation.
 

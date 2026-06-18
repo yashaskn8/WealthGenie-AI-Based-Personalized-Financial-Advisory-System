@@ -679,8 +679,7 @@ This project is accompanied by an **IEEE-format research paper** that provides:
 - Comparative analysis against Groww and Betterment
 - Literature survey covering 15 foundational works (Markowitz 1952 → SHAP 2017)
 
-**Author:** Yashas K N  
-**Advisor:** Prof. Nayana C P (RNS Institute of Technology, Bengaluru)
+**Author:** Yashas K N
 
 > The paper validates that WealthGenie provides **7 capabilities absent from both Groww and Betterment**, including QMC simulation, Indian tax engine with Sec 87A, TreeSHAP explainability, and LLM advisory chat.
 
@@ -712,7 +711,6 @@ This project is accompanied by an **IEEE-format research paper** that provides:
 | Name | Role | Contact |
 |:---|:---|:---|
 | **Yashas K N** | Lead Developer & System Architect | yashaskn08@gmail.com |
-| **Prof. Nayana C P** | Faculty Advisor | nayana.cp@rnsit.ac.in |
 
 **Institution:** RNS Institute of Technology, Bengaluru, India
 
