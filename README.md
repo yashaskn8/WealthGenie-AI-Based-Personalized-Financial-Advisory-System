@@ -78,11 +78,9 @@ WealthGenie operates on a **decoupled three-tier service-oriented architecture**
 
 ### Data Flow (9-Stage Pipeline)
 
-```
-User Registration → Financial Profile → Risk Quiz (10-Q) → ML Classification (RF)
-    → Portfolio Optimization → QMC Wealth Simulation → Tax-Aware Computation
-        → XIRR Performance Evaluation → Results Dashboard & LLM Chat
-```
+<p align="center">
+  <img src="wealthgenie_pipeline.png" alt="WealthGenie 9-Stage Data Flow Pipeline" width="900" />
+</p>
 
 ---
 
