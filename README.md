@@ -9,7 +9,9 @@
   <img src="https://img.shields.io/badge/Redis-Upstash-DC382D?style=for-the-badge&logo=redis&logoColor=white" />
 </p>
 
-<h1 align="center">🧞‍♂️ WealthGenie</h1>
+<h1 align="center">WealthGenie: AI-Based Personalized Financial
+Advisory System
+</h1>
 <h3 align="center">AI-Powered Personalized Financial Advisory System</h3>
 
 <p align="center">
