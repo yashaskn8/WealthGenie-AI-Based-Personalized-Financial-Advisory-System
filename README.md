@@ -720,8 +720,3 @@ This project is accompanied by an **IEEE-format research paper** that provides:
 
 This project is developed as an academic capstone at RNSIT. All rights reserved by the author.
 
----
-
-<p align="center">
-  <strong>Built with ❤️ and lots of math by Yashas K N @ RNSIT, Bengaluru</strong>
-</p>
