@@ -44,7 +44,7 @@
 - [Performance Benchmarks](#-performance-benchmarks)
 - [Research Paper](#-research-paper)
 - [Financial Glossary](#-financial-glossary)
-- [Contributors](#-contributors)
+- [Author](#-author)
 - [License](#-license)
 
 ---
@@ -679,7 +679,7 @@ This project is accompanied by an **IEEE-format research paper** that provides:
 - Comparative analysis against Groww and Betterment
 - Literature survey covering 15 foundational works (Markowitz 1952 → SHAP 2017)
 
-**Authors:** Yashas K N, Vignesh Nayak, Ujwal V, Tejas G  
+**Author:** Yashas K N  
 **Advisor:** Prof. Nayana C P (RNS Institute of Technology, Bengaluru)
 
 > The paper validates that WealthGenie provides **7 capabilities absent from both Groww and Betterment**, including QMC simulation, Indian tax engine with Sec 87A, TreeSHAP explainability, and LLM advisory chat.
@@ -707,14 +707,11 @@ This project is accompanied by an **IEEE-format research paper** that provides:
 
 ---
 
-## 👥 Contributors
+## 👤 Author
 
 | Name | Role | Contact |
 |:---|:---|:---|
 | **Yashas K N** | Lead Developer & System Architect | yashaskn08@gmail.com |
-| **Vignesh Nayak** | Full-Stack Developer | vigneshnayak23is@gmail.com |
-| **Ujwal V** | Backend & ML Engineer | ujwalv3007@gmail.com |
-| **Tejas G** | Frontend & Testing | tejas2005g@gmail.com |
 | **Prof. Nayana C P** | Faculty Advisor | nayana.cp@rnsit.ac.in |
 
 **Institution:** RNS Institute of Technology, Bengaluru, India
@@ -723,10 +720,10 @@ This project is accompanied by an **IEEE-format research paper** that provides:
 
 ## 📜 License
 
-This project is developed as an academic capstone at RNSIT. All rights reserved by the authors.
+This project is developed as an academic capstone at RNSIT. All rights reserved by the author.
 
 ---
 
 <p align="center">
-  <strong>Built with ❤️ and lots of math by Team WealthGenie @ RNSIT, Bengaluru</strong>
+  <strong>Built with ❤️ and lots of math by Yashas K N @ RNSIT, Bengaluru</strong>
 </p>
