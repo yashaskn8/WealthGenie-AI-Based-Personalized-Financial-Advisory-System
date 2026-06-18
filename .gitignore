@@ -50,3 +50,15 @@ ml-service/data/investment_profiles.csv
 
 # Development artifacts
 scratch/
+
+# Local research paper, survey, and assets
+architecture.png
+references.bib
+survey.md
+wealthgenie_paper.tex
+asssets/
+*.aux
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.pdf
