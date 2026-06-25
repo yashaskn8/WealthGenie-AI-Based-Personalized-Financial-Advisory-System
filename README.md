@@ -15,7 +15,7 @@ Advisory System
 <h3 align="center">AI-Powered Personalized Financial Advisory System</h3>
 
 <p align="center">
-  <strong>A research-grade, three-tier robo-advisory platform integrating Quasi-Monte Carlo simulation, explainable ML (TreeSHAP), progressive tax optimization under Indian Finance Act 2025, and LLM-powered conversational advisory — with an accompanying IEEE-format research paper.</strong>
+  <strong>A research-grade, three-tier robo-advisory platform integrating Quasi-Monte Carlo simulation, explainable ML (TreeSHAP), progressive tax optimization under Indian Finance Act 2025, and LLM-powered conversational advisory </strong>
 </p>
 
 <p align="center">
