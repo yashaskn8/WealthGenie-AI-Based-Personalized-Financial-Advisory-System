@@ -143,10 +143,10 @@ export async function processChat({ userId, user, message, sessionId }) {
     let marketData = null;
     try { const cached = await getCache('index:stats:^NSEI'); marketData = cached ? { nifty: cached } : null; } catch (_) {}
     systemPrompt = buildSystemPrompt(fullUser, profile, recommendation, marketData, goals);
-    console.log(`[Chat] System prompt built. Length: ${systemPrompt.length} chars.`);
+    console.info(`[Chat] System prompt built. Length: ${systemPrompt.length} chars.`);
     await setCache(promptCacheKey, systemPrompt, SYSTEM_PROMPT_TTL);
   } else {
-    console.log(`[Chat] System prompt loaded from cache. Length: ${systemPrompt.length} chars.`);
+    console.info(`[Chat] System prompt loaded from cache. Length: ${systemPrompt.length} chars.`);
   }
 
   let conversation = await ConversationHistory.findOne({ userId, session_id: sessionId, is_active: true });
@@ -177,7 +177,7 @@ export async function processChat({ userId, user, message, sessionId }) {
   // ── Try Gemini first, then fall back to Groq ──
   let result = await callGemini(payload);
   if (!result) {
-    console.log('[Chat] Gemini failed or quota exhausted, falling back to Groq...');
+    console.info('[Chat] Gemini failed or quota exhausted, falling back to Groq...');
     result = await callGroq(systemPrompt, recentHistory);
   }
 
@@ -188,7 +188,7 @@ export async function processChat({ userId, user, message, sessionId }) {
   let wasCompleted = true;
 
   if (!result) {
-    console.log('[Chat] Both providers failed, generating profile-grounded local fallback response...');
+    console.info('[Chat] Both providers failed, generating profile-grounded local fallback response...');
     responseText = generateLocalFallbackResponse(fullUser, profile, goals, message);
     tokensUsed = 120;
     provider = 'local_fallback';
@@ -209,7 +209,7 @@ export async function processChat({ userId, user, message, sessionId }) {
     }
   }
 
-  console.log(`[Chat] [${provider}] Response: ${responseText.length} chars. Completed: ${wasCompleted}. "${responseText.substring(0, 50)}..."`);
+  console.info(`[Chat] [${provider}] Response: ${responseText.length} chars. Completed: ${wasCompleted}. "${responseText.substring(0, 50)}..."`);
 
   conversation.messages.push({ role: 'user', content: message, metadata: { grounded_on_profile: true } });
   conversation.messages.push({

@@ -138,7 +138,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
   }, [allocations, customHoldings, threshold, partialRatio, holdingMonths, recs, totalSavings]);
 
   /**
-   * Slider change handler � redistributes remaining % proportionally
+   * Slider change handler - redistributes remaining % proportionally
    * among other instruments so total stays at 100%.
    */
   const handleSliderChange = useCallback((id, newPct) => {
@@ -284,7 +284,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </p>
       </motion.div>
 
-      {/* ─── Why This Matters � Beginner Tip ─── */}
+      {/* ─── Why This Matters - Beginner Tip ─── */}
       <motion.div
         className="why-balance-card"
         initial={{ opacity: 0, y: 10 }}

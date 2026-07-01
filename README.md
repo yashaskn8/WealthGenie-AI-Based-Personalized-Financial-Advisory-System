@@ -128,7 +128,7 @@ WealthGenie operates on a **decoupled three-tier service-oriented architecture**
 - Dark-themed glassmorphic dashboard with **Framer Motion** micro-animations
 - 3D tilt cards, animated background orbs, staggered reveal animations
 - 15+ interactive screens: Dashboard, Tax Optimizer, Goal Planner, Rebalancer, Health Score, Deep Dive, Comparison Table, SIP Step-Up Planner, Post-Tax Analysis, and more
-- PDF export via html2canvas + jsPDF
+- PDF export via jsPDF
 - SEBI disclaimer compliance
 - Custom financial **Jargon Tooltips** for investor education
 
@@ -214,7 +214,7 @@ Composite 3-factor scoring model combining:
 | Framer Motion | 12.38 | Spring-physics animations, 3D tilt cards, staggered reveals |
 | Recharts | 3.8 | Data visualization (pie charts, projection bands) |
 | Lucide React | 1.8 | Consistent, tree-shakeable icon system |
-| jsPDF + html2canvas | Latest | Client-side PDF report generation |
+| jsPDF | 4.2 | Client-side PDF report generation |
 
 ### Backend
 | Technology | Version | Purpose |

@@ -28,8 +28,6 @@ export function buildSystemPrompt(user, profile, recommendation, marketData, goa
   const equityPct = profile.recommendedEquityAllocation || 50;
   const debtPct = 100 - equityPct;
 
-  // Debug: log what data the AI will see
-  console.log(`[Prompt] Profile → income: ${monthlyIncome}/mo, annual: ${annualIncome}, savings: ${monthlySavings}/mo, risk: ${profile.riskCategory}, age: ${profile.age}, horizon: ${investmentHorizon}yrs`);
 
   return `
 # Role

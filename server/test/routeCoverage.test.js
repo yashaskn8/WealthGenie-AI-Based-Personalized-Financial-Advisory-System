@@ -1,0 +1,113 @@
+﻿import test from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import authRoutes from '../routes/auth.js';
+import profileRoutes from '../routes/profile.js';
+import recommendRoutes from '../routes/recommend.js';
+import instrumentsRoutes from '../routes/instruments.js';
+import projectionRoutes from '../routes/projection.js';
+import montecarloRoutes from '../routes/montecarlo.js';
+import goalsRoutes from '../routes/goals.js';
+import marketRoutes from '../routes/market.js';
+import taxRoutes from '../routes/tax.js';
+import chatRoutes from '../routes/chatRoutes.js';
+import { errorHandler } from '../middleware/errorHandler.js';
+
+process.env.JWT_SECRET = 'route-coverage-test-secret';
+process.env.NODE_ENV = 'test';
+
+function buildApp() {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/auth', authRoutes);
+  app.use('/api/profile', profileRoutes);
+  app.use('/api/recommend', recommendRoutes);
+  app.use('/api/instruments', instrumentsRoutes);
+  app.use('/api/projection', projectionRoutes);
+  app.use('/api/montecarlo', montecarloRoutes);
+  app.use('/api/goals', goalsRoutes);
+  app.use('/api/market', marketRoutes);
+  app.use('/api/tax', taxRoutes);
+  app.use('/api/chat', chatRoutes);
+  app.use(errorHandler);
+  return app;
+}
+
+async function withServer(fn) {
+  const server = buildApp().listen(0);
+  await new Promise(resolve => server.once('listening', resolve));
+  try {
+    return await fn(`http://127.0.0.1:${server.address().port}`);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+}
+
+async function jsonFetch(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...(options.body ? { 'content-type': 'application/json' } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const text = await response.text();
+  return { response, body: text ? JSON.parse(text) : null };
+}
+
+test('auth route rejects invalid register payload before database access', async () => {
+  await withServer(async (baseUrl) => {
+    const { response, body } = await jsonFetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      body: JSON.stringify({ email: 'not-an-email' }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error, 'Validation failed');
+    assert.ok(body.details.length > 0);
+  });
+});
+
+test('protected route files enforce JWT before service/database work', async () => {
+  await withServer(async (baseUrl) => {
+    const checks = [
+      ['profile', 'POST', '/api/profile/build', { monthly_income: 100000, age: 35, monthly_savings: 20000 }],
+      ['recommend', 'POST', '/api/recommend', { profileId: '65b000000000000000000001' }],
+      ['projection', 'POST', '/api/projection', { profileId: '65b000000000000000000001', monthly_investment: 10000 }],
+      ['montecarlo', 'POST', '/api/montecarlo/montecarlo', { instrument: 'ETF', monthly_investment: 10000, years: 5 }],
+      ['goals', 'GET', '/api/goals', null],
+      ['market refresh', 'POST', '/api/market/refresh', {}],
+      ['chat', 'POST', '/api/chat/message', { message: 'hello' }],
+    ];
+
+    for (const [label, method, path, payload] of checks) {
+      const { response, body } = await jsonFetch(`${baseUrl}${path}`, {
+        method,
+        ...(payload ? { body: JSON.stringify(payload) } : {}),
+      });
+      assert.equal(response.status, 401, `${label}: ${JSON.stringify(body)}`);
+      assert.match(body.error, /token|access denied/i, label);
+    }
+  });
+});
+
+test('instruments route validates public query inputs', async () => {
+  await withServer(async (baseUrl) => {
+    const { response, body } = await jsonFetch(`${baseUrl}/api/instruments?type=BadType`);
+
+    assert.equal(response.status, 400);
+    assert.match(body.error, /Invalid instrument type/);
+  });
+});
+
+test('tax route computes and compares regimes without authentication', async () => {
+  await withServer(async (baseUrl) => {
+    const compute = await jsonFetch(`${baseUrl}/api/tax/compute?income=1200000&regime=new`);
+    const compare = await jsonFetch(`${baseUrl}/api/tax/compare?income=1200000`);
+
+    assert.equal(compute.response.status, 200);
+    assert.ok(Number.isFinite(compute.body.taxAmount));
+    assert.equal(compare.response.status, 200);
+    assert.ok(['new', 'old'].includes(compare.body.recommended_regime));
+  });
+});

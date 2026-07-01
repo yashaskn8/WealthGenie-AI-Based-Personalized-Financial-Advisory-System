@@ -24,24 +24,59 @@ import { CESS_RATE } from './instrumentConstants.js';
  * - Total Base Tax = ₹40,000 (plus rebate/cess adjustments).
  */
 
-// ─── FY2025-26 NEW TAX REGIME SLABS ───────────────────────────────
-const NEW_REGIME_SLABS = [
-  { min: 0,        max: 400000,   rate: 0    },
-  { min: 400000,   max: 800000,   rate: 0.05 },
-  { min: 800000,   max: 1200000,  rate: 0.10 },
-  { min: 1200000,  max: 1600000,  rate: 0.15 },
-  { min: 1600000,  max: 2000000,  rate: 0.20 },
-  { min: 2000000,  max: 2400000,  rate: 0.25 },
-  { min: 2400000,  max: Infinity, rate: 0.30 },
-];
+// Tax slabs are versioned by fiscal year. Add a new entry after every Union Budget
+// and update CURRENT_FY only after the new slabs have been verified against an official source.
+export const CURRENT_FY = 'FY2025-26';
 
-// ─── OLD TAX REGIME SLABS ─────────────────────────────────────────
-const OLD_REGIME_SLABS = [
-  { min: 0,        max: 250000,   rate: 0    },
-  { min: 250000,   max: 500000,   rate: 0.05 },
-  { min: 500000,   max: 1000000,  rate: 0.20 },
-  { min: 1000000,  max: Infinity, rate: 0.30 },
-];
+const defineSlabs = (slabs) => Object.freeze(slabs.map(slab => Object.freeze({ ...slab })));
+
+export const TAX_SLABS_BY_FY = Object.freeze({
+  'FY2025-26': Object.freeze({
+    new: defineSlabs([
+      { min: 0,        max: 400000,   rate: 0    },
+      { min: 400000,   max: 800000,   rate: 0.05 },
+      { min: 800000,   max: 1200000,  rate: 0.10 },
+      { min: 1200000,  max: 1600000,  rate: 0.15 },
+      { min: 1600000,  max: 2000000,  rate: 0.20 },
+      { min: 2000000,  max: 2400000,  rate: 0.25 },
+      { min: 2400000,  max: Infinity, rate: 0.30 },
+    ]),
+    old: defineSlabs([
+      { min: 0,        max: 250000,   rate: 0    },
+      { min: 250000,   max: 500000,   rate: 0.05 },
+      { min: 500000,   max: 1000000,  rate: 0.20 },
+      { min: 1000000,  max: Infinity, rate: 0.30 },
+    ]),
+  }),
+  'FY2026-27': Object.freeze({
+    // TODO(human): verify against FY2026-27 Union Budget before relying on this.
+    // Duplicated from FY2025-26 until official slab values are confirmed in this codebase.
+    new: defineSlabs([
+      { min: 0,        max: 400000,   rate: 0    },
+      { min: 400000,   max: 800000,   rate: 0.05 },
+      { min: 800000,   max: 1200000,  rate: 0.10 },
+      { min: 1200000,  max: 1600000,  rate: 0.15 },
+      { min: 1600000,  max: 2000000,  rate: 0.20 },
+      { min: 2000000,  max: 2400000,  rate: 0.25 },
+      { min: 2400000,  max: Infinity, rate: 0.30 },
+    ]),
+    old: defineSlabs([
+      { min: 0,        max: 250000,   rate: 0    },
+      { min: 250000,   max: 500000,   rate: 0.05 },
+      { min: 500000,   max: 1000000,  rate: 0.20 },
+      { min: 1000000,  max: Infinity, rate: 0.30 },
+    ]),
+  }),
+});
+
+export function getTaxSlabsForFY(fiscalYear = CURRENT_FY) {
+  return TAX_SLABS_BY_FY[fiscalYear] || TAX_SLABS_BY_FY[CURRENT_FY];
+}
+
+function getRegimeSlabs(regime, fiscalYear = CURRENT_FY) {
+  const slabs = getTaxSlabsForFY(fiscalYear);
+  return regime === 'old' ? slabs.old : slabs.new;
+}
 
 // CESS_RATE imported from instrumentConstants.js (single source of truth)
 
@@ -130,7 +165,7 @@ function computeSurcharge(taxBeforeSurcharge, taxableIncome, regime) {
  * @param {Array} slabs - Tax slab structure for the regime
  * @returns {number} surcharge amount (with marginal relief applied if needed)
  */
-function computeMarginalRelief(baseTax, surcharge, taxableIncome, regime) {
+function computeMarginalRelief(baseTax, surcharge, taxableIncome, regime, fiscalYear = CURRENT_FY) {
   if (taxableIncome <= 5000000) return 0;
 
   const SURCHARGE_THRESHOLDS = regime === 'new'
@@ -145,7 +180,7 @@ function computeMarginalRelief(baseTax, surcharge, taxableIncome, regime) {
     }
   }
 
-  const slabs = regime === 'new' ? NEW_REGIME_SLABS : OLD_REGIME_SLABS;
+  const slabs = getRegimeSlabs(regime, fiscalYear);
   const baseTaxAtThreshold = calculateFromSlabs(threshold, slabs);
 
   // Surcharge rate AT exactly the threshold limit
@@ -254,7 +289,7 @@ export function calculateTaxableIncome(annualIncome, regime = 'new', deductions 
  * @param {string} incomeSource - 'salary', 'business', 'pension', etc. (standard deduction applies only to salary/pension)
  * @returns {{ taxAmount, effectiveRate, regime, rebateApplied, surchargeApplied, surchargeAmount, cess, taxBeforeCess, taxableIncome }}
  */
-export function computeTax(annualIncome, regime = 'new', deductions = {}, incomeSource = 'salary') {
+export function computeTax(annualIncome, regime = 'new', deductions = {}, incomeSource = 'salary', fiscalYear = CURRENT_FY) {
   // Input guard: reject non-finite or negative income using local variable
   let safeIncome = annualIncome;
   if (!Number.isFinite(safeIncome) || safeIncome < 0) {
@@ -263,7 +298,7 @@ export function computeTax(annualIncome, regime = 'new', deductions = {}, income
   }
   if (regime !== 'new' && regime !== 'old') regime = 'new';
 
-  const slabs = regime === 'new' ? NEW_REGIME_SLABS : OLD_REGIME_SLABS;
+  const slabs = getRegimeSlabs(regime, fiscalYear);
 
   const { standardDeduction, oldRegimeDeductions, taxableIncome, nps80CCD2, allowed80D } = calculateTaxableIncome(
     safeIncome,
@@ -307,7 +342,7 @@ export function computeTax(annualIncome, regime = 'new', deductions = {}, income
   // the already-reduced `taxBeforeCess` here. Surcharge marginal relief is then
   // computed using the same reduced base.
   const surcharge = computeSurcharge(taxBeforeCess, taxableIncome, regime);
-  const relief = computeMarginalRelief(taxBeforeCess, surcharge, taxableIncome, regime);
+  const relief = computeMarginalRelief(taxBeforeCess, surcharge, taxableIncome, regime, fiscalYear);
   const taxAfterSurcharge = taxBeforeCess + surcharge - relief;
 
   // 4% Health & Education Cess (applied on tax + surcharge)
@@ -334,14 +369,15 @@ export function computeTax(annualIncome, regime = 'new', deductions = {}, income
     oldRegimeDeductions,
     nps80CCD2,
     allowed80D,
+    fiscalYear,
   };
 }
 
 /**
  * Compute tax with deductions (convenience wrapper/alias).
  */
-export function computeTaxWithDeductions(annualIncome, regime, deductions = {}, incomeSource = 'salary') {
-  return computeTax(annualIncome, regime, deductions, incomeSource);
+export function computeTaxWithDeductions(annualIncome, regime, deductions = {}, incomeSource = 'salary', fiscalYear = CURRENT_FY) {
+  return computeTax(annualIncome, regime, deductions, incomeSource, fiscalYear);
 }
 
 /**
@@ -353,14 +389,14 @@ export function computeTaxWithDeductions(annualIncome, regime, deductions = {}, 
  * @param {string} incomeSource - 'salary', 'business', etc.
  * @returns {number} marginal tax rate as decimal (e.g. 0.30 for 30%)
  */
-export function getTaxSlab(annualIncome, regime = 'new', deductions = {}, incomeSource = 'salary') {
+export function getTaxSlab(annualIncome, regime = 'new', deductions = {}, incomeSource = 'salary', fiscalYear = CURRENT_FY) {
   // Input guard
   let safeIncome = annualIncome;
   if (!Number.isFinite(safeIncome) || safeIncome < 0) safeIncome = 0;
   if (regime !== 'new' && regime !== 'old') regime = 'new';
 
   const { taxableIncome } = calculateTaxableIncome(safeIncome, regime, deductions, incomeSource);
-  const slabs = regime === 'new' ? NEW_REGIME_SLABS : OLD_REGIME_SLABS;
+  const slabs = getRegimeSlabs(regime, fiscalYear);
 
   let marginalRate = 0;
   for (const slab of slabs) {
@@ -380,12 +416,12 @@ export function getTaxSlab(annualIncome, regime = 'new', deductions = {}, income
  * @param {string} incomeSource
  * @returns {{ newRegime, oldRegime, recommended }}
  */
-export function compareTaxRegimes(annualIncome, deductions = {}, incomeSource = 'salary') {
+export function compareTaxRegimes(annualIncome, deductions = {}, incomeSource = 'salary', fiscalYear = CURRENT_FY) {
   // Input guard
   if (!Number.isFinite(annualIncome) || annualIncome < 0) annualIncome = 0;
 
-  const newRegime = computeTax(annualIncome, 'new', deductions, incomeSource);
-  const oldRegime = computeTax(annualIncome, 'old', deductions, incomeSource);
+  const newRegime = computeTax(annualIncome, 'new', deductions, incomeSource, fiscalYear);
+  const oldRegime = computeTax(annualIncome, 'old', deductions, incomeSource, fiscalYear);
   const recommended = newRegime.taxAmount <= oldRegime.taxAmount ? 'new' : 'old';
   return { newRegime, oldRegime, recommended };
 }
@@ -394,7 +430,7 @@ export function compareTaxRegimes(annualIncome, deductions = {}, incomeSource = 
  * Get the effective marginal tax rate (slab + surcharge + cess) for a given income level.
  * Useful for post-tax drag adjustments on future returns.
  */
-export function getEffectiveMarginalRate(annualIncome, regime = 'new', deductions = {}, incomeSource = 'salary') {
+export function getEffectiveMarginalRate(annualIncome, regime = 'new', deductions = {}, incomeSource = 'salary', fiscalYear = CURRENT_FY) {
   // Use centered finite difference for higher numerical accuracy at slab boundaries:
   // (tax(income + delta) - tax(income - delta)) / (2 * delta)
   const delta = 10000;
@@ -402,8 +438,8 @@ export function getEffectiveMarginalRate(annualIncome, regime = 'new', deduction
   const highIncome = annualIncome + delta;
   const lowIncome = Math.max(0, annualIncome - delta);
   
-  const highRes = computeTax(highIncome, regime, deductions, incomeSource);
-  const lowRes = computeTax(lowIncome, regime, deductions, incomeSource);
+  const highRes = computeTax(highIncome, regime, deductions, incomeSource, fiscalYear);
+  const lowRes = computeTax(lowIncome, regime, deductions, incomeSource, fiscalYear);
   
   const deltaIncome = highIncome - lowIncome;
   if (deltaIncome <= 0) return 0;

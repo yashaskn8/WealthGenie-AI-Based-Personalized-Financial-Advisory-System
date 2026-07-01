@@ -1,4 +1,4 @@
-﻿export const BACKEND_TO_LOCAL_MAP = Object.freeze({
+export const BACKEND_TO_LOCAL_MAP = Object.freeze({
   Equity_MF: 'index_mf',
   ETF: 'nifty_etf',
   ELSS: 'elss',

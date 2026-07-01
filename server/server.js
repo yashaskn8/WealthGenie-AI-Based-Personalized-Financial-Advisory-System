@@ -195,26 +195,26 @@ const start = async () => {
   // Start market data cron jobs (non-blocking)
   startMarketDataRefreshJobs();
 
-  server = app.listen(PORT, () => console.log(`WealthGenie API v3.0 running on port ${PORT}`));
+  server = app.listen(PORT, () => console.info(`WealthGenie API v3.0 running on port ${PORT}`));
 };
 
 // ── Graceful Shutdown ────────────────────────────────────────────
 async function gracefulShutdown(signal) {
-  console.log(`\n${signal} received. Shutting down gracefully...`);
+  console.info(`\n${signal} received. Shutting down gracefully...`);
 
   if (server) {
     server.close(async () => {
-      console.log('HTTP server closed.');
+      console.info('HTTP server closed.');
       try {
         await mongoose.connection.close();
-        console.log('MongoDB connection closed.');
+        console.info('MongoDB connection closed.');
       } catch (err) {
         console.error('Error closing MongoDB connection:', err.message);
       }
       if (redisClient) {
         try {
           await redisClient.quit();
-          console.log('Redis connection closed.');
+          console.info('Redis connection closed.');
         } catch (err) {
           console.error('Error closing Redis connection:', err.message);
         }

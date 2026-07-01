@@ -32,7 +32,7 @@ const connectRedis = async () => {
     });
 
     redisClient.on('connect', () => {
-      console.log('Redis connected');
+      console.info('Redis connected');
       redisAvailable = true;
     });
 

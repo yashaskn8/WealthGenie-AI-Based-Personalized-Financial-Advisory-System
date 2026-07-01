@@ -4,11 +4,11 @@
  * Mean-variance portfolio optimisation for Indian asset classes.
  *
  * Solvers implemented (all long-only, fully-invested):
- *   1. Minimum Variance Portfolio   � minimise w'Σw
- *   2. Maximum Sharpe (Tangency)    � maximise (w'μ − r_f) / √(w'Σw)
- *   3. Risk Parity                  � equalise risk contributions
+ *   1. Minimum Variance Portfolio   - minimise w'Σw
+ *   2. Maximum Sharpe (Tangency)    - maximise (w'μ − r_f) / √(w'Σw)
+ *   3. Risk Parity                  - equalise risk contributions
  *
- * No external optimiser dependency � uses iterative gradient projection
+ * No external optimiser dependency - uses iterative gradient projection
  * onto the probability simplex (Σw_i = 1, w_i ≥ 0).
  *
  * All volatility (σ) and return (μ) data sourced from instrumentConstants.js.
@@ -40,7 +40,7 @@
 import { INSTRUMENT_PARAMS, RISK_FREE_RATE } from './instrumentConstants.js';
 
 /* ═══════════════════════════════════════════════════════════════════════════
- *  ASSET KEY UNIVERSE � canonical ordering for correlation matrix
+ *  ASSET KEY UNIVERSE - canonical ordering for correlation matrix
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /** @type {string[]} Canonical ordering of asset classes in the correlation matrix */
@@ -51,14 +51,14 @@ const ASSET_KEYS = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
- *  CORRELATION MATRIX � Indian market empirical estimates
+ *  CORRELATION MATRIX - Indian market empirical estimates
  * ─────────────────────────────────────────────────────────────────────────
  *  Sources: NSE historical data, CRISIL indices, AMFI factsheets.
- *  Equity types: 0.85�0.95 inter-correlated
- *  Equity�Debt:  0.10�0.20
- *  Equity�Gold:  0.05�0.15
- *  Debt types:   0.70�0.90 inter-correlated
- *  Gold�Debt:    0.15�0.25
+ *  Equity types: 0.85-0.95 inter-correlated
+ *  Equity-Debt:  0.10-0.20
+ *  Equity-Gold:  0.05-0.15
+ *  Debt types:   0.70-0.90 inter-correlated
+ *  Gold-Debt:    0.15-0.25
  *  Matrix is symmetric with 1.0 on diagonal.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -90,7 +90,7 @@ const CORR_LOWER = [
 ];
 
 /**
- * Build the full symmetric N�N correlation matrix from the lower-triangular input.
+ * Build the full symmetric N x N correlation matrix from the lower-triangular input.
  * @returns {number[][]}
  */
 function buildFullCorrelation() {
@@ -148,7 +148,7 @@ if (!checkCholeskyPSD(FULL_CORR)) {
 
 /**
  * Matrix-vector multiply: y = A·x
- * @param {number[][]|Float64Array[]} A - n�n matrix
+ * @param {number[][]|Float64Array[]} A - n x n matrix
  * @param {number[]|Float64Array} x - length-n vector
  * @returns {Float64Array}
  */
@@ -206,7 +206,7 @@ function portfolioReturn(w, mu) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- *  SIMPLEX PROJECTION � Duchi et al. (2008)
+ *  SIMPLEX PROJECTION - Duchi et al. (2008)
  * ─────────────────────────────────────────────────────────────────────────
  *  Project a vector onto the probability simplex {x ≥ 0, Σx = 1}.
  *  O(n log n) via sorting. Essential for enforcing long-only + fully-invested.
@@ -258,7 +258,7 @@ function projectSimplex(v) {
 /**
  * Build the covariance matrix for a subset of asset classes.
  *
- * Formula: Σ_{ij} = ρ_{ij} � σ_i � σ_j
+ * Formula: Σ_{ij} = ρ_{ij} - σ_i - σ_j
  *
  * Volatilities (σ) are sourced from INSTRUMENT_PARAMS in instrumentConstants.js.
  * Correlations (ρ) are from the hardcoded Indian-market correlation matrix.
@@ -369,7 +369,7 @@ export function solveMinVariance(assetKeys, postTaxReturns) {
 
     if (maxDelta < tol) break;
 
-    // Adaptive learning rate � reduce if oscillating
+    // Adaptive learning rate - reduce if oscillating
     if (iter > 0 && iter % 500 === 0) lr *= 0.8;
   }
 
@@ -560,12 +560,12 @@ export function solveMaxSharpe(assetKeys, postTaxReturns) {
 /* ═══════════════════════════════════════════════════════════════════════════
  *  SOLVER 3: RISK PARITY PORTFOLIO
  * ─────────────────────────────────────────────────────────────────────────
- *  Equalise risk contributions:  RC_i = w_i � MRC_i  ∀i
+ *  Equalise risk contributions:  RC_i = w_i - MRC_i  ∀i
  *
  *  Where MRC_i = (Σw)_i / √(w'Σw)  (marginal risk contribution)
  *
  *  Method: iterative rescaling (Maillard, Roncalli, Teïletche 2010).
- *  w_i ← 1 / (σ_p � MRC_i), then normalise Σw_i = 1.
+ *  w_i ← 1 / (σ_p - MRC_i), then normalise Σw_i = 1.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
@@ -596,7 +596,7 @@ export function solveRiskParity(assetKeys) {
     const mrc = new Float64Array(n);
     for (let i = 0; i < n; i++) mrc[i] = sigmaW[i] / portVol;
 
-    // Risk contributions: RC_i = w_i � MRC_i
+    // Risk contributions: RC_i = w_i - MRC_i
     const rc = new Float64Array(n);
     for (let i = 0; i < n; i++) rc[i] = w[i] * mrc[i];
 
@@ -639,7 +639,7 @@ export function solveRiskParity(assetKeys) {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Unified dispatcher � select optimisation strategy by name.
+ * Unified dispatcher - select optimisation strategy by name.
  *
  * @param {string[]} assetKeys - asset classes to include
  * @param {number[]} postTaxReturns - annualised post-tax returns (decimal) per asset

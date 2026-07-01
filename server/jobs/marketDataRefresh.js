@@ -17,7 +17,7 @@ export function startMarketDataRefreshJobs() {
   // AMFI publishes updated NAVs around 23:00 IST
   scheduleJob('0 18 * * *', 'AMFI NAV Refresh', async () => {
     const result = await fetchMutualFundNAVs();
-    console.log(`[CRON] AMFI: ${result.count} schemes fetched`);
+    console.info(`[CRON] AMFI: ${result.count} schemes fetched`);
   });
 
   // Index statistics refresh every 2 hours
@@ -26,10 +26,10 @@ export function startMarketDataRefreshJobs() {
       fetchIndexStatistics('^NSEI'),
       fetchIndexStatistics('^BSESN'),
     ]);
-    console.log(`[CRON] Nifty: ${nifty.status}, Sensex: ${sensex.status}`);
+    console.info(`[CRON] Nifty: ${nifty.status}, Sensex: ${sensex.status}`);
   });
 
-  console.log('[CRON] Market data refresh jobs scheduled');
+  console.info('[CRON] Market data refresh jobs scheduled');
 }
 
 /**
@@ -43,7 +43,7 @@ function scheduleJob(cronExpr, name, fn) {
   setTimeout(async () => {
     try {
       await fn();
-      console.log(`[CRON] ${name}: initial run complete`);
+      console.info(`[CRON] ${name}: initial run complete`);
     } catch (err) {
       console.error(`[CRON] ${name}: initial run failed:`, err.message);
     }

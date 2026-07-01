@@ -80,3 +80,45 @@
 - `npm run build` from `reactapp`
 - `python -m pytest` from `ml-service`
 - `git diff --check`
+
+## Continuation Update - 2026-07-02 02:07:38 +05:30
+
+### Completed So Far
+- Latest strict checklist items 1-11 have been repaired or documented where constrained by explicit no-touch rules.
+- Final local verification passed for backend tests, frontend tests/build, ML tests/compile, syntax checks, env coverage, console cleanup, route/map/endpoint greps, diff whitespace, and mojibake scan.
+
+### Most Recent Change
+- Removed the final bare console.log from server/services/genieChatSystemPrompt.js.
+- Corrected README PDF dependency wording from html2canvas + jsPDF to jsPDF.
+- Stripped newly detected BOMs from reactapp/src/utils/instrumentTypeMap.js and server/test/taxEngine.test.js.
+- Fixed one trailing whitespace issue in reactapp/src/App.jsx.
+- Appended current evidence to AUDIT_PROGRESS.md and AUDIT_CHECKLIST.md.
+
+### What Remains Unfinished
+- reactapp/nginx.conf still has a BOM because the current instruction explicitly forbids touching nginx.conf/deployment config.
+- html2canvas remains as a transitive optional dependency of active jspdf; direct unused dependencies were removed.
+- Live external-service smoke testing remains unverified without MongoDB, Redis, model runtime, and API keys.
+
+### Next Codex Account Should Do First
+1. Inspect AUDIT_PROGRESS.md and AUDIT_CHECKLIST.md latest sections.
+2. Re-run: server npm test, reactapp npm test, reactapp npm run build, ml-service python -m pytest.
+3. If user authorizes deployment-file edits, strip the BOM from reactapp/nginx.conf.
+4. If user wants GitHub push, stage/commit/push after approval and after resolving any desired limitation above.
+
+### Files To Inspect First Next Time
+- AUDIT_PROGRESS.md
+- AUDIT_CHECKLIST.md
+- README.md
+- reactapp/src/App.jsx
+- reactapp/src/RecommendationDashboard.jsx
+- reactapp/src/utils/instrumentTypeMap.js
+- server/services/geminiService.js
+- server/services/taxEngine.js
+- server/test/serviceCoverage.test.js
+- server/test/routeCoverage.test.js
+
+### Tests To Rerun First Next Time
+- cd server; npm test
+- cd reactapp; npm test
+- cd reactapp; npm run build
+- cd ml-service; python -m pytest

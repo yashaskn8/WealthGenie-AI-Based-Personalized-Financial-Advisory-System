@@ -68,7 +68,7 @@ class ModelExplainer:
         Generate human-readable explanation for a prediction.
 
         Args:
-            raw_features: numpy array shape (1, 4) � [age, income, savings, risk_score]
+            raw_features: numpy array shape (1, 4) - [age, income, savings, risk_score]
 
         Returns:
             dict with predicted_class, confidence, feature_contributions, top_reason

@@ -107,7 +107,7 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
     );
   }
 
-  // Duplicate goal name check � prevent data confusion
+  // Duplicate goal name check - prevent data confusion
   const existingGoal = await Goal.findOne({
     userId: req.user.userId,
     goal_name: { $regex: new RegExp(`^${goal_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
@@ -190,7 +190,7 @@ router.post('/create', verifyJWT, validate(goalSchema), asyncHandler(async (req,
   }
   const lastIdx = mcResult.p50.length - 1;
   if (lastIdx >= 0 && mcResult.p10[lastIdx] > mcResult.p90[lastIdx]) {
-    console.error('[Goals INVARIANT] p10 > p90 � Monte Carlo band inversion detected.');
+    console.error('[Goals INVARIANT] p10 > p90 - Monte Carlo band inversion detected.');
   }
 
   // Determine status using PROBABILITY-BASED classification (more accurate than SIP gap)
@@ -281,7 +281,7 @@ router.get('/', verifyJWT, asyncHandler(async (req, res) => {
   const staleGoals = goals.filter(g => isStaleAdvice(g.gemini_advice));
 
   if (staleGoals.length > 0) {
-    // Regenerate advice with a timeout � don't block the response for too long
+    // Regenerate advice with a timeout - don't block the response for too long
     const regenerationPromises = staleGoals.map(async (g) => {
       try {
         const profile = await findOwnedProfileById(g.profileId, req.user.userId);
@@ -331,7 +331,7 @@ router.get('/', verifyJWT, asyncHandler(async (req, res) => {
         p90: item.p90,
       }));
     } else {
-      // Cache is stale or missing � run Monte Carlo and update DB
+      // Cache is stale or missing - run Monte Carlo and update DB
       const vol = getInstrumentVolatility(g.recommended_instrument || 'Equity_MF');
       
       let postTaxRate = vol.mean;

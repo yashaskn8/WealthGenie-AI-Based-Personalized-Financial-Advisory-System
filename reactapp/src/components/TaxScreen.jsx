@@ -110,18 +110,18 @@ function findDeductionCrossoverLocal(grossIncome) {
 function getSlabBreakdownLocal(taxableIncome, isNew) {
   const slabs = isNew 
     ? [
-        { limit: 400000, rate: 0.00, label: '₹0 � ₹4L' },
-        { limit: 400000, rate: 0.05, label: '₹4L � ₹8L' },
-        { limit: 400000, rate: 0.10, label: '₹8L � ₹12L' },
-        { limit: 400000, rate: 0.15, label: '₹12L � ₹16L' },
-        { limit: 400000, rate: 0.20, label: '₹16L � ₹20L' },
-        { limit: 400000, rate: 0.25, label: '₹20L � ₹24L' },
+        { limit: 400000, rate: 0.00, label: '₹0 - ₹4L' },
+        { limit: 400000, rate: 0.05, label: '₹4L - ₹8L' },
+        { limit: 400000, rate: 0.10, label: '₹8L - ₹12L' },
+        { limit: 400000, rate: 0.15, label: '₹12L - ₹16L' },
+        { limit: 400000, rate: 0.20, label: '₹16L - ₹20L' },
+        { limit: 400000, rate: 0.25, label: '₹20L - ₹24L' },
         { limit: Infinity, rate: 0.30, label: 'Above ₹24L' }
       ]
     : [
-        { limit: 250000, rate: 0.00, label: '₹0 � ₹2.5L' },
-        { limit: 250000, rate: 0.05, label: '₹2.5L � ₹5L' },
-        { limit: 500000, rate: 0.20, label: '₹5L � ₹10L' },
+        { limit: 250000, rate: 0.00, label: '₹0 - ₹2.5L' },
+        { limit: 250000, rate: 0.05, label: '₹2.5L - ₹5L' },
+        { limit: 500000, rate: 0.20, label: '₹5L - ₹10L' },
         { limit: Infinity, rate: 0.30, label: 'Above ₹10L' }
       ];
 
@@ -357,9 +357,9 @@ const TaxScreen = ({ profile }) => {
           <h4 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>Our Recommendation</h4>
           <p style={{ margin: 0, fontSize: '0.88rem', color: '#cbd5e1', lineHeight: 1.5 }}>
             {betterRegime !== 'Either' ? (
-              <span>You'll pay less tax with the <strong>{betterRegime} Regime</strong> � saving <strong>{formatINR(betterRegimeSavings)}</strong> compared to the other option!</span>
+              <span>You'll pay less tax with the <strong>{betterRegime} Regime</strong> - saving <strong>{formatINR(betterRegimeSavings)}</strong> compared to the other option!</span>
             ) : (
-              <span>Good news! Both tax systems cost you the same amount � so you can pick whichever you prefer.</span>
+              <span>Good news! Both tax systems cost you the same amount - so you can pick whichever you prefer.</span>
             )}
           </p>
         </div>
@@ -417,7 +417,7 @@ const TaxScreen = ({ profile }) => {
             <div>
               <div style={{ fontWeight: 800 }}>You Owe Zero Tax!</div>
               <div style={{ fontSize: '0.85rem', color: '#a7f3d0', marginTop: 2 }}>
-                Your income is below the tax-free limit � you don't need to pay any income tax under the {regime === 'new' ? 'New' : 'Old'} Regime.
+                Your income is below the tax-free limit - you don't need to pay any income tax under the {regime === 'new' ? 'New' : 'Old'} Regime.
               </div>
             </div>
           </motion.div>
@@ -686,7 +686,7 @@ const TaxScreen = ({ profile }) => {
             <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
               With your income of <strong>{formatINR(annualIncome)}</strong>, you need at least <strong>{formatINR(crossoverBreakpoint)}</strong> in deductions for the Old Regime to be cheaper.
               {currentDeductions >= crossoverBreakpoint ? (
-                <span> You already have <strong>{formatINR(currentDeductions)}</strong> in deductions � great, the <strong>Old Regime saves you more money</strong>!</span>
+                <span> You already have <strong>{formatINR(currentDeductions)}</strong> in deductions - great, the <strong>Old Regime saves you more money</strong>!</span>
               ) : (
                 <span> Right now you have <strong>{formatINR(currentDeductions)}</strong> in deductions. If you invest <strong>{formatINR(crossoverBreakpoint - currentDeductions)}</strong> more in tax-saving options, the <strong>Old Regime becomes cheaper</strong>.</span>
               )}
@@ -793,7 +793,7 @@ const TaxScreen = ({ profile }) => {
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: 2 }}>
                       {serverTaxData?.new_regime.marginal_relief_applied || serverTaxData?.old_regime.marginal_relief_applied 
                         ? `Marginal relief has been dynamically applied by server: ${formatINR(serverTaxData?.new_regime.marginal_relief_applied ? serverTaxData.new_regime.marginal_relief_amount : serverTaxData.old_regime.marginal_relief_amount)} saved.`
-                        : "A small 4% extra charge (called 'cess') is added on top of your tax � it funds healthcare and education."}
+                        : "A small 4% extra charge (called 'cess') is added on top of your tax - it funds healthcare and education."}
                     </div>
                   </div>
                 </div>
@@ -803,7 +803,7 @@ const TaxScreen = ({ profile }) => {
                   <div>
                     <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.85rem' }}>Automatic Tax-Free Amount</div>
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: 2 }}>
-                      The government automatically exempts <strong>{formatINR(standardDeduction)}</strong> of your income from tax � no paperwork needed!
+                      The government automatically exempts <strong>{formatINR(standardDeduction)}</strong> of your income from tax - no paperwork needed!
                     </div>
                   </div>
                 </div>
@@ -820,7 +820,7 @@ const TaxScreen = ({ profile }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <h3>Old vs New Regime � Which Costs Less?</h3>
+              <h3>Old vs New Regime - Which Costs Less?</h3>
               <div style={{ width: '100%', height: 300 }} className="tax-bar-chart-glow">
                 <ResponsiveContainer>
                   <BarChart data={regimeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
@@ -881,7 +881,7 @@ const TaxScreen = ({ profile }) => {
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', padding: '0 20px', minHeight: 300 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                     <Info size={36} color="#475569" />
-                    Tax-saving deductions only apply in the Old Regime. In the New Regime, you get lower tax rates instead � no need to make special investments.
+                    Tax-saving deductions only apply in the Old Regime. In the New Regime, you get lower tax rates instead - no need to make special investments.
                   </div>
                 </div>
               )}
@@ -894,7 +894,7 @@ const TaxScreen = ({ profile }) => {
       {regime === 'old' && (
         <div className="tax-limits-row">
           <div className="tax-limit-card">
-            <div className="tax-limit-header"><JargonTooltip term="Section 80C">Tax-Saving Investments (80C)</JargonTooltip> � How Much You've Used</div>
+            <div className="tax-limit-header"><JargonTooltip term="Section 80C">Tax-Saving Investments (80C)</JargonTooltip> - How Much You've Used</div>
             <div className="tax-limit-bar-track">
               <div className="tax-limit-bar-fill" style={{ width: `${((SECTION_80C_LIMIT - remaining80C) / SECTION_80C_LIMIT) * 100}%` }} />
             </div>
@@ -904,7 +904,7 @@ const TaxScreen = ({ profile }) => {
             </div>
           </div>
           <div className="tax-limit-card">
-            <div className="tax-limit-header"><JargonTooltip term="Section 80CCD(1B)">Pension (NPS) Deduction</JargonTooltip> � How Much You've Used</div>
+            <div className="tax-limit-header"><JargonTooltip term="Section 80CCD(1B)">Pension (NPS) Deduction</JargonTooltip> - How Much You've Used</div>
             <div className="tax-limit-bar-track">
               <div className="tax-limit-bar-fill tax-limit-bar-fill--purple" style={{ width: `${((SECTION_80CCD_1B_LIMIT - remaining80CCD) / SECTION_80CCD_1B_LIMIT) * 100}%` }} />
             </div>
@@ -942,7 +942,7 @@ const TaxScreen = ({ profile }) => {
                 <div className="tax-rec-name" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>{rec.name}</div>
                 <div className="tax-rec-section">Saves tax under Section {rec.section}</div>
                 <div className="tax-rec-amount" style={{ fontSize: '1.1rem', fontWeight: 900, color: '#f8fafc', margin: '14px 0 6px' }}>Limit: up to {formatINR(rec.suggestedAmount)}</div>
-                <div className="tax-rec-return" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Expected growth: {Number(rec.expected_return_min).toFixed(0)}% � {Number(rec.expected_return_max).toFixed(0)}% per year</div>
+                <div className="tax-rec-return" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Expected growth: {Number(rec.expected_return_min).toFixed(0)}% - {Number(rec.expected_return_max).toFixed(0)}% per year</div>
               </motion.div>
             ))}
           </div>

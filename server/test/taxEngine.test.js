@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateTaxableIncome, computeTax } from '../services/taxEngine.js';
+import { CURRENT_FY, calculateTaxableIncome, computeTax, getTaxSlab, getTaxSlabsForFY } from '../services/taxEngine.js';
 
 test('new regime Section 87A rebate zeros tax at the FY2025-26 threshold', () => {
   const result = computeTax(1_275_000, 'new');
@@ -27,4 +27,14 @@ test('old regime applies granular Section 80D self and parent caps', () => {
 
   assert.equal(result.allowed80D, 75_000);
   assert.ok(result.oldRegimeDeductions >= 75_000);
+});
+test('tax slabs are selected by fiscal-year key with current FY fallback', () => {
+  const current = getTaxSlabsForFY(CURRENT_FY);
+  const next = getTaxSlabsForFY('FY2026-27');
+  const fallback = getTaxSlabsForFY('UNKNOWN-FY');
+
+  assert.equal(current.new[1].rate, 0.05);
+  assert.equal(next.new[1].rate, current.new[1].rate);
+  assert.equal(fallback, current);
+  assert.equal(getTaxSlab(3_000_000, 'new', {}, 'salary', CURRENT_FY), 0.30);
 });

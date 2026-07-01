@@ -143,3 +143,45 @@ pm run build in eactapp/ passed: Vite transformed 2940 modules and built succes
 
 ### Next steps
 - Run BOM/mojibake detection across tracked files, clean affected text files, and prove both detectors return empty output.
+
+## Strict Repair Loop Update - 2026-07-02 02:07:38 +05:30
+
+Progress percentage: 100% of currently fixable, in-scope checklist defects verified. Two explicit constraint-bound limitations remain documented below.
+
+### Bugs fixed
+- Items 5-11 completed or constrained: encoding cleanup, frontend tests, backend tests, direct dead dependency removal, env examples, FY-keyed tax slabs, and console.log cleanup.
+- README dependency/security/training/test claims reconciled with implemented behavior, including PDF export wording corrected to jsPDF and training size aligned to 5000 rows.
+- Debug console.log output was removed or routed away from bare console.log outside the allowed CLI/training files.
+- Environment examples now cover server, ML service, and Vite variables.
+
+### Verification evidence
+- npm test in server/ passed: 30 tests, 30 pass, 0 fail.
+- npm test in reactapp/ passed: 6 test files, 12 tests, 12 pass, 0 fail.
+- npm run build in reactapp/ passed: Vite built 2940 modules with only an existing large chunk warning.
+- python -m pytest in ml-service/ passed: 2 tests, 2 pass, 0 fail.
+- python -X pycache_prefix=.\\tmp_pycache -m py_compile main.py schemas.py feature_engineering.py explainer.py model\\train.py tests\\test_ml_validation.py passed.
+- node --check passed for touched server files and reactapp/src/utils/instrumentTypeMap.js.
+- rg for removed /predict and /backtest patterns returned no matches.
+- rg for duplicate JSX instrument maps returned no matches.
+- rg for bare console.log outside seedInstruments/train returned no matches.
+- Env scan showed all discovered server, ML, and React env vars documented in the matching .env.example files.
+- git diff --check passed with line-ending warnings only.
+- Mojibake codepoint scan returned MOJIBAKE_SCAN_CLEAN.
+
+### Files modified
+- README.md
+- server/.env.example, server/routes/goals.js, server/services/geminiService.js, server/services/geminiChatService.js, server/services/genieChatSystemPrompt.js, server/services/taxEngine.js, server/services/portfolioEngine.js
+- server/server.js, server/config/db.js, server/config/redis.js, server/jobs/marketDataRefresh.js
+- server/test/serviceCoverage.test.js, server/test/routeCoverage.test.js, server/test/taxEngine.test.js
+- ml-service/main.py, ml-service/.env.example, ml-service/explainer.py, ml-service/feature_engineering.py
+- reactapp/package.json, reactapp/package-lock.json, reactapp/.env.example, reactapp/src/App.jsx, reactapp/src/RecommendationDashboard.jsx, reactapp/src/components/RebalancerScreen.jsx, reactapp/src/components/TaxScreen.jsx, reactapp/src/utils/instrumentTypeMap.js
+- reactapp/src/*.test.jsx/js and reactapp/src/utils/*.test.js files added for coverage.
+
+### Remaining issues
+- reactapp/nginx.conf still contains a UTF-8 BOM. Latest user constraints explicitly forbid touching nginx.conf/deployment config, so this is documented as out of scope rather than changed.
+- html2canvas remains only as a transitive optional dependency of active jspdf 4.2.1 and appears in package-lock/build chunks. Direct html2canvas and html2pdf.js dependencies and README claims were removed; deleting jspdf would remove the existing PDF export feature.
+- Live MongoDB/Redis/external LLM/API-key smoke testing was not run in this workspace. Local route/service tests mock external dependencies and cover auth/validation/fallback paths.
+
+### Next steps
+- If deployment-file editing is allowed in a future pass, strip the BOM from reactapp/nginx.conf.
+- For live acceptance, run the stack with real MongoDB, Redis, ML model files, Gemini/Groq keys, and browser smoke tests against the running app.

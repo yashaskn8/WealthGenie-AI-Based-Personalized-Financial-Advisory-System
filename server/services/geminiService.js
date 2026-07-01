@@ -25,7 +25,7 @@ export async function generateAdvisory(userContext) {
   const safeHorizon = Number.isFinite(horizon) ? horizon : 15;
   const safeAge = Number.isFinite(age) ? age : 30;
 
-  const instrumentList = (instruments || []).map(i => `${i.name || 'Unknown'} (${i.type || 'N/A'}) � post-tax return: ${i.postTaxReturn || 0}%`).join('\n  ');
+  const instrumentList = (instruments || []).map(i => `${i.name || 'Unknown'} (${i.type || 'N/A'}) - post-tax return: ${i.postTaxReturn || 0}%`).join('\n  ');
 
   // Build SHAP context block if available
   let shapContext = '';

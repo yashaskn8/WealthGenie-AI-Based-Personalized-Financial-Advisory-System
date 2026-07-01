@@ -40,7 +40,7 @@ const ProfilePage = () => {
       // Ensure the saved profile belongs to the current authenticated user
       const currentUser = api.getUserInfo();
       if (currentUser && parsed._userId && parsed._userId !== currentUser.id) {
-        // Different user � discard stale profile
+        // Different user - discard stale profile
         localStorage.removeItem(PROFILE_STORAGE_KEY);
         return null;
       }
@@ -300,7 +300,7 @@ const ProfilePage = () => {
   );
 };
 
-/* ===== DASHBOARD SHELL � Sidebar + Pages + Chatbot ===== */
+/* ===== DASHBOARD SHELL - Sidebar + Pages + Chatbot ===== */
 const DashboardShell = ({ userProfile, onProfileUpdate }) => {
   const [activePage, setActivePage] = useState('dashboard');
   const [deepDiveInvestment, setDeepDiveInvestment] = useState(null);
@@ -309,7 +309,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
   const [backendFallback, setBackendFallback] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Stable serialized key � changes ONLY when profile data changes, not on every render
+  // Stable serialized key - changes ONLY when profile data changes, not on every render
   const profileKey = useMemo(() => JSON.stringify({
     a: userProfile.age, i: userProfile.monthly_income, s: userProfile.monthly_savings,
     r: userProfile.risk_appetite, g: userProfile.investment_goals,
@@ -318,7 +318,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
        userProfile.risk_appetite, userProfile.investment_goals,
        userProfile.investment_horizon, userProfile.taxRegime, userProfile.profileId]);
 
-  // Memoize local recommendations � only recomputes when profile key changes
+  // Memoize local recommendations - only recomputes when profile key changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const localRecommendations = useMemo(() => generateRecommendations(userProfile), [profileKey, userProfile]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -804,7 +804,7 @@ function AuthPage() {
                     <input 
                        type={showPassword ? 'text' : 'password'} 
                        id="login-password" 
-                       placeholder="��������" 
+                       placeholder="********"
                        required 
                     />
                     <button

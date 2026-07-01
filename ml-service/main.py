@@ -1,5 +1,5 @@
 """
-WealthGenie ML Microservice � FastAPI
+WealthGenie ML Microservice - FastAPI
 Serves RandomForest predictions with SHAP explainability on port 8000.
 
 =========================================================================
@@ -15,7 +15,7 @@ Serves RandomForest predictions with SHAP explainability on port 8000.
    most votes is returned as the primary recommendation.
 
 2. SHAP (Shapley Additive exPlanations):
-   Machine learning models are often "black boxes" � we get an answer, but we
+   Machine learning models are often "black boxes" - we get an answer, but we
    don't know *why*. SHAP uses game theory (Shapley values) to break down the
    contribution of each feature.
    It calculates: "By how much did your Age push the recommendation towards

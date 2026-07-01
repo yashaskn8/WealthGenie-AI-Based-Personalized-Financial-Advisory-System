@@ -39,7 +39,7 @@ class EnrichedFeatures:
     age_bracket: int             # 0=18-30, 1=31-45, 2=46-60, 3=60+
     retirement_years: int        # 60 - age (years to retirement)
     investable_ratio: float      # savings / income ratio normalised
-    risk_age_score: float        # composite: risk_score � (1/age_factor)
+    risk_age_score: float        # composite: risk_score - (1/age_factor)
 
 def engineer_features(
     age: int,
