@@ -15,7 +15,7 @@ Advisory System
 <h3 align="center">AI-Powered Personalized Financial Advisory System</h3>
 
 <p align="center">
-  <strong>A research-grade, three-tier robo-advisory platform integrating Quasi-Monte Carlo simulation, explainable ML (TreeSHAP), progressive tax optimization under Indian Finance Act 2025, and LLM-powered conversational advisory — with an accompanying IEEE-format research paper.</strong>
+  <strong>A production-grade, three-tier robo-advisory platform integrating Quasi-Monte Carlo simulation, explainable ML (TreeSHAP), progressive tax optimization under Indian Finance Act 2025, and LLM-powered conversational advisory.</strong>
 </p>
 
 <p align="center">
@@ -23,8 +23,7 @@ Advisory System
   <a href="#-key-features">Features</a> â€¢
   <a href="#-computational-engines">Engines</a> â€¢
   <a href="#-quick-start">Quick Start</a> â€¢
-  <a href="#-api-reference">API Reference</a> â€¢
-  <a href="#-research-paper">Research</a>
+  <a href="#-api-reference">API Reference</a>
 </p>
 
 ---
@@ -44,7 +43,6 @@ Advisory System
 - [Security & Hardening](#-security--hardening)
 - [Testing](#-testing)
 - [Performance Benchmarks](#-performance-benchmarks)
-- [Research Paper](#-research-paper)
 - [Financial Glossary](#-financial-glossary)
 - [Author](#-author)
 - [License](#-license)
@@ -66,11 +64,9 @@ Indian retail investors face a multi-objective financial planning challenge that
 
 All recommendations are explained via **TreeSHAP** feature attributions, and a dual-LLM conversational interface (**Gemini 2.0 â†’ Groq Llama 3.3** failover) provides natural-language advisory grounded in validated computational outputs.
 
-> **ðŸ“„ This project is accompanied by a full IEEE-format research paper** validating the mathematical models, variance reduction techniques, and system architecture. See the [Research Paper](#-research-paper) section.
-
 ---
 
-## ðŸ— Architecture
+## 🏗 Architecture
 
 WealthGenie operates on a **decoupled three-tier service-oriented architecture** communicating over stateless REST APIs:
 
@@ -553,23 +549,23 @@ Every prediction is decomposed into feature-level attributions:
 
 ```
 "Your recommendation is MODERATE-AGGRESSIVE because:
- â€¢ Your age (28) contributed +0.23 towards aggressive allocation
- â€¢ Your annual income (â‚¹12L) contributed +0.18 towards aggressive
- â€¢ Your savings rate (25%) contributed +0.11 towards moderate
- â€¢ Your risk score (7/10) contributed +0.31 towards aggressive"
+ • Your age (28) contributed +0.23 towards aggressive allocation
+ • Your annual income (₹12L) contributed +0.18 towards aggressive
+ • Your savings rate (25%) contributed +0.11 towards moderate
+ • Your risk score (7/10) contributed +0.31 towards aggressive"
 ```
 
 SHAP values satisfy the **efficiency axiom**: $\sum_{i} \phi_i(x) = f(x) - E[f(x)]$, ensuring every attribution is mathematically consistent and auditable.
 
 ---
 
-## ðŸ›¡ï¸ Security & Hardening
+## 🛡️ Security & Hardening
 
 | Layer | Implementation |
 |:---|:---|
 | **Password Storage** | bcrypt with cost factor 10 (184-bit salted hashes) |
 | **Session Management** | Stateless JWT with RS256 signing, configurable expiration |
-| **Timing Attack Prevention** | 100â€“300ms randomized delays on login endpoint |
+| **Timing Attack Prevention** | 100–300ms randomized delays on login endpoint |
 | **Rate Limiting** | 10 auth requests / 15min, 60 API requests / min per IP |
 | **HTTP Headers** | Helmet.js (CSP, X-Frame-Options, HSTS, X-Content-Type-Options) |
 | **NoSQL Injection** | express-mongo-sanitize strips `$` and `.` operators |
@@ -614,7 +610,7 @@ python -m pytest
 
 ## ðŸ“ˆ Performance Benchmarks
 
-Validated against standard baselines (results from the accompanying research paper):
+Validated against standard baselines:
 
 | Engine | Metric | Baseline | WealthGenie | Improvement |
 |:---|:---|:---|:---|:---|
@@ -629,23 +625,6 @@ Validated against standard baselines (results from the accompanying research pap
 
 ---
 
-## ðŸ“„ Research Paper
-
-This project is accompanied by an **IEEE-format research paper** that provides:
-
-- Formal mathematical derivations for all computational engines
-- Koksmaâ€“Hlawka convergence proofs for the QMC simulator
-- Variance reduction analysis with empirical data (96%+ reduction)
-- Portfolio optimization results on a 4-asset Indian universe
-- Tax engine validation at Section 87A boundary conditions
-- Comparative analysis against Groww and Betterment
-- Literature survey covering 15 foundational works (Markowitz 1952 â†’ SHAP 2017)
-
-**Author:** Yashas K N
-
-> The paper validates that WealthGenie provides **7 capabilities absent from both Groww and Betterment**, including QMC simulation, Indian tax engine with Sec 87A, TreeSHAP explainability, and LLM advisory chat.
-
----
 
 ## ðŸ“– Financial Glossary
 
