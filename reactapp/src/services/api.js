@@ -210,6 +210,14 @@ export async function updateRecommendationWeights(profileId, weights) {
   return request('POST', '/recommend/weights', { profileId, weights });
 }
 
+export async function optimisePortfolio(profileId, assets, strategy = 'max_sharpe') {
+  return request('POST', '/portfolio/optimise', {
+    profileId,
+    assets,
+    strategy,
+  });
+}
+
 // Default export for convenience
 const api = {
   register, login, setAuthToken, getAuthToken, clearAuthToken,
@@ -217,7 +225,7 @@ const api = {
   buildProfile, getRecommendations, getInstruments, getProjections,
   runMonteCarlo, createGoal, getGoals, updateGoal, deleteGoal, healthCheck,
   sendChatMessage, getChatHistory, clearChatSession, rebalancePortfolio,
-  updateRecommendationWeights,
+  updateRecommendationWeights, optimisePortfolio,
   computeTax, compareTax,
 };
 

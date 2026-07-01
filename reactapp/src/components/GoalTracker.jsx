@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, Palmtree, Diamond, FileText, Shield, TrendingUp, AlertTriangle, CheckCircle, Clock, Zap, IndianRupee, ArrowRight, Lightbulb, Wallet, Save, Sparkles, RefreshCw, Layers } from 'lucide-react';
+import { Target, Palmtree, Diamond, FileText, Shield, TrendingUp, AlertTriangle, CheckCircle, Clock, Zap, IndianRupee, ArrowRight, Lightbulb, Wallet, Save, Sparkles, RefreshCw, Layers, Trash2 } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import { calculateSIPFutureValue } from '../utils/sipCalculator';
 import api from '../services/api';
@@ -102,6 +102,7 @@ const GoalCard = ({
   defaults, 
   goalObj, 
   onSaveUpdates, 
+  onDeleteGoal,
   monthlyAllocation, 
   horizon, 
   returnRate, 
@@ -217,9 +218,42 @@ const GoalCard = ({
           </div>
           <p className="goal-card-desc">{isDbGoal && goalObj.recommended_instrument ? `Saving through ${goalObj.recommended_instrument.replace('_', ' ')}` : defaults.description}</p>
         </div>
-        <span className={`goal-status-badge ${statusClass}`}>
-          <StatusIcon size={12} style={{ marginRight: 4 }} /> {status}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexShrink: 0 }}>
+          <span className={`goal-status-badge ${statusClass}`} style={{ margin: 0 }}>
+            <StatusIcon size={12} style={{ marginRight: 4 }} /> {status}
+          </span>
+          {isDbGoal && (
+            <button
+              onClick={() => onDeleteGoal(goalObj._id || goalObj.goalId)}
+              className="goal-delete-btn"
+              title="Delete Goal"
+              style={{
+                background: 'rgba(244, 63, 94, 0.1)',
+                border: '1px solid rgba(244, 63, 94, 0.2)',
+                borderRadius: '50%',
+                width: 32,
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#f43f5e',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                padding: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(244, 63, 94, 0.2)';
+                e.currentTarget.style.boxShadow = '0 0 10px rgba(244, 63, 94, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(244, 63, 94, 0.1)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Inputs */}
@@ -439,6 +473,19 @@ const GoalTracker = ({ profile, recommendations }) => {
       }
     } catch (err) {
       alert("Failed to save changes: " + (err.message || "Unknown error"));
+    }
+  };
+
+  const handleDeleteGoal = async (goalId) => {
+    if (!window.confirm("Are you sure you want to delete this goal? This will permanently remove it from your tracker.")) return;
+    try {
+      const res = await api.deleteGoal(goalId);
+      if (res.deleted) {
+        const freshList = await api.getGoals();
+        setDbGoals(freshList.goals || []);
+      }
+    } catch (err) {
+      alert("Failed to delete goal: " + (err.message || "Unknown error"));
     }
   };
 
@@ -698,6 +745,7 @@ const GoalTracker = ({ profile, recommendations }) => {
               defaults={g.defaults}
               goalObj={g.obj}
               onSaveUpdates={handleGoalCardUpdate}
+              onDeleteGoal={handleDeleteGoal}
               monthlyAllocation={goalAllocations[g.name] || 0}
               horizon={g.horizon}
               returnRate={g.returnRate}

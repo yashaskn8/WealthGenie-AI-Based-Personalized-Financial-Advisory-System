@@ -1,22 +1,27 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatINR } from '../utils/indianNumberFormat';
 import { getTaxSavingRecommendations, SECTION_80C_LIMIT, SECTION_80CCD_1B_LIMIT } from '../utils/taxCalculator';
 import { investmentDatabase } from '../investmentDatabase';
-import { ShieldCheck, Calculator, Wallet, Receipt, Percent, PiggyBank, TrendingDown, Info, Sparkles, IndianRupee, HelpCircle, Layers, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Calculator, Wallet, Receipt, Percent, PiggyBank, TrendingDown, Info, Sparkles, IndianRupee, HelpCircle, Layers, ArrowUpRight, CheckCircle2, Heart, ToggleLeft, ToggleRight } from 'lucide-react';
 import JargonTooltip from './JargonTooltip';
 import api from '../services/api';
 import './TaxScreen.css';
 
+// Section 80D limits
+const SECTION_80D_SELF_LIMIT = 25000;
+const SECTION_80D_SELF_SENIOR_LIMIT = 50000;
+const SECTION_80D_PARENTS_LIMIT = 25000;
+const SECTION_80D_PARENTS_SENIOR_LIMIT = 50000;
+
 // Local Fallback Calculator (Fully aligned with latest FY2025-26 rules)
-function calculateTaxesLocal(grossIncome, section80C, sectionNPS, hra = 0, homeLoanInterest = 0, other = 0) {
+function calculateTaxesLocal(grossIncome, section80C, sectionNPS, hra = 0, homeLoanInterest = 0, other = 0, section80D_self = 0, section80D_parents = 0, parentsSenior = false, age = 30) {
   const stdDeductionNew = 75000;
   const taxableNew = Math.max(0, grossIncome - stdDeductionNew);
   let taxNew = 0;
   
   // Slab details for FY 2025-26 New Regime:
-  // ₹0 - ₹4L: Nil | ₹4L - ₹8L: 5% | ₹8L - ₹12L: 10% | ₹12L - ₹16L: 15% | ₹16L - ₹20L: 20% | ₹20L - ₹24L: 25% | Above ₹24L: 30%
   if (taxableNew <= 1200000) {
     taxNew = 0; // Rebate covers taxable income up to 12L under Sec 87A for FY 2025-26
   } else {
@@ -28,7 +33,7 @@ function calculateTaxesLocal(grossIncome, section80C, sectionNPS, hra = 0, homeL
     if (temp > 800000) { taxNew += (temp - 800000) * 0.10; temp = 800000; }
     if (temp > 400000) { taxNew += (temp - 400000) * 0.05; }
 
-    // Marginal relief for 87A (tax cannot exceed the excess over ₹12,00,000)
+    // Marginal relief for 87A (tax cannot exceed the excess over â‚¹12,00,000)
     const excessOverLimit = taxableNew - 1200000;
     if (taxNew > excessOverLimit) {
       taxNew = excessOverLimit;
@@ -37,9 +42,18 @@ function calculateTaxesLocal(grossIncome, section80C, sectionNPS, hra = 0, homeL
   const taxBeforeCessNew = taxNew;
   taxNew = taxNew * 1.04;
 
+  // Section 80D calculation (Old Regime only)
+  const selfSenior = (Number(age) || 30) >= 60;
+  const max80DSelf = selfSenior ? SECTION_80D_SELF_SENIOR_LIMIT : SECTION_80D_SELF_LIMIT;
+  const max80DParents = parentsSenior ? SECTION_80D_PARENTS_SENIOR_LIMIT : SECTION_80D_PARENTS_LIMIT;
+  const allowed80DSelf = Math.min(Number(section80D_self) || 0, max80DSelf);
+  const allowed80DParents = Math.min(Number(section80D_parents) || 0, max80DParents);
+  const total80D = allowed80DSelf + allowed80DParents;
+
   const stdDeductionOld = 50000;
   const deductionsOld = Math.min(SECTION_80C_LIMIT, Number(section80C) || 0) + 
                         Math.min(SECTION_80CCD_1B_LIMIT, Number(sectionNPS) || 0) +
+                        total80D +
                         (Number(hra) || 0) +
                         Math.min(200000, Number(homeLoanInterest) || 0) +
                         (Number(other) || 0);
@@ -67,7 +81,14 @@ function calculateTaxesLocal(grossIncome, section80C, sectionNPS, hra = 0, homeL
     taxOld: Math.round(taxOld),
     taxBeforeCessOld: Math.round(taxBeforeCessOld),
     difference: Math.round(Math.abs(taxOld - taxNew)),
-    betterRegime: taxNew < taxOld ? 'New' : taxOld < taxNew ? 'Old' : 'Either'
+    betterRegime: taxNew < taxOld ? 'New' : taxOld < taxNew ? 'Old' : 'Either',
+    // Deduction breakdown for comparison matrix
+    stdDeductionNew: 75000,
+    stdDeductionOld: 50000,
+    deductionsOld: Math.round(deductionsOld),
+    total80D: Math.round(total80D),
+    allowed80DSelf: Math.round(allowed80DSelf),
+    allowed80DParents: Math.round(allowed80DParents),
   };
 }
 
@@ -89,19 +110,19 @@ function findDeductionCrossoverLocal(grossIncome) {
 function getSlabBreakdownLocal(taxableIncome, isNew) {
   const slabs = isNew 
     ? [
-        { limit: 400000, rate: 0.00, label: '₹0 – ₹4L' },
-        { limit: 400000, rate: 0.05, label: '₹4L – ₹8L' },
-        { limit: 400000, rate: 0.10, label: '₹8L – ₹12L' },
-        { limit: 400000, rate: 0.15, label: '₹12L – ₹16L' },
-        { limit: 400000, rate: 0.20, label: '₹16L – ₹20L' },
-        { limit: 400000, rate: 0.25, label: '₹20L – ₹24L' },
-        { limit: Infinity, rate: 0.30, label: 'Above ₹24L' }
+        { limit: 400000, rate: 0.00, label: 'â‚¹0 â€“ â‚¹4L' },
+        { limit: 400000, rate: 0.05, label: 'â‚¹4L â€“ â‚¹8L' },
+        { limit: 400000, rate: 0.10, label: 'â‚¹8L â€“ â‚¹12L' },
+        { limit: 400000, rate: 0.15, label: 'â‚¹12L â€“ â‚¹16L' },
+        { limit: 400000, rate: 0.20, label: 'â‚¹16L â€“ â‚¹20L' },
+        { limit: 400000, rate: 0.25, label: 'â‚¹20L â€“ â‚¹24L' },
+        { limit: Infinity, rate: 0.30, label: 'Above â‚¹24L' }
       ]
     : [
-        { limit: 250000, rate: 0.00, label: '₹0 – ₹2.5L' },
-        { limit: 250000, rate: 0.05, label: '₹2.5L – ₹5L' },
-        { limit: 500000, rate: 0.20, label: '₹5L – ₹10L' },
-        { limit: Infinity, rate: 0.30, label: 'Above ₹10L' }
+        { limit: 250000, rate: 0.00, label: 'â‚¹0 â€“ â‚¹2.5L' },
+        { limit: 250000, rate: 0.05, label: 'â‚¹2.5L â€“ â‚¹5L' },
+        { limit: 500000, rate: 0.20, label: 'â‚¹5L â€“ â‚¹10L' },
+        { limit: Infinity, rate: 0.30, label: 'Above â‚¹10L' }
       ];
 
   let remaining = taxableIncome;
@@ -143,6 +164,9 @@ const TaxScreen = ({ profile }) => {
   const [existingHRA, setExistingHRA] = useState('');
   const [existingHomeLoan, setExistingHomeLoan] = useState('');
   const [existingOther, setExistingOther] = useState('');
+  const [existing80DSelf, setExisting80DSelf] = useState('');
+  const [existing80DParents, setExisting80DParents] = useState('');
+  const [parentsSenior, setParentsSenior] = useState(false);
   const [showSlabBreakdown, setShowSlabBreakdown] = useState(false);
 
   // Server state tracking
@@ -158,7 +182,7 @@ const TaxScreen = ({ profile }) => {
     setRegime(profile?.taxRegime || 'new');
   }
 
-  // ── Debounced API Synchronisation ──
+  // â”€â”€ Debounced API Synchronisation â”€â”€
   useEffect(() => {
     let active = true;
     setIsLoading(true);
@@ -172,6 +196,10 @@ const TaxScreen = ({ profile }) => {
           hra: existingHRA === '' ? 0 : Number(existingHRA),
           homeLoanInterest: existingHomeLoan === '' ? 0 : Number(existingHomeLoan),
           other: existingOther === '' ? 0 : Number(existingOther),
+          section80D_self: existing80DSelf === '' ? 0 : Number(existing80DSelf),
+          section80D_parents: existing80DParents === '' ? 0 : Number(existing80DParents),
+          parents_senior: parentsSenior,
+          age: profile?.age || 30,
         };
         const response = await api.compareTax(annualIncome, payload);
         if (active) {
@@ -194,7 +222,7 @@ const TaxScreen = ({ profile }) => {
       active = false;
       clearTimeout(timer);
     };
-  }, [annualIncome, existing80C, existing80CCD, existingHRA, existingHomeLoan, existingOther]);
+  }, [annualIncome, existing80C, existing80CCD, existingHRA, existingHomeLoan, existingOther, existing80DSelf, existing80DParents, parentsSenior, profile?.age]);
 
   // Fast Local Fallback (instant responses while sliding)
   const localTax = useMemo(() => {
@@ -204,12 +232,20 @@ const TaxScreen = ({ profile }) => {
       existing80CCD, 
       existingHRA, 
       existingHomeLoan, 
-      existingOther
+      existingOther,
+      existing80DSelf,
+      existing80DParents,
+      parentsSenior,
+      profile?.age || 30
     );
-  }, [annualIncome, existing80C, existing80CCD, existingHRA, existingHomeLoan, existingOther]);
+  }, [annualIncome, existing80C, existing80CCD, existingHRA, existingHomeLoan, existingOther, existing80DSelf, existing80DParents, parentsSenior, profile?.age]);
 
   const remaining80C = Math.max(0, SECTION_80C_LIMIT - (Number(existing80C) || 0));
   const remaining80CCD = Math.max(0, SECTION_80CCD_1B_LIMIT - (Number(existing80CCD) || 0));
+  const self80DLimit = (Number(profile?.age) || 30) >= 60 ? SECTION_80D_SELF_SENIOR_LIMIT : SECTION_80D_SELF_LIMIT;
+  const parents80DLimit = parentsSenior ? SECTION_80D_PARENTS_SENIOR_LIMIT : SECTION_80D_PARENTS_LIMIT;
+  const allowed80DSelf = Math.min(self80DLimit, Number(existing80DSelf) || 0);
+  const allowed80DParents = Math.min(parents80DLimit, Number(existing80DParents) || 0);
 
   const taxSavingRecs = useMemo(() => {
     return getTaxSavingRecommendations(remaining80C, remaining80CCD, investmentDatabase);
@@ -260,7 +296,7 @@ const TaxScreen = ({ profile }) => {
 
   // Crossover breakpoint
   const crossoverBreakpoint = useMemo(() => findDeductionCrossoverLocal(annualIncome), [annualIncome]);
-  const currentDeductions = (Number(existing80C) || 0) + (Number(existing80CCD) || 0) + (Number(existingHRA) || 0) + (Number(existingHomeLoan) || 0) + (Number(existingOther) || 0);
+  const currentDeductions = (Number(existing80C) || 0) + (Number(existing80CCD) || 0) + (Number(existingHRA) || 0) + (Number(existingHomeLoan) || 0) + allowed80DSelf + allowed80DParents + (Number(existingOther) || 0);
 
   const taxOldVal = serverTaxData ? serverTaxData.old_regime.tax : localTax.taxOld;
   const taxNewVal = serverTaxData ? serverTaxData.new_regime.tax : localTax.taxNew;
@@ -321,9 +357,9 @@ const TaxScreen = ({ profile }) => {
           <h4 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>Our Recommendation</h4>
           <p style={{ margin: 0, fontSize: '0.88rem', color: '#cbd5e1', lineHeight: 1.5 }}>
             {betterRegime !== 'Either' ? (
-              <span>You'll pay less tax with the <strong>{betterRegime} Regime</strong> — saving <strong>{formatINR(betterRegimeSavings)}</strong> compared to the other option!</span>
+              <span>You'll pay less tax with the <strong>{betterRegime} Regime</strong> â€” saving <strong>{formatINR(betterRegimeSavings)}</strong> compared to the other option!</span>
             ) : (
-              <span>Good news! Both tax systems cost you the same amount — so you can pick whichever you prefer.</span>
+              <span>Good news! Both tax systems cost you the same amount â€” so you can pick whichever you prefer.</span>
             )}
           </p>
         </div>
@@ -381,7 +417,7 @@ const TaxScreen = ({ profile }) => {
             <div>
               <div style={{ fontWeight: 800 }}>You Owe Zero Tax!</div>
               <div style={{ fontSize: '0.85rem', color: '#a7f3d0', marginTop: 2 }}>
-                Your income is below the tax-free limit — you don't need to pay any income tax under the {regime === 'new' ? 'New' : 'Old'} Regime.
+                Your income is below the tax-free limit â€” you don't need to pay any income tax under the {regime === 'new' ? 'New' : 'Old'} Regime.
               </div>
             </div>
           </motion.div>
@@ -495,7 +531,7 @@ const TaxScreen = ({ profile }) => {
                   <JargonTooltip term="NPS">Pension (NPS) Savings</JargonTooltip>
                 </label>
                 <div style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: 8, lineHeight: 1.4 }}>
-                  Extra ₹50K deduction for NPS contributions
+                  Extra â‚¹50K deduction for NPS contributions
                 </div>
                 <input 
                   type="number" 
@@ -542,8 +578,51 @@ const TaxScreen = ({ profile }) => {
                 <div className="tax-input-hint">Yearly interest on your home loan (limit: {formatINR(200000)})</div>
               </div>
 
+              {/* Medical Insurance 80D - Self/Family */}
+              <div className="tax-control-card" style={{ padding: 18 }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Heart size={13} /> Medical Insurance
+                </label>
+                <div style={{ fontSize: '0.65rem', color: '#64748b', marginBottom: 8, lineHeight: 1.4 }}>
+                  Self, spouse, and children under Section 80D
+                </div>
+                <input
+                  type="number"
+                  value={existing80DSelf}
+                  onChange={e => setExisting80DSelf(e.target.value === '' ? '' : Math.min(self80DLimit, Number(e.target.value)))}
+                  max={self80DLimit}
+                  className="tax-input"
+                  placeholder="0"
+                />
+                <div className="tax-input-hint">Limit: {formatINR(self80DLimit)} per year</div>
+              </div>
+
+              {/* Medical Insurance 80D - Parents */}
+              <div className="tax-control-card" style={{ padding: 18 }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Heart size={13} /> Parent Insurance
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setParentsSenior(prev => !prev)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, color: parentsSenior ? '#34d399' : '#94a3b8', padding: '6px 8px', marginBottom: 8, cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 }}
+                >
+                  {parentsSenior ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                  Senior citizen parents
+                </button>
+                <input
+                  type="number"
+                  value={existing80DParents}
+                  onChange={e => setExisting80DParents(e.target.value === '' ? '' : Math.min(parents80DLimit, Number(e.target.value)))}
+                  max={parents80DLimit}
+                  className="tax-input"
+                  placeholder="0"
+                />
+                <div className="tax-input-hint">Limit: {formatINR(parents80DLimit)} per year</div>
+              </div>
+
               {/* Other Deductions */}
-              <div className="tax-control-card" style={{ padding: 18, gridColumn: 'span 2' }}>
+              <div className="tax-control-card" style={{ padding: 18, gridColumn: 'span 3' }}>
                 <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>
                   Other Deductions
                 </label>
@@ -554,7 +633,7 @@ const TaxScreen = ({ profile }) => {
                   className="tax-input" 
                   placeholder="0"
                 />
-                <div className="tax-input-hint">Medical insurance (80D), travel (LTA), education loan interest, etc.</div>
+                <div className="tax-input-hint">LTA, education loan interest, donations, and other eligible deductions.</div>
               </div>
             </motion.div>
           )}
@@ -607,7 +686,7 @@ const TaxScreen = ({ profile }) => {
             <p style={{ color: '#cbd5e1', fontSize: '0.88rem', margin: 0, lineHeight: 1.5 }}>
               With your income of <strong>{formatINR(annualIncome)}</strong>, you need at least <strong>{formatINR(crossoverBreakpoint)}</strong> in deductions for the Old Regime to be cheaper.
               {currentDeductions >= crossoverBreakpoint ? (
-                <span> You already have <strong>{formatINR(currentDeductions)}</strong> in deductions — great, the <strong>Old Regime saves you more money</strong>!</span>
+                <span> You already have <strong>{formatINR(currentDeductions)}</strong> in deductions â€” great, the <strong>Old Regime saves you more money</strong>!</span>
               ) : (
                 <span> Right now you have <strong>{formatINR(currentDeductions)}</strong> in deductions. If you invest <strong>{formatINR(crossoverBreakpoint - currentDeductions)}</strong> more in tax-saving options, the <strong>Old Regime becomes cheaper</strong>.</span>
               )}
@@ -714,7 +793,7 @@ const TaxScreen = ({ profile }) => {
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: 2 }}>
                       {serverTaxData?.new_regime.marginal_relief_applied || serverTaxData?.old_regime.marginal_relief_applied 
                         ? `Marginal relief has been dynamically applied by server: ${formatINR(serverTaxData?.new_regime.marginal_relief_applied ? serverTaxData.new_regime.marginal_relief_amount : serverTaxData.old_regime.marginal_relief_amount)} saved.`
-                        : "A small 4% extra charge (called 'cess') is added on top of your tax — it funds healthcare and education."}
+                        : "A small 4% extra charge (called 'cess') is added on top of your tax â€” it funds healthcare and education."}
                     </div>
                   </div>
                 </div>
@@ -724,7 +803,7 @@ const TaxScreen = ({ profile }) => {
                   <div>
                     <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.85rem' }}>Automatic Tax-Free Amount</div>
                     <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: 2 }}>
-                      The government automatically exempts <strong>{formatINR(standardDeduction)}</strong> of your income from tax — no paperwork needed!
+                      The government automatically exempts <strong>{formatINR(standardDeduction)}</strong> of your income from tax â€” no paperwork needed!
                     </div>
                   </div>
                 </div>
@@ -741,7 +820,7 @@ const TaxScreen = ({ profile }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <h3>Old vs New Regime — Which Costs Less?</h3>
+              <h3>Old vs New Regime â€” Which Costs Less?</h3>
               <div style={{ width: '100%', height: 300 }} className="tax-bar-chart-glow">
                 <ResponsiveContainer>
                   <BarChart data={regimeChartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
@@ -802,7 +881,7 @@ const TaxScreen = ({ profile }) => {
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem', textAlign: 'center', padding: '0 20px', minHeight: 300 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                     <Info size={36} color="#475569" />
-                    Tax-saving deductions only apply in the Old Regime. In the New Regime, you get lower tax rates instead — no need to make special investments.
+                    Tax-saving deductions only apply in the Old Regime. In the New Regime, you get lower tax rates instead â€” no need to make special investments.
                   </div>
                 </div>
               )}
@@ -815,7 +894,7 @@ const TaxScreen = ({ profile }) => {
       {regime === 'old' && (
         <div className="tax-limits-row">
           <div className="tax-limit-card">
-            <div className="tax-limit-header"><JargonTooltip term="Section 80C">Tax-Saving Investments (80C)</JargonTooltip> — How Much You've Used</div>
+            <div className="tax-limit-header"><JargonTooltip term="Section 80C">Tax-Saving Investments (80C)</JargonTooltip> â€” How Much You've Used</div>
             <div className="tax-limit-bar-track">
               <div className="tax-limit-bar-fill" style={{ width: `${((SECTION_80C_LIMIT - remaining80C) / SECTION_80C_LIMIT) * 100}%` }} />
             </div>
@@ -825,7 +904,7 @@ const TaxScreen = ({ profile }) => {
             </div>
           </div>
           <div className="tax-limit-card">
-            <div className="tax-limit-header"><JargonTooltip term="Section 80CCD(1B)">Pension (NPS) Deduction</JargonTooltip> — How Much You've Used</div>
+            <div className="tax-limit-header"><JargonTooltip term="Section 80CCD(1B)">Pension (NPS) Deduction</JargonTooltip> â€” How Much You've Used</div>
             <div className="tax-limit-bar-track">
               <div className="tax-limit-bar-fill tax-limit-bar-fill--purple" style={{ width: `${((SECTION_80CCD_1B_LIMIT - remaining80CCD) / SECTION_80CCD_1B_LIMIT) * 100}%` }} />
             </div>
@@ -863,7 +942,7 @@ const TaxScreen = ({ profile }) => {
                 <div className="tax-rec-name" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff' }}>{rec.name}</div>
                 <div className="tax-rec-section">Saves tax under Section {rec.section}</div>
                 <div className="tax-rec-amount" style={{ fontSize: '1.1rem', fontWeight: 900, color: '#f8fafc', margin: '14px 0 6px' }}>Limit: up to {formatINR(rec.suggestedAmount)}</div>
-                <div className="tax-rec-return" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Expected growth: {Number(rec.expected_return_min).toFixed(0)}% – {Number(rec.expected_return_max).toFixed(0)}% per year</div>
+                <div className="tax-rec-return" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Expected growth: {Number(rec.expected_return_min).toFixed(0)}% â€“ {Number(rec.expected_return_max).toFixed(0)}% per year</div>
               </motion.div>
             ))}
           </div>

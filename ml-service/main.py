@@ -1,9 +1,9 @@
-"""
-WealthGenie ML Microservice — FastAPI
+﻿"""
+WealthGenie ML Microservice â€” FastAPI
 Serves RandomForest predictions with SHAP explainability on port 8000.
 
 =========================================================================
-📘 BEGINNER NOTE: RANDOM FOREST & SHAP VALUES
+ðŸ“˜ BEGINNER NOTE: RANDOM FOREST & SHAP VALUES
 =========================================================================
 1. Random Forest Classifier:
    Imagine asking a single person for financial advice. They might have biases.
@@ -15,7 +15,7 @@ Serves RandomForest predictions with SHAP explainability on port 8000.
    most votes is returned as the primary recommendation.
 
 2. SHAP (Shapley Additive exPlanations):
-   Machine learning models are often "black boxes" — we get an answer, but we
+   Machine learning models are often "black boxes" â€” we get an answer, but we
    don't know *why*. SHAP uses game theory (Shapley values) to break down the
    contribution of each feature.
    It calculates: "By how much did your Age push the recommendation towards
@@ -30,12 +30,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from schemas import PredictRequest, PredictResponse, HealthResponse
-from explainer import load_explainer, ModelExplainer
+from explainer import ModelExplainer
 from feature_engineering import engineer_features, to_model_array
-from backtester import run_backtest, BacktestResult, INSTRUMENT_MARKET_SENSITIVITY
-from typing import List
+from backtester import run_backtest, INSTRUMENT_MARKET_SENSITIVITY
 
-# ── Application State ─────────────────────────────────────────────
+# â”€â”€ Application State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
 MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(MODEL_DIR, 'model.pkl'))
 LE_PATH = os.path.join(MODEL_DIR, 'label_encoder.pkl')
@@ -48,7 +47,7 @@ model_accuracy = None
 explainer_instance = None
 
 
-# ── Lifespan (replaces deprecated @app.on_event) ─────────────────
+# â”€â”€ Lifespan (replaces deprecated @app.on_event) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, label_encoder, dt_model, explainer_instance
@@ -200,14 +199,14 @@ async def predict_enriched(data: PredictRequest):
     Extended prediction endpoint.
     
     BEGINNER NOTE: FEATURE ENGINEERING ENRICHMENT
-    Unlike the standard /predict endpoint, this endpoint feeds raw inputs through 
-    the feature engineering layer first. It derives advanced metrics like:
+    Unlike the standard /predict endpoint, this endpoint derives advanced metrics like:
     - Savings Rate (savings divided by monthly income)
     - Retirement Horizon (years remaining until age 60)
     - Risk Age Score (compounding risk score relative to age)
     
-    These derived variables provide better mathematical context to the Random Forest model
-    to make more robust recommendations.
+    The current Random Forest was trained on the original four features, so the
+    derived variables are returned as context while to_model_array preserves the
+    exact training feature order for inference.
     """
     risk_score = RISK_ENCODING.get(data.risk_category, 2)
     features = engineer_features(

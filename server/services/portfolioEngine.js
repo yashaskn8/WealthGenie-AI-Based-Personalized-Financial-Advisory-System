@@ -1,22 +1,22 @@
-/**
+﻿/**
  * WealthGenie Portfolio Optimisation Engine
- * ──────────────────────────────────────────
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Mean-variance portfolio optimisation for Indian asset classes.
  *
  * Solvers implemented (all long-only, fully-invested):
- *   1. Minimum Variance Portfolio   — minimise w'Σw
- *   2. Maximum Sharpe (Tangency)    — maximise (w'μ − r_f) / √(w'Σw)
- *   3. Risk Parity                  — equalise risk contributions
+ *   1. Minimum Variance Portfolio   â€” minimise w'Î£w
+ *   2. Maximum Sharpe (Tangency)    â€” maximise (w'Î¼ âˆ’ r_f) / âˆš(w'Î£w)
+ *   3. Risk Parity                  â€” equalise risk contributions
  *
- * No external optimiser dependency — uses iterative gradient projection
- * onto the probability simplex (Σw_i = 1, w_i ≥ 0).
+ * No external optimiser dependency â€” uses iterative gradient projection
+ * onto the probability simplex (Î£w_i = 1, w_i â‰¥ 0).
  *
- * All volatility (σ) and return (μ) data sourced from instrumentConstants.js.
+ * All volatility (Ïƒ) and return (Î¼) data sourced from instrumentConstants.js.
  *
  * @module portfolioEngine
  * 
- * =══════════════════════════════════════════════════════════════════════════
- * 📘 BEGINNER NOTE: DIVERSIFICATION, CORRELATION & COVARIANCE
+ * =â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * ðŸ“˜ BEGINNER NOTE: DIVERSIFICATION, CORRELATION & COVARIANCE
  * =========================================================================
  * 1. Diversification ("Don't put all your eggs in one basket"):
  *    If you invest 100% of your money in a single small-cap stock, and it crashes,
@@ -39,9 +39,9 @@
 
 import { INSTRUMENT_PARAMS, RISK_FREE_RATE } from './instrumentConstants.js';
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  ASSET KEY UNIVERSE — canonical ordering for correlation matrix
- * ═══════════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ *  ASSET KEY UNIVERSE â€” canonical ordering for correlation matrix
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /** @type {string[]} Canonical ordering of asset classes in the correlation matrix */
 const ASSET_KEYS = [
@@ -50,17 +50,17 @@ const ASSET_KEYS = [
   'Index_MF', 'Midcap_MF', 'Smallcap_MF',
 ];
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  CORRELATION MATRIX — Indian market empirical estimates
- * ─────────────────────────────────────────────────────────────────────────
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ *  CORRELATION MATRIX â€” Indian market empirical estimates
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  *  Sources: NSE historical data, CRISIL indices, AMFI factsheets.
- *  Equity types: 0.85–0.95 inter-correlated
- *  Equity–Debt:  0.10–0.20
- *  Equity–Gold:  0.05–0.15
- *  Debt types:   0.70–0.90 inter-correlated
- *  Gold–Debt:    0.15–0.25
+ *  Equity types: 0.85â€“0.95 inter-correlated
+ *  Equityâ€“Debt:  0.10â€“0.20
+ *  Equityâ€“Gold:  0.05â€“0.15
+ *  Debt types:   0.70â€“0.90 inter-correlated
+ *  Goldâ€“Debt:    0.15â€“0.25
  *  Matrix is symmetric with 1.0 on diagonal.
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
  * Lower-triangular correlation values (row-major, including diagonal = 1).
@@ -90,7 +90,7 @@ const CORR_LOWER = [
 ];
 
 /**
- * Build the full symmetric N×N correlation matrix from the lower-triangular input.
+ * Build the full symmetric NÃ—N correlation matrix from the lower-triangular input.
  * @returns {number[][]}
  */
 function buildFullCorrelation() {
@@ -142,13 +142,13 @@ if (!checkCholeskyPSD(FULL_CORR)) {
   console.warn('[portfolioEngine] Warning: Master correlation matrix is not Positive Semi-Definite (PSD)! Numerical solvers may experience instability.');
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  LINEAR ALGEBRA HELPERS (pure JS, no deps)
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
- * Matrix-vector multiply: y = A·x
- * @param {number[][]|Float64Array[]} A - n×n matrix
+ * Matrix-vector multiply: y = AÂ·x
+ * @param {number[][]|Float64Array[]} A - nÃ—n matrix
  * @param {number[]|Float64Array} x - length-n vector
  * @returns {Float64Array}
  */
@@ -164,7 +164,7 @@ function matvec(A, x) {
 }
 
 /**
- * Dot product: x·y
+ * Dot product: xÂ·y
  * @param {number[]|Float64Array} a
  * @param {number[]|Float64Array} b
  * @returns {number}
@@ -176,7 +176,7 @@ function dot(a, b) {
 }
 
 /**
- * Portfolio variance: w'Σw
+ * Portfolio variance: w'Î£w
  * @param {number[][]|Float64Array[]} cov
  * @param {number[]|Float64Array} w
  * @returns {number}
@@ -186,7 +186,7 @@ function portfolioVariance(cov, w) {
 }
 
 /**
- * Portfolio volatility: √(w'Σw)
+ * Portfolio volatility: âˆš(w'Î£w)
  * @param {number[][]|Float64Array[]} cov
  * @param {number[]|Float64Array} w
  * @returns {number}
@@ -196,7 +196,7 @@ function portfolioVol(cov, w) {
 }
 
 /**
- * Portfolio expected return: w'μ
+ * Portfolio expected return: w'Î¼
  * @param {number[]|Float64Array} w
  * @param {number[]|Float64Array} mu
  * @returns {number}
@@ -205,19 +205,19 @@ function portfolioReturn(w, mu) {
   return dot(w, mu);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
- *  SIMPLEX PROJECTION — Duchi et al. (2008)
- * ─────────────────────────────────────────────────────────────────────────
- *  Project a vector onto the probability simplex {x ≥ 0, Σx = 1}.
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ *  SIMPLEX PROJECTION â€” Duchi et al. (2008)
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *  Project a vector onto the probability simplex {x â‰¥ 0, Î£x = 1}.
  *  O(n log n) via sorting. Essential for enforcing long-only + fully-invested.
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
- * Project vector v onto the unit simplex (Σv_i = 1, v_i ≥ 0).
+ * Project vector v onto the unit simplex (Î£v_i = 1, v_i â‰¥ 0).
  * Algorithm: Duchi, Shalev-Shwartz, Singer, Chandra (2008).
  *
  * =========================================================================
- * 📘 BEGINNER NOTE: WHAT IS SIMPLEX PROJECTION?
+ * ðŸ“˜ BEGINNER NOTE: WHAT IS SIMPLEX PROJECTION?
  * =========================================================================
  * When our optimization algorithm adjusts portfolio weights to find the best mix,
  * it might temporarily suggest impossible configurations (e.g. allocation weights
@@ -251,17 +251,17 @@ function projectSimplex(v) {
   return w;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  COVARIANCE MATRIX BUILDER
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
  * Build the covariance matrix for a subset of asset classes.
  *
- * Formula: Σ_{ij} = ρ_{ij} × σ_i × σ_j
+ * Formula: Î£_{ij} = Ï_{ij} Ã— Ïƒ_i Ã— Ïƒ_j
  *
- * Volatilities (σ) are sourced from INSTRUMENT_PARAMS in instrumentConstants.js.
- * Correlations (ρ) are from the hardcoded Indian-market correlation matrix.
+ * Volatilities (Ïƒ) are sourced from INSTRUMENT_PARAMS in instrumentConstants.js.
+ * Correlations (Ï) are from the hardcoded Indian-market correlation matrix.
  *
  * @param {string[]} assetKeys - subset of ASSET_KEYS to include
  * @returns {{ matrix: Float64Array[], assetKeys: string[] }}
@@ -305,15 +305,15 @@ export function buildCovarianceMatrix(assetKeys) {
   return { matrix: cov, assetKeys: [...assetKeys] };
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  SOLVER 1: MINIMUM VARIANCE PORTFOLIO
- * ─────────────────────────────────────────────────────────────────────────
- *  Minimise:  w'Σw
- *  Subject to: Σw_i = 1,  w_i ≥ 0
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *  Minimise:  w'Î£w
+ *  Subject to: Î£w_i = 1,  w_i â‰¥ 0
  *
  *  Method: Projected gradient descent on the simplex.
- *  Gradient of w'Σw w.r.t. w is 2Σw.
- * ═══════════════════════════════════════════════════════════════════════════ */
+ *  Gradient of w'Î£w w.r.t. w is 2Î£w.
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
  * Solve for the minimum-variance portfolio (long-only, fully-invested).
@@ -350,7 +350,7 @@ export function solveMinVariance(assetKeys, postTaxReturns) {
   let lr = 0.5; // learning rate (adaptive)
 
   for (let iter = 0; iter < maxIter; iter++) {
-    // Gradient: ∇(w'Σw) = 2Σw
+    // Gradient: âˆ‡(w'Î£w) = 2Î£w
     const grad = matvec(cov, w);
     for (let i = 0; i < n; i++) grad[i] *= 2;
 
@@ -369,7 +369,7 @@ export function solveMinVariance(assetKeys, postTaxReturns) {
 
     if (maxDelta < tol) break;
 
-    // Adaptive learning rate — reduce if oscillating
+    // Adaptive learning rate â€” reduce if oscillating
     if (iter > 0 && iter % 500 === 0) lr *= 0.8;
   }
 
@@ -385,18 +385,18 @@ export function solveMinVariance(assetKeys, postTaxReturns) {
   };
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  SOLVER 2: MAXIMUM SHARPE (TANGENCY) PORTFOLIO
- * ─────────────────────────────────────────────────────────────────────────
- *  Maximise:  (w'μ − r_f) / √(w'Σw)
- *  Subject to: Σw_i = 1,  w_i ≥ 0
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *  Maximise:  (w'Î¼ âˆ’ r_f) / âˆš(w'Î£w)
+ *  Subject to: Î£w_i = 1,  w_i â‰¥ 0
  *
  *  Method: Projected gradient ascent on Sharpe ratio.
  *  Uses the analytical gradient of the Sharpe ratio:
- *    ∂S/∂w_i = [μ_i·σ_p − (μ_p − r_f)·(Σw)_i / σ_p] / σ_p²
+ *    âˆ‚S/âˆ‚w_i = [Î¼_iÂ·Ïƒ_p âˆ’ (Î¼_p âˆ’ r_f)Â·(Î£w)_i / Ïƒ_p] / Ïƒ_pÂ²
  * 
  * =========================================================================
- * 📘 BEGINNER NOTE: WHAT IS THE SHARPE RATIO?
+ * ðŸ“˜ BEGINNER NOTE: WHAT IS THE SHARPE RATIO?
  * =========================================================================
  * Think of the Sharpe Ratio as "Return per unit of stress" (or miles per gallon for
  * your investment portfolio). 
@@ -413,7 +413,7 @@ export function solveMinVariance(assetKeys, postTaxReturns) {
  * A higher Sharpe ratio means you are getting more return for the risk you are taking.
  * The solver below runs gradient ascent to search for the exact weights that maximize
  * this ratio.
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
  * Solve for the maximum Sharpe ratio (tangency) portfolio.
@@ -503,7 +503,7 @@ export function solveMaxSharpe(assetKeys, postTaxReturns) {
   const excessMu = new Float64Array(n);
   for (let i = 0; i < n; i++) excessMu[i] = mu[i] - rf;
 
-  // Initialise: if all excess returns are ≤ 0, fall back to min-variance
+  // Initialise: if all excess returns are â‰¤ 0, fall back to min-variance
   const anyPositive = excessMu.some((e) => e > 0);
   if (!anyPositive) {
     return solveMinVariance(assetKeys, postTaxReturns);
@@ -511,7 +511,7 @@ export function solveMaxSharpe(assetKeys, postTaxReturns) {
 
   const candidates = [];
 
-  // Candidate 1: Start with weights proportional to excess returns (clamped ≥ 0)
+  // Candidate 1: Start with weights proportional to excess returns (clamped â‰¥ 0)
   let wExcess = new Float64Array(n);
   let sumW = 0;
   for (let i = 0; i < n; i++) {
@@ -557,16 +557,16 @@ export function solveMaxSharpe(assetKeys, postTaxReturns) {
   };
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  SOLVER 3: RISK PARITY PORTFOLIO
- * ─────────────────────────────────────────────────────────────────────────
- *  Equalise risk contributions:  RC_i = w_i × MRC_i  ∀i
+ * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ *  Equalise risk contributions:  RC_i = w_i Ã— MRC_i  âˆ€i
  *
- *  Where MRC_i = (Σw)_i / √(w'Σw)  (marginal risk contribution)
+ *  Where MRC_i = (Î£w)_i / âˆš(w'Î£w)  (marginal risk contribution)
  *
- *  Method: iterative rescaling (Maillard, Roncalli, Teïletche 2010).
- *  w_i ← 1 / (σ_p × MRC_i), then normalise Σw_i = 1.
- * ═══════════════════════════════════════════════════════════════════════════ */
+ *  Method: iterative rescaling (Maillard, Roncalli, TeÃ¯letche 2010).
+ *  w_i â† 1 / (Ïƒ_p Ã— MRC_i), then normalise Î£w_i = 1.
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
  * Solve for the risk parity portfolio (equal risk contribution).
@@ -596,12 +596,12 @@ export function solveRiskParity(assetKeys) {
     const mrc = new Float64Array(n);
     for (let i = 0; i < n; i++) mrc[i] = sigmaW[i] / portVol;
 
-    // Risk contributions: RC_i = w_i × MRC_i
+    // Risk contributions: RC_i = w_i Ã— MRC_i
     const rc = new Float64Array(n);
     for (let i = 0; i < n; i++) rc[i] = w[i] * mrc[i];
 
     // Target: each RC_i = portVol / n (equal contribution)
-    // Update: w_i ← 1 / MRC_i, then normalise
+    // Update: w_i â† 1 / MRC_i, then normalise
     const wNew = new Float64Array(n);
     let sumW = 0;
     for (let i = 0; i < n; i++) {
@@ -634,12 +634,12 @@ export function solveRiskParity(assetKeys) {
   };
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  DISPATCHER
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
- * Unified dispatcher — select optimisation strategy by name.
+ * Unified dispatcher â€” select optimisation strategy by name.
  *
  * @param {string[]} assetKeys - asset classes to include
  * @param {number[]} postTaxReturns - annualised post-tax returns (decimal) per asset
@@ -655,8 +655,23 @@ export function optimisePortfolio(assetKeys, postTaxReturns, strategy = 'max_sha
     case 'max_sharpe':
       return { strategy, ...solveMaxSharpe(assetKeys, postTaxReturns) };
 
-    case 'risk_parity':
-      return { strategy, ...solveRiskParity(assetKeys) };
+    case 'risk_parity': {
+      const result = solveRiskParity(assetKeys);
+      const expectedReturn = assetKeys.reduce((sum, key, index) => {
+        const weight = result.weights[key] || 0;
+        const assetReturn = Number(postTaxReturns?.[index]) || 0;
+        return sum + weight * assetReturn;
+      }, 0);
+      const sharpe = result.volatility > 1e-12
+        ? (expectedReturn - RISK_FREE_RATE) / result.volatility
+        : 0;
+      return {
+        strategy,
+        ...result,
+        expectedReturn: _round6(expectedReturn),
+        sharpe: _round4(sharpe),
+      };
+    }
 
     default:
       throw new Error(
@@ -666,9 +681,9 @@ export function optimisePortfolio(assetKeys, postTaxReturns, strategy = 'max_sha
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  INTERNAL HELPERS
- * ═══════════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /**
  * Convert a weight vector to a labelled map { assetKey: weight }.

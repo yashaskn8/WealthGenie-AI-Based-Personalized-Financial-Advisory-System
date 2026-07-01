@@ -1,9 +1,9 @@
-"""
+﻿"""
 WealthGenie SHAP Explainability Layer
 Uses TreeExplainer for fast, exact SHAP values on RandomForest.
 
 =========================================================================
-📘 BEGINNER NOTE: SHAP & SHAPLEY VALUES
+ðŸ“˜ BEGINNER NOTE: SHAP & SHAPLEY VALUES
 =========================================================================
 1. Shapley Values (Game Theory):
    Imagine a group of four friends (Age, Income, Savings, stated Risk) playing 
@@ -27,8 +27,6 @@ Uses TreeExplainer for fast, exact SHAP values on RandomForest.
 """
 
 import numpy as np
-import joblib
-import os
 
 # Feature names matching the training pipeline
 FEATURE_NAMES = ['age', 'annual_income', 'monthly_savings', 'risk_score']
@@ -70,7 +68,7 @@ class ModelExplainer:
         Generate human-readable explanation for a prediction.
 
         Args:
-            raw_features: numpy array shape (1, 4) — [age, income, savings, risk_score]
+            raw_features: numpy array shape (1, 4) â€” [age, income, savings, risk_score]
 
         Returns:
             dict with predicted_class, confidence, feature_contributions, top_reason
@@ -168,22 +166,3 @@ class ModelExplainer:
             })
 
         return contributions
-
-
-
-def load_explainer():
-    """Load the pipeline and create a ModelExplainer instance."""
-    model_dir = os.path.join(os.path.dirname(__file__), 'model')
-    pipeline_path = os.path.join(model_dir, 'model.pkl')
-    le_path = os.path.join(model_dir, 'label_encoder.pkl')
-
-    try:
-        pipeline = joblib.load(pipeline_path)
-        label_encoder = joblib.load(le_path)
-        return ModelExplainer(pipeline, label_encoder)
-    except FileNotFoundError:
-        print("[WARN] Model files not found. Run ml-service/model/train.py first.")
-        return None
-    except Exception as e:
-        print(f"[ERROR] Failed to initialise explainer: {e}")
-        return None

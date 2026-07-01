@@ -1,12 +1,13 @@
-{
+﻿{
   "name": "wealthgenie-server",
   "version": "1.0.0",
-  "description": "WealthGenie Express.js Backend — Tax-optimized AI financial advisory",
+  "description": "WealthGenie Express.js Backend â€” Tax-optimized AI financial advisory",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js",
+    "test": "node --test",
     "seed": "node config/seedInstruments.js"
   },
   "dependencies": {

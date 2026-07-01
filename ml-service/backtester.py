@@ -1,10 +1,10 @@
-"""
+﻿"""
 WealthGenie Recommendation Backtester
 Tests how recommended instruments would have performed for
 a given profile over historical Nifty return periods.
 
 =========================================================================
-📘 BEGINNER NOTE: WHAT IS BACKTESTING & CAPM (ALPHA/BETA)?
+ðŸ“˜ BEGINNER NOTE: WHAT IS BACKTESTING & CAPM (ALPHA/BETA)?
 =========================================================================
 1. What is Backtesting?
    Before investing your hard-earned money, you want to know: "How would this
@@ -28,7 +28,7 @@ a given profile over historical Nifty return periods.
 """
 import numpy as np
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List
 
 # Historical Nifty 50 annual returns by decade
 # Source: NSE data (approximated for illustration)
@@ -72,7 +72,7 @@ def compute_instrument_return(
 ) -> float:
     """
     Estimate instrument return given a market scenario.
-    Uses CAPM-inspired model: R_i = alpha + beta × R_m
+    Uses CAPM-inspired model: R_i = alpha + beta Ã— R_m
     """
     sensitivity = INSTRUMENT_MARKET_SENSITIVITY.get(
         instrument_type,
