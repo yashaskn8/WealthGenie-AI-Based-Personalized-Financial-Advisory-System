@@ -19,16 +19,16 @@ Advisory System
 </p>
 
 <p align="center">
-  <a href="#-architecture">Architecture</a> â€¢
-  <a href="#-key-features">Features</a> â€¢
-  <a href="#-computational-engines">Engines</a> â€¢
-  <a href="#-quick-start">Quick Start</a> â€¢
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-key-features">Features</a> •
+  <a href="#-computational-engines">Engines</a> •
+  <a href="#-quick-start">Quick Start</a> •
   <a href="#-api-reference">API Reference</a>
 </p>
 
 ---
 
-## ðŸ“‹ Table of Contents
+## 📋 Table of Contents
 
 - [About the Project](#-about-the-project)
 - [Architecture](#-architecture)
@@ -49,20 +49,20 @@ Advisory System
 
 ---
 
-## ðŸŽ¯ About the Project
+## 🎯 About the Project
 
-Indian retail investors face a multi-objective financial planning challenge that spans stochastic wealth projection, heterogeneous capital-gains taxation, and regulatory rebate discontinuities. Existing robo-advisory platforms address these concerns in isolation â€” offering either deterministic growth calculators that ignore sequence-of-returns risk, or opaque recommendation engines that provide no decision rationale.
+Indian retail investors face a multi-objective financial planning challenge that spans stochastic wealth projection, heterogeneous capital-gains taxation, and regulatory rebate discontinuities. Existing robo-advisory platforms address these concerns in isolation — offering either deterministic growth calculators that ignore sequence-of-returns risk, or opaque recommendation engines that provide no decision rationale.
 
 **WealthGenie** is a modular, three-tier platform that unifies **four domain-specific computational engines** within a single advisory workflow:
 
 | Engine | Problem Solved |
 |:---|:---|
-| **Quasi-Monte Carlo Simulator** | Replaces deterministic CAGR projections with probabilistic wealth bands (Pâ‚â‚€, Pâ‚…â‚€, Pâ‚‰â‚€) that capture sequence-of-returns risk |
+| **Quasi-Monte Carlo Simulator** | Replaces deterministic CAGR projections with probabilistic wealth bands (P₁₀, P₅₀, P₉₀) that capture sequence-of-returns risk |
 | **Hybrid XIRR Solver** | Computes exact annualized returns for irregular SIP cash-flow schedules with guaranteed convergence |
 | **Portfolio Optimizer** | Constructs optimal allocations via MinVariance, MaxSharpe, and Risk Parity strategies with simplex-projected gradient descent |
 | **Progressive Tax Engine** | Precisely models Section 87A rebate cliffs, surcharge marginal relief, and 7-slab progressive taxation under Finance Act 2025 |
 
-All recommendations are explained via **TreeSHAP** feature attributions, and a dual-LLM conversational interface (**Gemini 2.0 â†’ Groq Llama 3.3** failover) provides natural-language advisory grounded in validated computational outputs.
+All recommendations are explained via **TreeSHAP** feature attributions, and a dual-LLM conversational interface (**Gemini 2.0 → Groq Llama 3.3** failover) provides natural-language advisory grounded in validated computational outputs.
 
 ---
 
@@ -82,49 +82,49 @@ WealthGenie operates on a **decoupled three-tier service-oriented architecture**
 
 ---
 
-## âœ¨ Key Features
+## ✨ Key Features
 
-### ðŸ”® Stochastic Wealth Projection
+### 🔮 Stochastic Wealth Projection
 - **Quasi-Monte Carlo simulation** using Halton low-discrepancy sequences replaces deterministic CAGR projections
 - **Antithetic variates** and **multiplicative control variates** achieve **96%+ variance reduction** vs naive Monte Carlo
-- Renders probabilistic wealth bands (**Pâ‚â‚€, Pâ‚…â‚€, Pâ‚‰â‚€**) capturing sequence-of-returns risk for SIP investors
+- Renders probabilistic wealth bands (**P₁₀, P₅₀, P₉₀**) capturing sequence-of-returns risk for SIP investors
 - Sub-100ms response times via Halton's $O(N^{-1}(\ln N)^d)$ convergence rate
 
-### ðŸ“Š Portfolio Optimization (3 Strategies)
-- **Minimum Variance** â€” Minimizes $w^T \Sigma w$ for lowest-risk allocation
-- **Maximum Sharpe** â€” Maximizes risk-adjusted excess return $(w^T\mu - R_f) / \sqrt{w^T\Sigma w}$
-- **Equal Risk Contribution (Risk Parity)** â€” Equalizes marginal risk contributions across all assets
+### 📊 Portfolio Optimization (3 Strategies)
+- **Minimum Variance** — Minimizes $w^T \Sigma w$ for lowest-risk allocation
+- **Maximum Sharpe** — Maximizes risk-adjusted excess return $(w^T\mu - R_f) / \sqrt{w^T\Sigma w}$
+- **Equal Risk Contribution (Risk Parity)** — Equalizes marginal risk contributions across all assets
 - All solvers use **simplex-projected gradient descent** enforcing fully-invested and long-only constraints
 
-### ðŸ§  Explainable AI (XAI)
+### 🧠 Explainable AI (XAI)
 - **Random Forest** ensemble classifier (200 trees) maps investor profiles to recommended primary financial instruments (e.g., Equity Mutual Funds, ETFs, ELSS, Fixed Deposits, Gold, or RBI Bonds)
 - **TreeSHAP** computes exact Shapley values satisfying efficiency, symmetry, and dummy axioms
 - Feature attributions decompose every recommendation into auditable, human-readable explanations
-- **100Ã— faster** than KernelSHAP (2.4ms vs 240ms inference time)
+- **100× faster** than KernelSHAP (2.4ms vs 240ms inference time)
 
-### ðŸ’° Indian Tax Engine (Finance Act 2025)
-- 7-slab progressive tax computation (0% â†’ 30%)
-- **Section 87A rebate cliff** with marginal relief â€” precisely handles the â‚¹12,00,000 threshold discontinuity
+### 💰 Indian Tax Engine (Finance Act 2025)
+- 7-slab progressive tax computation (0% → 30%)
+- **Section 87A rebate cliff** with marginal relief — precisely handles the ₹12,00,000 threshold discontinuity
 - Surcharge tiers (10% / 15% / 25%) with surcharge marginal relief
 - 4% Health & Education Cess
 - Old vs New regime comparison
 - Post-tax capital gains analysis (LTCG / STCG / EEE classification)
 
-### ðŸ’¬ Dual-LLM Advisory Chat
+### 💬 Dual-LLM Advisory Chat
 - **Primary**: Google Gemini 2.0 with context injection from validated computational outputs
 - **Failover**: Groq Llama 3.3 with deterministic FSM-based prompt reformatting
 - Prompt caching via Upstash Redis (30-minute TTL) to reduce LLM token costs
 - Context-grounded responses prevent financial hallucination
 
-### ðŸ›¡ï¸ Production-Grade Security
+### 🛡️ Production-Grade Security
 - bcrypt password hashing (cost factor 10)
 - JWT RS256 authentication with configurable expiration
-- Timing-attack resistant login (100â€“300ms randomized delays)
+- Timing-attack resistant login (100–300ms randomized delays)
 - Rate limiting (10 auth / 60 API requests per window)
 - Helmet.js security headers, NoSQL injection prevention, CSP policies
 - Sensitive financial data is protected by authentication, authorization, validation, and database access controls; this codebase does not implement application-level field encryption
 
-### ðŸ“± Premium UI/UX
+### 📱 Premium UI/UX
 - Dark-themed glassmorphic dashboard with **Framer Motion** micro-animations
 - 3D tilt cards, animated background orbs, staggered reveal animations
 - 15+ interactive screens: Dashboard, Tax Optimizer, Goal Planner, Rebalancer, Health Score, Deep Dive, Comparison Table, SIP Step-Up Planner, Post-Tax Analysis, and more
@@ -134,7 +134,7 @@ WealthGenie operates on a **decoupled three-tier service-oriented architecture**
 
 ---
 
-## âš™ï¸ Computational Engines
+## ⚙️ Computational Engines
 
 ### 1. Quasi-Monte Carlo Simulator (`monteCarloEngine.js`)
 
@@ -147,9 +147,9 @@ $$S(t + \Delta t) = \left(S(t) + P_m\right) \exp\left[\left(\mu - \frac{\sigma^2
 |:---|:---|:---|
 | **QMC (Halton)** | Low-discrepancy radical-inverse sequences replace pseudo-random numbers | Convergence: $O(N^{-1}(\ln N)^d)$ vs $O(N^{-1/2})$ |
 | **Antithetic Variates** | For each shock $\mathbf{Z}$, simulate mirror path $-\mathbf{Z}$ | Exploits negative correlation to reduce variance |
-| **Multiplicative CV** | Scale by $\lambda = FV_{\text{det}} / \bar{S}_{\text{raw}}$ using analytical annuity-due | Eliminates Eulerâ€“Maruyama discretization drift |
+| **Multiplicative CV** | Scale by $\lambda = FV_{\text{det}} / \bar{S}_{\text{raw}}$ using analytical annuity-due | Eliminates Euler–Maruyama discretization drift |
 
-**Result:** Combined **96%+ variance reduction** at 10,000-path budget with 8ms latency (5.25Ã— faster than naive MC).
+**Result:** Combined **96%+ variance reduction** at 10,000-path budget with 8ms latency (5.25× faster than naive MC).
 
 ### 2. Hybrid XIRR Solver (`xirrCalculator.js`)
 
@@ -158,9 +158,9 @@ Solves for the annualized discount rate $r$ satisfying:
 $$f(r) = \sum_{i=0}^{M} C_i (1+r)^{-d_i} = 0$$
 
 **Three-Phase Algorithm:**
-1. **Interval Bracketing** â€” Scans 400 points in $[-0.99, 50.0]$ to find first sign change
-2. **Bisection** â€” Up to 100 iterations to narrow bracket below $10^{-10}$
-3. **Newton-Raphson + Brent Fallback** â€” Quadratic convergence with guaranteed Brent's method fallback when derivatives approach zero
+1. **Interval Bracketing** — Scans 400 points in $[-0.99, 50.0]$ to find first sign change
+2. **Bisection** — Up to 100 iterations to narrow bracket below $10^{-10}$
+3. **Newton-Raphson + Brent Fallback** — Quadratic convergence with guaranteed Brent's method fallback when derivatives approach zero
 
 **Result:** 100% convergence across all tested cash-flow patterns (including pathological alternating-sign series).
 
@@ -182,28 +182,28 @@ Implements the complete New Tax Regime (Finance Act 2025):
 
 | Taxable Income Slab | Rate |
 |:---|:---|
-| â‚¹0 â€“ â‚¹4,00,000 | 0% |
-| â‚¹4,00,001 â€“ â‚¹8,00,000 | 5% |
-| â‚¹8,00,001 â€“ â‚¹12,00,000 | 10% |
-| â‚¹12,00,001 â€“ â‚¹16,00,000 | 15% |
-| â‚¹16,00,001 â€“ â‚¹20,00,000 | 20% |
-| â‚¹20,00,001 â€“ â‚¹24,00,000 | 25% |
-| Above â‚¹24,00,000 | 30% |
+| ₹0 – ₹4,00,000 | 0% |
+| ₹4,00,001 – ₹8,00,000 | 5% |
+| ₹8,00,001 – ₹12,00,000 | 10% |
+| ₹12,00,001 – ₹16,00,000 | 15% |
+| ₹16,00,001 – ₹20,00,000 | 20% |
+| ₹20,00,001 – ₹24,00,000 | 25% |
+| Above ₹24,00,000 | 30% |
 
-**Rebate cliff handling** â€” Section 87A provides full tax relief for taxable income â‰¤ â‚¹12,00,000. For incomes marginally above, **marginal relief** caps the tax to the excess:
+**Rebate cliff handling** — Section 87A provides full tax relief for taxable income ≤ ₹12,00,000. For incomes marginally above, **marginal relief** caps the tax to the excess:
 
 $$T_{\text{base}} = \begin{cases} 0, & I_{\text{tax}} \le 12{,}00{,}000 \\ \min(T_{\text{slab}},\, I_{\text{tax}} - 12{,}00{,}000), & I_{\text{tax}} > 12{,}00{,}000 \end{cases}$$
 
 ### 5. Risk Profiler (`riskProfiler.js`)
 
 Composite 3-factor scoring model combining:
-- Subjective risk preference (user-stated, 1â€“10 scale via 10-question quiz)
-- Age-based risk capacity (younger â†’ higher risk budget)
+- Subjective risk preference (user-stated, 1–10 scale via 10-question quiz)
+- Age-based risk capacity (younger → higher risk budget)
 - Investment horizon (years to retirement at age 60)
 
 ---
 
-## ðŸ› ï¸ Technology Stack
+## 🛠️ Technology Stack
 
 ### Frontend
 | Technology | Version | Purpose |
@@ -249,140 +249,140 @@ Composite 3-factor scoring model combining:
 
 ---
 
-## ðŸ“ Project Structure
+## 📁 Project Structure
 
 ```
 WEALTHGENIEFV/
-â”‚
-â”œâ”€â”€ reactapp/                          # â”€â”€ PRESENTATION TIER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-â”‚   â”œâ”€â”€ index.html                     # SPA entry point
-â”‚   â”œâ”€â”€ vite.config.js                 # Vite 8 build configuration
-â”‚   â”œâ”€â”€ nginx.conf                     # Production reverse proxy config
-â”‚   â”œâ”€â”€ package.json                   # Frontend dependencies (React 19, Framer Motion)
-â”‚   â””â”€â”€ src/
-â”‚       â”œâ”€â”€ main.jsx                   # React DOM mounting
-â”‚       â”œâ”€â”€ App.jsx                    # Root component: Auth + Profile + Dashboard shell
-â”‚       â”œâ”€â”€ App.css                    # Global dark-theme styles
-â”‚       â”œâ”€â”€ index.css                  # CSS variables and design tokens
-â”‚       â”œâ”€â”€ LandingPage.jsx            # Animated hero with 3D tilt feature cards
-â”‚       â”œâ”€â”€ LandingPage.css            # Landing page glassmorphism styles
-â”‚       â”œâ”€â”€ RecommendationDashboard.jsx # Main dashboard with ML recommendations
-â”‚       â”œâ”€â”€ PostTaxAnalysis.jsx        # Post-tax return analysis screen
-â”‚       â”œâ”€â”€ HealthScoreScreen.jsx      # Financial health score calculator
-â”‚       â”œâ”€â”€ InsightsScreen.jsx         # AI-generated financial insights
-â”‚       â”œâ”€â”€ HelpTourScreen.jsx         # Interactive platform walkthrough
-â”‚       â”œâ”€â”€ ProfileEditor.jsx          # Inline profile editing
-â”‚       â”œâ”€â”€ RiskQuizModal.jsx          # 10-question risk tolerance quiz
-â”‚       â”œâ”€â”€ ComparisonTableModal.jsx   # Side-by-side investment comparison
-â”‚       â”œâ”€â”€ recommendationEngine.js    # Client-side recommendation logic
-â”‚       â”œâ”€â”€ investmentDatabase.js      # 14-instrument database (MF, ETF, FD, Gold, etc.)
-â”‚       â”œâ”€â”€ whereToInvest.js           # Investment eligibility engine
-â”‚       â”œâ”€â”€ components/
-â”‚       â”‚   â”œâ”€â”€ Sidebar.jsx            # Navigation sidebar with icon menu
-â”‚       â”‚   â”œâ”€â”€ GenieChat.jsx          # LLM advisory chatbot (FAB + modal)
-â”‚       â”‚   â”œâ”€â”€ GoalPlanner.jsx        # Goal-based SIP planning
-â”‚       â”‚   â”œâ”€â”€ GoalTracker.jsx        # Goal progress tracking
-â”‚       â”‚   â”œâ”€â”€ TaxScreen.jsx          # Old vs New regime tax comparison
-â”‚       â”‚   â”œâ”€â”€ StepUpPlanner.jsx      # Annual SIP step-up calculator
-â”‚       â”‚   â”œâ”€â”€ RebalancerScreen.jsx   # Portfolio rebalancing interface
-â”‚       â”‚   â”œâ”€â”€ AllocationPlanner.jsx  # Asset allocation optimizer UI
-â”‚       â”‚   â”œâ”€â”€ DeepDiveModal.jsx      # Investment deep-dive analysis (94KB)
-â”‚       â”‚   â”œâ”€â”€ ExplainabilityPanel.jsx # SHAP attribution visualization
-â”‚       â”‚   â”œâ”€â”€ ProjectionBand.jsx     # QMC trajectory rendering (SVG)
-â”‚       â”‚   â”œâ”€â”€ JargonTooltip.jsx      # Financial term tooltips
-â”‚       â”‚   â”œâ”€â”€ DataFreshnessBar.jsx   # Market data freshness indicator
-â”‚       â”‚   â”œâ”€â”€ ErrorBoundary.jsx      # React error boundary
-â”‚       â”‚   â””â”€â”€ SebiDisclaimer.jsx     # SEBI regulatory disclaimer
-â”‚       â”œâ”€â”€ context/
-â”‚       â”‚   â””â”€â”€ UserContext.jsx        # Global user state via React Context API
-â”‚       â”œâ”€â”€ services/
-â”‚       â”‚   â””â”€â”€ api.js                 # Centralized API client (auth, profile, recommendations)
-â”‚       â””â”€â”€ utils/
-â”‚           â”œâ”€â”€ taxCalculator.js       # Client-side tax computation
-â”‚           â”œâ”€â”€ sipCalculator.js       # SIP future value calculator
-â”‚           â”œâ”€â”€ postTaxEngine.js       # Post-tax return engine
-â”‚           â”œâ”€â”€ portfolioValidation.js # Weight constraint validation
-â”‚           â”œâ”€â”€ indianNumberFormat.js  # â‚¹ Lakh/Crore formatting
-â”‚           â”œâ”€â”€ confidenceLabels.js    # ML confidence score labels
-â”‚           â””â”€â”€ instrumentExplainers.js # Per-instrument plain-English explanations
-â”‚
-â”œâ”€â”€ server/                            # â”€â”€ APPLICATION TIER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-â”‚   â”œâ”€â”€ server.js                      # Express app: middleware chain, routes, graceful shutdown
-â”‚   â”œâ”€â”€ package.json                   # Backend dependencies (Express, Mongoose, JWT, Redis)
-â”‚   â”œâ”€â”€ .env.example                   # Documented environment variable template
-â”‚   â”œâ”€â”€ config/
-â”‚   â”‚   â”œâ”€â”€ db.js                      # MongoDB connection with retry logic
-â”‚   â”‚   â”œâ”€â”€ redis.js                   # Upstash Redis client configuration
-â”‚   â”‚   â””â”€â”€ seedInstruments.js         # Database seeder for 14 financial instruments
-â”‚   â”œâ”€â”€ middleware/
-â”‚   â”‚   â”œâ”€â”€ authMiddleware.js          # JWT verification and route protection
-â”‚   â”‚   â””â”€â”€ errorHandler.js            # Centralized error handling with stack traces
-â”‚   â”œâ”€â”€ models/
-â”‚   â”‚   â”œâ”€â”€ User.js                    # User schema (bcrypt-hashed credentials)
-â”‚   â”‚   â”œâ”€â”€ FinancialProfile.js        # Demographics & monetary properties
-â”‚   â”‚   â”œâ”€â”€ Goal.js                    # Inflation targets & SIP parameters
-â”‚   â”‚   â”œâ”€â”€ Instrument.js             # Investment instrument definitions
-â”‚   â”‚   â”œâ”€â”€ Recommendation.js         # ML-generated recommendations
-â”‚   â”‚   â””â”€â”€ ConversationHistory.js    # LLM chat threads & failover metadata
-â”‚   â”œâ”€â”€ routes/
+│
+├── reactapp/                          # ── PRESENTATION TIER ──────────────────
+│   ├── index.html                     # SPA entry point
+│   ├── vite.config.js                 # Vite 8 build configuration
+│   ├── nginx.conf                     # Production reverse proxy config
+│   ├── package.json                   # Frontend dependencies (React 19, Framer Motion)
+│   └── src/
+│       ├── main.jsx                   # React DOM mounting
+│       ├── App.jsx                    # Root component: Auth + Profile + Dashboard shell
+│       ├── App.css                    # Global dark-theme styles
+│       ├── index.css                  # CSS variables and design tokens
+│       ├── LandingPage.jsx            # Animated hero with 3D tilt feature cards
+│       ├── LandingPage.css            # Landing page glassmorphism styles
+│       ├── RecommendationDashboard.jsx # Main dashboard with ML recommendations
+│       ├── PostTaxAnalysis.jsx        # Post-tax return analysis screen
+│       ├── HealthScoreScreen.jsx      # Financial health score calculator
+│       ├── InsightsScreen.jsx         # AI-generated financial insights
+│       ├── HelpTourScreen.jsx         # Interactive platform walkthrough
+│       ├── ProfileEditor.jsx          # Inline profile editing
+│       ├── RiskQuizModal.jsx          # 10-question risk tolerance quiz
+│       ├── ComparisonTableModal.jsx   # Side-by-side investment comparison
+│       ├── recommendationEngine.js    # Client-side recommendation logic
+│       ├── investmentDatabase.js      # 14-instrument database (MF, ETF, FD, Gold, etc.)
+│       ├── whereToInvest.js           # Investment eligibility engine
+│       ├── components/
+│       │   ├── Sidebar.jsx            # Navigation sidebar with icon menu
+│       │   ├── GenieChat.jsx          # LLM advisory chatbot (FAB + modal)
+│       │   ├── GoalPlanner.jsx        # Goal-based SIP planning
+│       │   ├── GoalTracker.jsx        # Goal progress tracking
+│       │   ├── TaxScreen.jsx          # Old vs New regime tax comparison
+│       │   ├── StepUpPlanner.jsx      # Annual SIP step-up calculator
+│       │   ├── RebalancerScreen.jsx   # Portfolio rebalancing interface
+│       │   ├── AllocationPlanner.jsx  # Asset allocation optimizer UI
+│       │   ├── DeepDiveModal.jsx      # Investment deep-dive analysis (94KB)
+│       │   ├── ExplainabilityPanel.jsx # SHAP attribution visualization
+│       │   ├── ProjectionBand.jsx     # QMC trajectory rendering (SVG)
+│       │   ├── JargonTooltip.jsx      # Financial term tooltips
+│       │   ├── DataFreshnessBar.jsx   # Market data freshness indicator
+│       │   ├── ErrorBoundary.jsx      # React error boundary
+│       │   └── SebiDisclaimer.jsx     # SEBI regulatory disclaimer
+│       ├── context/
+│       │   └── UserContext.jsx        # Global user state via React Context API
+│       ├── services/
+│       │   └── api.js                 # Centralized API client (auth, profile, recommendations)
+│       └── utils/
+│           ├── taxCalculator.js       # Client-side tax computation
+│           ├── sipCalculator.js       # SIP future value calculator
+│           ├── postTaxEngine.js       # Post-tax return engine
+│           ├── portfolioValidation.js # Weight constraint validation
+│           ├── indianNumberFormat.js  # ₹ Lakh/Crore formatting
+│           ├── confidenceLabels.js    # ML confidence score labels
+│           └── instrumentExplainers.js # Per-instrument plain-English explanations
+│
+├── server/                            # ── APPLICATION TIER ───────────────────
+│   ├── server.js                      # Express app: middleware chain, routes, graceful shutdown
+│   ├── package.json                   # Backend dependencies (Express, Mongoose, JWT, Redis)
+│   ├── .env.example                   # Documented environment variable template
+│   ├── config/
+│   │   ├── db.js                      # MongoDB connection with retry logic
+│   │   ├── redis.js                   # Upstash Redis client configuration
+│   │   └── seedInstruments.js         # Database seeder for 14 financial instruments
+│   ├── middleware/
+│   │   ├── authMiddleware.js          # JWT verification and route protection
+│   │   └── errorHandler.js            # Centralized error handling with stack traces
+│   ├── models/
+│   │   ├── User.js                    # User schema (bcrypt-hashed credentials)
+│   │   ├── FinancialProfile.js        # Demographics & monetary properties
+│   │   ├── Goal.js                    # Inflation targets & SIP parameters
+│   │   ├── Instrument.js             # Investment instrument definitions
+│   │   ├── Recommendation.js         # ML-generated recommendations
+│   │   └── ConversationHistory.js    # LLM chat threads & failover metadata
+│   ├── routes/
 │   │   ├── auth.js                    # POST /register, /login (JWT issuance)
-â”‚   â”‚   â”œâ”€â”€ profile.js                 # CRUD for financial profiles
-â”‚   â”‚   â”œâ”€â”€ recommend.js               # ML recommendation orchestration
-â”‚   â”‚   â”œâ”€â”€ goals.js                   # Goal CRUD with projection integration
-â”‚   â”‚   â”œâ”€â”€ montecarlo.js              # QMC simulation endpoint
-â”‚   â”‚   â”œâ”€â”€ portfolio.js               # Portfolio optimization endpoint
-â”‚   â”‚   â”œâ”€â”€ tax.js                     # Tax computation & regime comparison
-â”‚   â”‚   â”œâ”€â”€ projection.js              # Deterministic wealth projections
-â”‚   â”‚   â”œâ”€â”€ chatRoutes.js              # LLM chat with failover FSM
-â”‚   â”‚   â”œâ”€â”€ instruments.js             # Instrument catalog queries
-â”‚   â”‚   â””â”€â”€ market.js                  # Live market data endpoints
-â”‚   â”œâ”€â”€ services/                      # â”€â”€ COMPUTATIONAL ENGINES â”€â”€
-â”‚   â”‚   â”œâ”€â”€ taxEngine.js               # 7-slab progressive tax + Sec 87A + surcharge
-â”‚   â”‚   â”œâ”€â”€ monteCarloEngine.js        # QMC + Halton + Antithetic + Control Variates
-â”‚   â”‚   â”œâ”€â”€ xirrCalculator.js          # Hybrid Newton-Raphson / Brent XIRR solver
-â”‚   â”‚   â”œâ”€â”€ portfolioEngine.js         # 3-strategy simplex-projected optimizer
-â”‚   â”‚   â”œâ”€â”€ postTaxCalculator.js       # Post-tax return computations (LTCG/STCG/EEE)
-â”‚   â”‚   â”œâ”€â”€ projectionEngine.js        # Real + nominal projection (Fisher equation)
-â”‚   â”‚   â”œâ”€â”€ riskProfiler.js            # 3-factor composite risk scoring
-â”‚   â”‚   â”œâ”€â”€ geminiChatService.js       # Gemini 2.0 LLM integration
-â”‚   â”‚   â”œâ”€â”€ geminiService.js           # Gemini API wrapper
-â”‚   â”‚   â”œâ”€â”€ genieChatSystemPrompt.js   # Context-injection system prompt builder
-â”‚   â”‚   â”œâ”€â”€ marketDataService.js       # Live market data fetcher
-â”‚   â”‚   â”œâ”€â”€ mlClient.js               # FastAPI microservice HTTP client
-â”‚   â”‚   â””â”€â”€ instrumentConstants.js    # Asset class return/volatility parameters
-â”‚   â”œâ”€â”€ validation/
-â”‚   â”‚   â””â”€â”€ schemas.js                 # Joi validation schemas for all endpoints
-â”‚   â””â”€â”€ jobs/
-â”‚       â””â”€â”€ marketDataRefresh.js       # Background cron job for market data refresh
-â”‚
-â”œâ”€â”€ ml-service/                        # â”€â”€ ML TIER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-â”‚   â”œâ”€â”€ main.py                        # FastAPI app: /predict, /predict/enriched, /backtest
-â”‚   â”œâ”€â”€ schemas.py                     # Pydantic v2 request/response models
-â”‚   â”œâ”€â”€ explainer.py                   # TreeSHAP wrapper (exact Shapley values)
-â”‚   â”œâ”€â”€ feature_engineering.py         # Derived features: savings_rate, risk_age_score, etc.
-â”‚   â”œâ”€â”€ backtester.py                  # Historical scenario analysis engine
-â”‚   â”œâ”€â”€ requirements.txt              # Python dependencies (FastAPI, scikit-learn, SHAP)
-â”‚   â”œâ”€â”€ model/
-â”‚   â”‚   â”œâ”€â”€ train.py                   # Model training script (5K simulated profiles)
-â”‚   â”‚   â”œâ”€â”€ model.pkl                  # Serialized Random Forest classifier (~54MB)
-â”‚   â”‚   â”œâ”€â”€ decision_tree.pkl          # Serialized Decision Tree (secondary model)
+│   │   ├── profile.js                 # CRUD for financial profiles
+│   │   ├── recommend.js               # ML recommendation orchestration
+│   │   ├── goals.js                   # Goal CRUD with projection integration
+│   │   ├── montecarlo.js              # QMC simulation endpoint
+│   │   ├── portfolio.js               # Portfolio optimization endpoint
+│   │   ├── tax.js                     # Tax computation & regime comparison
+│   │   ├── projection.js              # Deterministic wealth projections
+│   │   ├── chatRoutes.js              # LLM chat with failover FSM
+│   │   ├── instruments.js             # Instrument catalog queries
+│   │   └── market.js                  # Live market data endpoints
+│   ├── services/                      # ── COMPUTATIONAL ENGINES ──
+│   │   ├── taxEngine.js               # 7-slab progressive tax + Sec 87A + surcharge
+│   │   ├── monteCarloEngine.js        # QMC + Halton + Antithetic + Control Variates
+│   │   ├── xirrCalculator.js          # Hybrid Newton-Raphson / Brent XIRR solver
+│   │   ├── portfolioEngine.js         # 3-strategy simplex-projected optimizer
+│   │   ├── postTaxCalculator.js       # Post-tax return computations (LTCG/STCG/EEE)
+│   │   ├── projectionEngine.js        # Real + nominal projection (Fisher equation)
+│   │   ├── riskProfiler.js            # 3-factor composite risk scoring
+│   │   ├── geminiChatService.js       # Gemini 2.0 LLM integration
+│   │   ├── geminiService.js           # Gemini API wrapper
+│   │   ├── genieChatSystemPrompt.js   # Context-injection system prompt builder
+│   │   ├── marketDataService.js       # Live market data fetcher
+│   │   ├── mlClient.js               # FastAPI microservice HTTP client
+│   │   └── instrumentConstants.js    # Asset class return/volatility parameters
+│   ├── validation/
+│   │   └── schemas.js                 # Joi validation schemas for all endpoints
+│   └── jobs/
+│       └── marketDataRefresh.js       # Background cron job for market data refresh
+│
+├── ml-service/                        # ── ML TIER ────────────────────────────
+│   ├── main.py                        # FastAPI app: /predict, /predict/enriched, /backtest
+│   ├── schemas.py                     # Pydantic v2 request/response models
+│   ├── explainer.py                   # TreeSHAP wrapper (exact Shapley values)
+│   ├── feature_engineering.py         # Derived features: savings_rate, risk_age_score, etc.
+│   ├── backtester.py                  # Historical scenario analysis engine
+│   ├── requirements.txt              # Python dependencies (FastAPI, scikit-learn, SHAP)
+│   ├── model/
+│   │   ├── train.py                   # Model training script (5K simulated profiles)
+│   │   ├── model.pkl                  # Serialized Random Forest classifier (~54MB)
+│   │   ├── decision_tree.pkl          # Serialized Decision Tree (secondary model)
 │   │   └── label_encoder.pkl          # Label encoder for recommended instrument classes
-â”‚   â””â”€â”€ data/
-â”‚       â””â”€â”€ investment_profiles.csv    # Simulated training dataset (gitignored)
-â”‚
-â””â”€â”€ .gitignore                         # Comprehensive ignore rules
+│   └── data/
+│       └── investment_profiles.csv    # Simulated training dataset (gitignored)
+│
+└── .gitignore                         # Comprehensive ignore rules
 ```
 
 ---
 
-## ðŸš€ Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
 | Requirement | Version | Download |
 |:---|:---|:---|
-| Node.js | â‰¥ 18.x | [nodejs.org](https://nodejs.org/) |
-| Python | â‰¥ 3.10 | [python.org](https://www.python.org/) |
+| Node.js | ≥ 18.x | [nodejs.org](https://nodejs.org/) |
+| Python | ≥ 3.10 | [python.org](https://www.python.org/) |
 | MongoDB | 7.x (or Atlas) | [MongoDB Atlas (Free)](https://www.mongodb.com/cloud/atlas) |
 | Redis | Any (or Upstash) | [Upstash (Free)](https://console.upstash.com/) |
 
@@ -419,21 +419,21 @@ npm install
 ### Launch (3 Terminals)
 
 ```bash
-# Terminal 1 â€” ML Service (port 8000)
+# Terminal 1 — ML Service (port 8000)
 cd ml-service && .\.venv\Scripts\activate && python main.py
 
-# Terminal 2 â€” Express API (port 5000)
+# Terminal 2 — Express API (port 5000)
 cd server && npm run dev
 
-# Terminal 3 â€” React Frontend (port 5173)
+# Terminal 3 — React Frontend (port 5173)
 cd reactapp && npm run dev
 ```
 
-Open **http://localhost:5173** â†’ Register â†’ Build Profile â†’ Explore Dashboard ðŸš€
+Open **http://localhost:5173** → Register → Build Profile → Explore Dashboard 🚀
 
 ---
 
-## ðŸ”’ Environment Variables
+## 🔒 Environment Variables
 
 Create `server/.env` from the provided template:
 
@@ -443,18 +443,18 @@ copy server/.env.example server/.env
 
 | Variable | Required | Description | Get it from |
 |:---|:---|:---|:---|
-| `MONGODB_URI` | âœ… | MongoDB connection string | [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) |
-| `JWT_SECRET` | âœ… | 64-char hex key for session signing | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `PORT` | âŒ | Express server port (default: `5000`) | â€” |
-| `NODE_ENV` | âŒ | `development` or `production` | â€” |
-| `REDIS_URL` | âŒ | Redis connection URL | [Upstash](https://console.upstash.com/) |
-| `ML_SERVICE_URL` | âŒ | FastAPI URL (default: `http://localhost:8000`) | â€” |
-| `GEMINI_API_KEY` | âŒ | Google Gemini API key for chat | [Google AI Studio](https://aistudio.google.com/) |
+| `MONGODB_URI` | ✅ | MongoDB connection string | [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) |
+| `JWT_SECRET` | ✅ | 64-char hex key for session signing | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `PORT` | ❌ | Express server port (default: `5000`) | — |
+| `NODE_ENV` | ❌ | `development` or `production` | — |
+| `REDIS_URL` | ❌ | Redis connection URL | [Upstash](https://console.upstash.com/) |
+| `ML_SERVICE_URL` | ❌ | FastAPI URL (default: `http://localhost:8000`) | — |
+| `GEMINI_API_KEY` | ❌ | Google Gemini API key for chat | [Google AI Studio](https://aistudio.google.com/) |
 | `GROQ_API_KEY` | No | Optional Groq API key for Llama chat failover | [Groq Console](https://console.groq.com/) |
 
 ---
 
-## ðŸ”Œ API Reference
+## 🔌 API Reference
 
 ### Authentication
 | Method | Endpoint | Description |
@@ -523,7 +523,7 @@ copy server/.env.example server/.env
 
 ---
 
-## ðŸ¤– ML Pipeline & Explainability
+## 🤖 ML Pipeline & Explainability
 
 ### Training Pipeline
 ```
@@ -576,7 +576,7 @@ SHAP values satisfy the **efficiency axiom**: $\sum_{i} \phi_i(x) = f(x) - E[f(x
 
 ---
 
-## ðŸ§ª Testing
+## 🧪 Testing
 
 ### Backend (Node.js test runner)
 ```bash
@@ -608,25 +608,25 @@ python -m pytest
 
 ---
 
-## ðŸ“ˆ Performance Benchmarks
+## 📈 Performance Benchmarks
 
 Validated against standard baselines:
 
 | Engine | Metric | Baseline | WealthGenie | Improvement |
 |:---|:---|:---|:---|:---|
-| QMC Simulator | Standard Error | 1.50 | **0.02** | 75Ã— reduction |
-| QMC Simulator | Latency (10K paths) | 42ms | **8ms** | 5.25Ã— faster |
+| QMC Simulator | Standard Error | 1.50 | **0.02** | 75× reduction |
+| QMC Simulator | Latency (10K paths) | 42ms | **8ms** | 5.25× faster |
 | XIRR Solver | Convergence Rate | 82% | **100%** | Guaranteed convergence |
-| XIRR Solver | Avg. Iterations | 14 | **5** | 2.8Ã— fewer iterations |
-| Tax Engine | Computation Latency | 1.20ms | **0.08ms** | 15Ã— faster |
+| XIRR Solver | Avg. Iterations | 14 | **5** | 2.8× fewer iterations |
+| Tax Engine | Computation Latency | 1.20ms | **0.08ms** | 15× faster |
 | Tax Engine | Sec 87A Handling | Manual | **Exact** | Automated cliff detection |
-| ML/XAI | Inference Time | 240ms | **2.4ms** | 100Ã— faster |
+| ML/XAI | Inference Time | 240ms | **2.4ms** | 100× faster |
 | ML/XAI | Attribution Consistency | Approximate | **Exact** | Axiomatic Shapley values |
 
 ---
 
 
-## ðŸ“– Financial Glossary
+## 📖 Financial Glossary
 
 | Term | Full Form | Definition |
 |:---|:---|:---|
@@ -642,12 +642,12 @@ Validated against standard baselines:
 | **TDS** | Tax Deducted at Source | Tax withheld at the point of income (e.g., FD interest) |
 | **NAV** | Net Asset Value | Per-unit market value of a mutual fund |
 | **AUM** | Assets Under Management | Total market value of investments managed by a fund |
-| **Sharpe Ratio** | â€” | Excess return per unit of risk: $(R_p - R_f) / \sigma_p$ |
-| **Sec 87A** | Section 87A, Income Tax Act | Tax rebate for taxable income â‰¤ â‚¹12,00,000 under New Regime |
+| **Sharpe Ratio** | — | Excess return per unit of risk: $(R_p - R_f) / \sigma_p$ |
+| **Sec 87A** | Section 87A, Income Tax Act | Tax rebate for taxable income ≤ ₹12,00,000 under New Regime |
 
 ---
 
-## ðŸ‘¤ Author
+## 👤 Author
 
 | Name | Role | Contact |
 |:---|:---|:---|
@@ -657,7 +657,7 @@ Validated against standard baselines:
 
 ---
 
-## ðŸ“œ License
+## 📜 License
 
 This project is developed as an academic capstone at RNSIT. All rights reserved by the author.
 
