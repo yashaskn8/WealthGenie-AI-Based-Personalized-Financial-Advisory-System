@@ -1,20 +1,20 @@
-﻿"""
+"""
 WealthGenie Feature Engineering
 Transforms raw financial profile inputs into ML-ready features
 with domain-specific derived variables.
 
 =========================================================================
-ðŸ“˜ BEGINNER NOTE: WHAT IS FEATURE ENGINEERING & WHY DOES IT MATTER?
+📘 BEGINNER NOTE: WHAT IS FEATURE ENGINEERING & WHY DOES IT MATTER?
 =========================================================================
 Machine learning models are only as good as the data they are fed. Raw numbers
-like "Age: 30" or "Income: â‚¹12,00,000" are helpful, but they don't paint the full
+like "Age: 30" or "Income: ₹12,00,000" are helpful, but they don't paint the full
 picture for a financial decision.
 
 "Feature Engineering" is the process of using domain expertise to create *new*
 clues (features) from the raw inputs. These clues help the model learn more easily.
 
 For example, we derive:
-1. Savings Rate: Knowing a user saves â‚¹50,000 is okay. But knowing they save 50%
+1. Savings Rate: Knowing a user saves ₹50,000 is okay. But knowing they save 50%
    of their income is a massive clue about their financial discipline!
 2. Retirement Horizon (retirement_years): Subtracting age from 60 tells the model
    how many years the user's money has to compound.
@@ -39,7 +39,7 @@ class EnrichedFeatures:
     age_bracket: int             # 0=18-30, 1=31-45, 2=46-60, 3=60+
     retirement_years: int        # 60 - age (years to retirement)
     investable_ratio: float      # savings / income ratio normalised
-    risk_age_score: float        # composite: risk_score Ã— (1/age_factor)
+    risk_age_score: float        # composite: risk_score � (1/age_factor)
 
 def engineer_features(
     age: int,
@@ -54,8 +54,8 @@ def engineer_features(
 
     savings_rate: The fraction of monthly income being saved is
     a stronger signal than absolute savings amount. A person
-    saving â‚¹15K on â‚¹30K income is more financially committed
-    than one saving â‚¹15K on â‚¹1.5L income.
+    saving ₹15K on ₹30K income is more financially committed
+    than one saving ₹15K on ₹1.5L income.
 
     income_bracket: Discrete income brackets align with Indian
     tax slab boundaries and investment product accessibility.

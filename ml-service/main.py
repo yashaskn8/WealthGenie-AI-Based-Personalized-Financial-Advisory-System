@@ -1,9 +1,9 @@
-﻿"""
-WealthGenie ML Microservice â€” FastAPI
+"""
+WealthGenie ML Microservice � FastAPI
 Serves RandomForest predictions with SHAP explainability on port 8000.
 
 =========================================================================
-ðŸ“˜ BEGINNER NOTE: RANDOM FOREST & SHAP VALUES
+📘 BEGINNER NOTE: RANDOM FOREST & SHAP VALUES
 =========================================================================
 1. Random Forest Classifier:
    Imagine asking a single person for financial advice. They might have biases.
@@ -15,7 +15,7 @@ Serves RandomForest predictions with SHAP explainability on port 8000.
    most votes is returned as the primary recommendation.
 
 2. SHAP (Shapley Additive exPlanations):
-   Machine learning models are often "black boxes" â€” we get an answer, but we
+   Machine learning models are often "black boxes" � we get an answer, but we
    don't know *why*. SHAP uses game theory (Shapley values) to break down the
    contribution of each feature.
    It calculates: "By how much did your Age push the recommendation towards
@@ -27,14 +27,13 @@ import os
 import numpy as np
 import joblib
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from schemas import PredictRequest, PredictResponse, HealthResponse
+from schemas import PredictRequest, HealthResponse
 from explainer import ModelExplainer
 from feature_engineering import engineer_features, to_model_array
-from backtester import run_backtest, INSTRUMENT_MARKET_SENSITIVITY
 
-# â”€â”€ Application State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Application State ─────────────────────────────────────────────
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
 MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(MODEL_DIR, 'model.pkl'))
 LE_PATH = os.path.join(MODEL_DIR, 'label_encoder.pkl')
@@ -47,7 +46,7 @@ model_accuracy = None
 explainer_instance = None
 
 
-# â”€â”€ Lifespan (replaces deprecated @app.on_event) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Lifespan (replaces deprecated @app.on_event) ─────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, label_encoder, dt_model, explainer_instance
@@ -128,61 +127,6 @@ def get_decision_path_description(age, income, risk_category):
     return path
 
 
-@app.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest):
-    """
-    Standard prediction endpoint.
-    
-    BEGINNER NOTE: STANDARD vs ENRICHED PREDICTIONS
-    This endpoint takes raw inputs (Age, Income, Savings, stated Risk Category)
-    and maps them to a risk score directly to predict the optimal portfolio class.
-    It returns the confidence scores and a SHAP explanation attributing features.
-    """
-    if model is None or label_encoder is None:
-        raise HTTPException(status_code=503, detail="Model not loaded. Run train.py first.")
-
-    risk_score = RISK_ENCODING.get(req.risk_category, 2)
-    features = np.array([[req.age, req.annual_income, req.monthly_savings, risk_score]])
-
-    # Get probability scores from RandomForest
-    probabilities = model.predict_proba(features)[0]
-    classes = label_encoder.classes_
-
-    # Sort by probability descending
-    sorted_indices = np.argsort(probabilities)[::-1]
-    primary = classes[sorted_indices[0]]
-    secondary = classes[sorted_indices[1]]
-    tertiary = classes[sorted_indices[2]]
-
-    confidence_scores = {
-        classes[i]: round(float(probabilities[i]), 4)
-        for i in range(len(classes))
-    }
-
-    decision_path = get_decision_path_description(
-        req.age, req.annual_income, req.risk_category
-    )
-
-    # Generate SHAP explanation
-    explanation = None
-    if explainer_instance:
-        try:
-            explanation_raw = explainer_instance.explain(features)
-            explanation = explanation_raw
-        except Exception as e:
-            print(f"[WARN] SHAP explanation failed: {e}")
-
-    return PredictResponse(
-        primary=primary,
-        secondary=secondary,
-        tertiary=tertiary,
-        confidence_scores=confidence_scores,
-        decision_path=decision_path,
-        model_used="RandomForest",
-        explanation=explanation,
-    )
-
-
 @app.get("/health", response_model=HealthResponse)
 def health():
     status = "ok" if model is not None else "model_not_loaded"
@@ -199,7 +143,7 @@ async def predict_enriched(data: PredictRequest):
     Extended prediction endpoint.
     
     BEGINNER NOTE: FEATURE ENGINEERING ENRICHMENT
-    Unlike the standard /predict endpoint, this endpoint derives advanced metrics like:
+    This endpoint derives advanced metrics like:
     - Savings Rate (savings divided by monthly income)
     - Retirement Horizon (years remaining until age 60)
     - Risk Age Score (compounding risk score relative to age)
@@ -249,44 +193,9 @@ async def predict_enriched(data: PredictRequest):
         "model_version": "1.0",
     }
 
-@app.get("/backtest/{instrument_type}")
-async def backtest_instrument(
-    instrument_type: str,
-    monthly_sip: float = Query(10000.0, gt=0, description="Monthly SIP amount (must be positive)"),
-    years: int = Query(5, gt=0, le=50, description="Holding period in years (must be between 1 and 50)")
-):
-    """
-    Returns historical scenario analysis for an instrument type.
-    Useful for the 'Why recommended?' expandable panel.
-    """
-    valid_types = list(INSTRUMENT_MARKET_SENSITIVITY.keys())
-    if instrument_type not in valid_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown instrument type. Valid: {valid_types}"
-        )
-
-    results = run_backtest(instrument_type, monthly_sip, years)
-    return {
-        "instrument": instrument_type,
-        "periods_analysed": len(results),
-        "scenarios": [
-            {
-                "period": r.period,
-                "return": r.simulated_return,
-                "sharpe": r.sharpe_ratio,
-                "max_drawdown": r.max_drawdown,
-                "note": r.note,
-            }
-            for r in results
-        ],
-        "disclaimer": "Historical performance does not guarantee "
-                      "future returns. Scenarios are approximations "
-                      "based on Nifty 50 index returns.",
-    }
-
 
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+

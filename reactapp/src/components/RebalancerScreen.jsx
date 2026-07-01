@@ -1,9 +1,10 @@
-﻿import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Scale, HelpCircle, ShieldCheck, ChevronDown, Activity, ArrowRight, Loader2, TrendingUp, Shield, CheckCircle2, Sparkles } from 'lucide-react';
 import { formatINR } from '../utils/indianNumberFormat';
 import JargonTooltip from './JargonTooltip';
 import api from '../services/api';
+import { getOptimisableBackendKey, localToBackendInstrument } from '../utils/instrumentTypeMap';
 import './RebalancerScreen.css';
 
 const RISK_COLORS = {
@@ -11,39 +12,6 @@ const RISK_COLORS = {
   'Medium': '#f59e0b', 'High': '#ef4444', 'Very High': '#dc2626'
 };
 
-const LOCAL_TO_BACKEND_MAP = {
-  'index_mf': 'Index_MF',
-  'nifty_etf': 'ETF',
-  'elss': 'ELSS',
-  'fd': 'FD',
-  'nps': 'NPS',
-  'rbi_bonds': 'RBI_Bond',
-  'gold_etf': 'Gold',
-  'sgb': 'SGB',
-  'debt_mf': 'Debt_MF',
-  'liquid_mf': 'Liquid_MF',
-  'hybrid_mf': 'Hybrid_MF',
-  'midcap_mf': 'Midcap_MF',
-  'smallcap_mf': 'Smallcap_MF',
-  'equity_mf': 'Equity_MF',
-  'ppf': 'PPF',
-  'scss': 'SCSS',
-  'ssy': 'SSY',
-  'sukanya': 'SSY',
-  'g-sec': 'G-Sec',
-};
-
-const OPTIMISABLE_BACKEND_KEYS = new Set([
-  'Equity_MF', 'ELSS', 'ETF', 'Debt_MF', 'FD', 'Gold', 'NPS', 'PPF',
-  'RBI_Bond', 'G-Sec', 'SGB', 'Liquid_MF', 'Hybrid_MF', 'Index_MF',
-  'Midcap_MF', 'Smallcap_MF', 'SCSS', 'SSY',
-]);
-
-const getOptimisableBackendKey = (inv) => {
-  if (!inv || !inv.id) return null;
-  const backendKey = LOCAL_TO_BACKEND_MAP[inv.id] || inv.id;
-  return OPTIMISABLE_BACKEND_KEYS.has(backendKey) ? backendKey : null;
-};
 
 /**
  * Build allocation percentages from recommendation list.
@@ -92,7 +60,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
     setAllocations(buildAllocations(recommendations || [], totalSavings));
   }
 
-  // â”€â”€â”€ Advanced settings & Sandbox holdings state â”€â”€â”€
+  // ─── Advanced settings & Sandbox holdings state ───
   const [threshold, setThreshold] = useState(2.0);
   const [partialRatio, setPartialRatio] = useState(1.0);
   const [holdingMonths, setHoldingMonths] = useState(24);
@@ -100,7 +68,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [rebalanceResult, setRebalanceResult] = useState(null);
 
-  // â”€â”€â”€ Auto-Optimizer State â”€â”€â”€
+  // ─── Auto-Optimizer State ───
   const [optimising, setOptimising] = useState(false);
   const [optimiseResult, setOptimiseResult] = useState(null);
   const [optimiseError, setOptimiseError] = useState(null);
@@ -125,7 +93,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
     setCustomHoldings(newHoldings);
   }
 
-  // â”€â”€â”€ Fetch rebalance computations from backend API â”€â”€â”€
+  // ─── Fetch rebalance computations from backend API ───
   useEffect(() => {
     let active = true;
     const fetchRebalance = async () => {
@@ -135,7 +103,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         const targetAllocation = {};
 
         recs.forEach(inv => {
-          const backendKey = LOCAL_TO_BACKEND_MAP[inv.id] || inv.id;
+          const backendKey = localToBackendInstrument(inv.id);
           const currentVal = customHoldings[inv.id] !== undefined
             ? Number(customHoldings[inv.id]) || 0
             : Number(inv.monthly_allocation) || 0;
@@ -170,7 +138,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
   }, [allocations, customHoldings, threshold, partialRatio, holdingMonths, recs, totalSavings]);
 
   /**
-   * Slider change handler â€” redistributes remaining % proportionally
+   * Slider change handler � redistributes remaining % proportionally
    * among other instruments so total stays at 100%.
    */
   const handleSliderChange = useCallback((id, newPct) => {
@@ -279,7 +247,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
     if (onSave) onSave(updated);
   };
 
-  // â”€â”€â”€ Derivations â”€â”€â”€
+  // ─── Derivations ───
   const driftIndex = rebalanceResult ? rebalanceResult.drift_index : 0;
   const score = Math.max(0, Math.min(100, Math.round(100 - driftIndex * 4)));
   const statusColor = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
@@ -297,7 +265,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         <div className="ambient-orb orb-3" />
       </div>
 
-      {/* â”€â”€â”€ Header â”€â”€â”€ */}
+      {/* ─── Header ─── */}
       <motion.div
         className="page-header"
         initial={{ y: -24, opacity: 0 }}
@@ -316,7 +284,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </p>
       </motion.div>
 
-      {/* â”€â”€â”€ Why This Matters â€” Beginner Tip â”€â”€â”€ */}
+      {/* ─── Why This Matters � Beginner Tip ─── */}
       <motion.div
         className="why-balance-card"
         initial={{ opacity: 0, y: 10 }}
@@ -335,7 +303,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </div>
       </motion.div>
 
-      {/* â”€â”€â”€ Balance Hero Card â”€â”€â”€ */}
+      {/* ─── Balance Hero Card ─── */}
       <motion.div
         className="balance-hero-card premium-glass"
         initial={{ opacity: 0, y: 15 }}
@@ -402,7 +370,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </div>
       </motion.div>
 
-      {/* â”€â”€â”€ Advanced Settings Collapsible â”€â”€â”€ */}
+      {/* ─── Advanced Settings Collapsible ─── */}
       <div className="disclosure-section" style={{ marginBottom: 24 }}>
         <button className="disclosure-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
           <span className="disclosure-toggle-label">
@@ -516,7 +484,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </AnimatePresence>
       </div>
 
-      {/* â”€â”€â”€ Auto-Portfolio Optimizer â”€â”€â”€ */}
+      {/* ─── Auto-Portfolio Optimizer ─── */}
       <motion.div
         className="optimizer-section premium-glass"
         initial={{ opacity: 0, y: 15 }}
@@ -644,7 +612,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         )}
       </motion.div>
 
-      {/* â”€â”€â”€ Sliders & Holdings Sandbox Grid â”€â”€â”€ */}
+      {/* ─── Sliders & Holdings Sandbox Grid ─── */}
       <div className="advanced-settings-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, alignItems: 'start', marginBottom: 24 }}>
         <motion.div
           className="rebal-sliders-container premium-glass"
@@ -736,7 +704,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                 <div key={inv.id} className="custom-balance-row" style={{ marginBottom: 10 }}>
                   <span className="custom-balance-name">{inv.name}</span>
                   <div className="custom-balance-input-wrap">
-                    <span className="input-prefix">â‚¹</span>
+                    <span className="input-prefix">₹</span>
                     <input
                       type="number"
                       className="custom-balance-input"
@@ -759,7 +727,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </motion.div>
       </div>
 
-      {/* â”€â”€â”€ Directives Grid / Output List â”€â”€â”€ */}
+      {/* ─── Directives Grid / Output List ─── */}
       {activeDirectives.length === 0 ? (
         <div className="balanced-empty-state" style={{ marginBottom: 24 }}>
           <div className="empty-state-icon-wrap">
@@ -794,15 +762,15 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
                     </div>
                     <div className="dir-sub-label">
                       <span>Your target: {asset.target_pct}%</span>
-                      <span>Â·</span>
+                      <span>·</span>
                       <span>Current: {asset.current_pct}%</span>
-                      <span>Â·</span>
+                      <span>·</span>
                       <span className={`dir-drift-badge ${isBuy ? 'drift-buy' : 'drift-sell'}`}>
                         {isBuy ? `${Math.abs(asset.drift_pct).toFixed(1)}% below target` : `${Math.abs(asset.drift_pct).toFixed(1)}% above target`}
                       </span>
                       {asset.estimated_transaction_cost > 0 && (
                         <>
-                          <span>Â·</span>
+                          <span>·</span>
                           <span style={{ color: '#fb7185' }}>Charges: {formatINR(asset.estimated_transaction_cost)}</span>
                         </>
                       )}
@@ -818,7 +786,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </div>
       )}
 
-      {/* â”€â”€â”€ Stats comparison â”€â”€â”€ */}
+      {/* ─── Stats comparison ─── */}
       {rebalanceResult && (
         <div className="stats-comparison-grid" style={{ marginBottom: 24 }}>
           <div className="stats-comparison-card">
@@ -850,7 +818,7 @@ const RebalancerScreen = ({ profile, recommendations, onSave }) => {
         </div>
       )}
 
-      {/* â”€â”€â”€ Main CTA â”€â”€â”€ */}
+      {/* ─── Main CTA ─── */}
       <motion.div
         className="rebal-actions"
         initial={{ opacity: 0, y: 12 }}

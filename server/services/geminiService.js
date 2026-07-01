@@ -25,7 +25,7 @@ export async function generateAdvisory(userContext) {
   const safeHorizon = Number.isFinite(horizon) ? horizon : 15;
   const safeAge = Number.isFinite(age) ? age : 30;
 
-  const instrumentList = (instruments || []).map(i => `${i.name || 'Unknown'} (${i.type || 'N/A'}) — post-tax return: ${i.postTaxReturn || 0}%`).join('\n  ');
+  const instrumentList = (instruments || []).map(i => `${i.name || 'Unknown'} (${i.type || 'N/A'}) � post-tax return: ${i.postTaxReturn || 0}%`).join('\n  ');
 
   // Build SHAP context block if available
   let shapContext = '';
@@ -135,10 +135,27 @@ function getFallbackAdvisory({ age, riskCategory, instruments }) {
   return `Based on your profile as a ${age}-year-old ${riskCategory} investor, ${topInst} aligns well with your financial goals. The recommended instruments balance growth potential with your risk tolerance, optimizing for post-tax returns under the current Indian tax regime.\n\nKey risks include market volatility affecting equity-linked instruments, interest rate changes impacting fixed-income returns, and inflation eroding purchasing power over your investment horizon. Diversification across the recommended instruments helps mitigate these risks.\n\nAs an immediate next step, consider starting a monthly SIP in your top-recommended instrument to benefit from rupee cost averaging and begin building your wealth systematically.`;
 }
 
-export async function chatWithGemini(message, profileContext) {
-  const systemPrompt = `You are WealthGenie, an AI financial advisor for Indian retail investors. The user's profile: Age ${profileContext.age}, Income ₹${profileContext.annualIncome}/yr, Risk: ${profileContext.riskCategory}. Answer concisely in 2-3 sentences. Only give financial advice relevant to Indian markets and tax laws.`;
+export async function getGoalAdvisory(message, profileContext) {
+  const systemPrompt = `You are WealthGenie, an AI financial advisor for Indian retail investors. The user's profile: Age ${profileContext.age}, Income INR ${profileContext.annualIncome}/yr, Risk: ${profileContext.riskCategory}. Answer concisely in 2-3 sentences. Only give financial advice relevant to Indian markets and tax laws.`;
 
-  // ── Attempt 1: Groq API ──
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const res = await axios.post(GEMINI_CHAT_URL, {
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: message }] }],
+        generationConfig: { maxOutputTokens: 300, temperature: 0.6 }
+      }, {
+        timeout: 15000,
+        headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
+      });
+      const text = res.data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('');
+      if (text) return text;
+    } catch (geminiErr) {
+      console.warn('[getGoalAdvisory] Primary Gemini API failed, falling back to Groq:', geminiErr.response?.data || geminiErr.message);
+    }
+  }
+
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
     try {
@@ -160,28 +177,9 @@ export async function chatWithGemini(message, profileContext) {
       const text = res.data?.choices?.[0]?.message?.content;
       if (text) return text;
     } catch (groqErr) {
-      console.error('[chatWithGemini] Groq failed, falling back to Gemini:', groqErr.response?.data || groqErr.message);
+      console.error('[getGoalAdvisory] Fallback Groq API also failed:', groqErr.response?.data || groqErr.message);
     }
   }
 
-  // ── Attempt 2: Gemini API fallback ──
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (geminiKey) {
-    try {
-      const res = await axios.post(GEMINI_CHAT_URL, {
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: message }] }],
-        generationConfig: { maxOutputTokens: 300, temperature: 0.6 }
-      }, {
-        timeout: 15000,
-        headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
-      });
-      const text = res.data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('');
-      if (text) return text;
-    } catch (geminiErr) {
-      console.error('[chatWithGemini] Gemini also failed:', geminiErr.response?.data || geminiErr.message);
-    }
-  }
-
-  return 'I could not process that question right now. Please try again later.';
+  return 'Live AI advice is temporarily unavailable. Keep the goal SIP on schedule, review the allocation in the goal planner, and try refreshing advice again shortly.';
 }

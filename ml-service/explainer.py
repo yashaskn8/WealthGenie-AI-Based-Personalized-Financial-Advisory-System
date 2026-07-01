@@ -1,9 +1,9 @@
-﻿"""
+"""
 WealthGenie SHAP Explainability Layer
 Uses TreeExplainer for fast, exact SHAP values on RandomForest.
 
 =========================================================================
-ðŸ“˜ BEGINNER NOTE: SHAP & SHAPLEY VALUES
+📘 BEGINNER NOTE: SHAP & SHAPLEY VALUES
 =========================================================================
 1. Shapley Values (Game Theory):
    Imagine a group of four friends (Age, Income, Savings, stated Risk) playing 
@@ -68,7 +68,7 @@ class ModelExplainer:
         Generate human-readable explanation for a prediction.
 
         Args:
-            raw_features: numpy array shape (1, 4) â€” [age, income, savings, risk_score]
+            raw_features: numpy array shape (1, 4) � [age, income, savings, risk_score]
 
         Returns:
             dict with predicted_class, confidence, feature_contributions, top_reason

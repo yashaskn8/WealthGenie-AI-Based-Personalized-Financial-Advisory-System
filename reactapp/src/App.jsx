@@ -26,6 +26,7 @@ import GoalPlanner from './components/GoalPlanner';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
 import ProfileEditor from './ProfileEditor';
 import * as api from './services/api';
+import { assertKnownBackendInstrumentTypes, backendToLocalInstrument, localToBackendInstrument } from './utils/instrumentTypeMap';
 
 const PROFILE_STORAGE_KEY = 'wealthgenie_user_profile';
 
@@ -39,7 +40,7 @@ const ProfilePage = () => {
       // Ensure the saved profile belongs to the current authenticated user
       const currentUser = api.getUserInfo();
       if (currentUser && parsed._userId && parsed._userId !== currentUser.id) {
-        // Different user — discard stale profile
+        // Different user � discard stale profile
         localStorage.removeItem(PROFILE_STORAGE_KEY);
         return null;
       }
@@ -299,15 +300,16 @@ const ProfilePage = () => {
   );
 };
 
-/* ===== DASHBOARD SHELL — Sidebar + Pages + Chatbot ===== */
+/* ===== DASHBOARD SHELL � Sidebar + Pages + Chatbot ===== */
 const DashboardShell = ({ userProfile, onProfileUpdate }) => {
   const [activePage, setActivePage] = useState('dashboard');
   const [deepDiveInvestment, setDeepDiveInvestment] = useState(null);
   const [showComparisonTable, setShowComparisonTable] = useState(false);
   const [backendRecs, setBackendRecs] = useState(null);
+  const [backendFallback, setBackendFallback] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Stable serialized key — changes ONLY when profile data changes, not on every render
+  // Stable serialized key � changes ONLY when profile data changes, not on every render
   const profileKey = useMemo(() => JSON.stringify({
     a: userProfile.age, i: userProfile.monthly_income, s: userProfile.monthly_savings,
     r: userProfile.risk_appetite, g: userProfile.investment_goals,
@@ -316,7 +318,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
        userProfile.risk_appetite, userProfile.investment_goals,
        userProfile.investment_horizon, userProfile.taxRegime, userProfile.profileId]);
 
-  // Memoize local recommendations — only recomputes when profile key changes
+  // Memoize local recommendations � only recomputes when profile key changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const localRecommendations = useMemo(() => generateRecommendations(userProfile), [profileKey, userProfile]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,6 +329,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
       try {
         setIsLoading(true);
         setBackendRecs(null); // Clear stale data immediately
+        setBackendFallback(null);
         let activeProfileId = userProfile.profileId;
         if (!activeProfileId) {
           const profileResponse = await api.buildProfile(
@@ -346,8 +349,14 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
           ...recResponse,
           profileId: activeProfileId
         });
+        setBackendFallback(null);
       } catch (err) {
         console.error("Failed to fetch backend recommendations:", err);
+        setBackendRecs(null);
+        setBackendFallback({
+          message: 'Live recommendations unavailable - showing offline estimates',
+          detail: err?.message || null,
+        });
       } finally {
         setIsLoading(false);
       }
@@ -357,30 +366,19 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
 
   // Merge backend data with local recommendations for display
   const recommendations = useMemo(() => {
-    if (!backendRecs) return localRecommendations;
-    
-    const BACKEND_TO_LOCAL_MAP = {
-      'Equity_MF': 'index_mf',
-      'ETF': 'nifty_etf',
-      'ELSS': 'elss',
-      'FD': 'fd',
-      'NPS': 'nps',
-      'RBI_Bond': 'rbi_bonds',
-      'Gold': 'gold_etf',
-      'SGB': 'sgb',
-      'Debt_MF': 'debt_mf',
-      'Liquid_MF': 'liquid_mf',
-      'Hybrid_MF': 'hybrid_mf',
-      'Index_MF': 'index_mf',
-      'Midcap_MF': 'midcap_mf',
-      'Smallcap_MF': 'smallcap_mf'
-    };
+    if (!backendRecs) {
+      return backendFallback
+        ? localRecommendations.map(rec => ({ ...rec, _source: 'local_inactive' }))
+        : localRecommendations;
+    }
+
+    assertKnownBackendInstrumentTypes(backendRecs.instruments?.map(bi => bi.type), 'recommendation merge');
 
     const totalSavings = Number(userProfile?.monthly_savings || userProfile?.savings) || 0;
 
     let merged = localRecommendations.map(lr => {
-      const match = backendRecs.instruments.find(bi => {
-        const localId = BACKEND_TO_LOCAL_MAP[bi.type] || bi.type.toLowerCase();
+      const match = (backendRecs.instruments || []).find(bi => {
+        const localId = backendToLocalInstrument(bi.type);
         return localId === lr.id || bi.name === lr.name || bi.type === lr.id;
       });
       if (match) {
@@ -420,7 +418,7 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
       }
     }
     return merged;
-  }, [backendRecs, localRecommendations, userProfile]);
+  }, [backendFallback, backendRecs, localRecommendations, userProfile]);
 
 
   const handleLearnMore = (investment) => {
@@ -464,30 +462,9 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
         throw new Error("Could not build user profile for database update.");
       }
 
-      const LOCAL_TO_BACKEND_MAP = {
-        'index_mf': 'Index_MF',
-        'nifty_etf': 'ETF',
-        'elss': 'ELSS',
-        'fd': 'FD',
-        'nps': 'NPS',
-        'rbi_bonds': 'RBI_Bond',
-        'gold_etf': 'Gold',
-        'sgb': 'SGB',
-        'debt_mf': 'Debt_MF',
-        'liquid_mf': 'Liquid_MF',
-        'hybrid_mf': 'Hybrid_MF',
-        'midcap_mf': 'Midcap_MF',
-        'smallcap_mf': 'Smallcap_MF',
-        'equity_mf': 'Equity_MF',
-        'ppf': 'PPF',
-        'scss': 'SCSS',
-        'ssy': 'SSY',
-        'g-sec': 'G-Sec',
-      };
-
       const weights = {};
       updated.forEach(item => {
-        const backendKey = LOCAL_TO_BACKEND_MAP[item.id] || item.id;
+        const backendKey = localToBackendInstrument(item.id);
         weights[backendKey] = item.monthly_allocation;
       });
 
@@ -517,6 +494,8 @@ const DashboardShell = ({ userProfile, onProfileUpdate }) => {
             recommendations={recommendations}
             isLoading={isLoading}
             explanation={backendRecs?.explanation || null}
+            fallbackNotice={backendFallback}
+            onDismissFallbackNotice={() => setBackendFallback(null)}
             onRecalculate={() => setActivePage('profile')}
             onLearnMore={handleLearnMore}
             onExploreAll={() => setShowComparisonTable(true)}
@@ -825,7 +804,7 @@ function AuthPage() {
                     <input 
                        type={showPassword ? 'text' : 'password'} 
                        id="login-password" 
-                       placeholder="••••••••" 
+                       placeholder="��������" 
                        required 
                     />
                     <button
@@ -1013,3 +992,4 @@ function App() {
 }
 
 export default App;
+

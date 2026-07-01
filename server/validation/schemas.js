@@ -131,8 +131,8 @@ export const goalSchema = Joi.object({
 export const goalUpdateSchema = Joi.object({
   target_amount: Joi.number().min(1000).max(10000000000).optional()
     .messages({
-      'number.min': 'Target amount must be at least â‚¹1,000',
-      'number.max': 'Target amount cannot exceed â‚¹1,000 Crores',
+      'number.min': 'Target amount must be at least ₹1,000',
+      'number.max': 'Target amount cannot exceed ₹1,000 Crores',
     }),
   current_savings: Joi.number().min(0).max(10000000000).optional(),
   priority: Joi.string().valid('Critical', 'High', 'Medium', 'Low').optional(),
