@@ -1,4 +1,4 @@
-﻿# WealthGenieFV Audit Progress
+# WealthGenieFV Audit Progress
 
 ## Files Analyzed
 - 124 / 124 tracked files reviewed.
@@ -65,3 +65,81 @@
 ## Next Steps
 - Re-run the same verification commands after any future edits.
 - For deployment acceptance, run a live environment smoke test with real MongoDB, Redis, ML service model files, and LLM keys configured.
+
+## Strict Repair Loop Update - 2026-07-02 01:02:02 +05:30
+
+Progress percentage: 9% (1/11 mandated checklist items verified)
+
+### Bugs fixed
+- Item 1: Unified LLM fallback order across advisory paths. server/services/geminiService.js#getGoalAdvisory, generateAdvisory, and server/services/geminiChatService.js#processChat now use Gemini primary, Groq secondary, deterministic/static fallback last.
+- Renamed misleading chatWithGemini export to getGoalAdvisory and updated server/routes/goals.js import/call site.
+
+### Verification evidence
+- 
+ode --check server\\services\\geminiService.js passed.
+- 
+ode --check server\\routes\\goals.js passed.
+- g -n "chatWithGemini|generateAdvisory|processChat|getGoalAdvisory" server shows no remaining chatWithGemini references and expected imports/call sites only.
+- 
+pm test in server/ passed: 14 tests, 14 pass, 0 fail.
+
+### Files modified
+- server/services/geminiService.js
+- server/routes/goals.js
+
+### Remaining issues
+- Items 2-11 from the latest strict repair checklist remain in progress.
+
+### Next steps
+- Remove dead ML /predict and /backtest endpoints plus exclusive backtester code, then verify with grep and Python compilation/tests.
+
+## Strict Repair Loop Update - 2026-07-02 01:03:54 +05:30
+
+Progress percentage: 18% (2/11 mandated checklist items verified)
+
+### Bugs fixed
+- Item 2: Removed unreachable ML POST /predict and GET /backtest/{instrument_type} endpoints instead of adding new product surface.
+- Deleted ml-service/backtester.py, which exclusively served the removed backtest endpoint.
+- Kept POST /predict/enriched, the route actually called by server/services/mlClient.js.
+
+### Verification evidence
+- g -n '/predict"|/backtest|run_backtest|BacktestResult|INSTRUMENT_MARKET_SENSITIVITY' ml-service server reactapp\\src returned no matches.
+- python -X pycache_prefix=.\\tmp_pycache -m py_compile ml-service\\main.py ml-service\\schemas.py ml-service\\feature_engineering.py ml-service\\explainer.py ml-service\\model\\train.py passed.
+- python -m pytest in ml-service/ passed: 2 tests, 2 pass, 0 fail.
+
+### Files modified
+- ml-service/main.py
+- ml-service/backtester.py removed
+
+### Remaining issues
+- Items 3-11 from the latest strict repair checklist remain in progress.
+
+### Next steps
+- Surface backend recommendation fallback failures in the UI and replace duplicate instrument-type maps with a shared source of truth.
+
+## Strict Repair Loop Update - 2026-07-02 01:17:37 +05:30
+
+Progress percentage: 32% (items 1, 2, and 4 verified; item 3 fixed with render proof queued for item 6)
+
+### Bugs fixed
+- Item 3 code fix: Backend recommendation/profile failures now set ackendFallback, pass a visible fallback notice into RecommendationDashboard, and mark rendered local recommendations as _source: 'local_inactive' while in fallback state.
+- Item 4: Replaced duplicated frontend instrument-type literal maps with eactapp/src/utils/instrumentTypeMap.js as the single source of truth.
+- Added dev-only missing backend-type warning via ssertKnownBackendInstrumentTypes.
+
+### Verification evidence
+- g -n "BACKEND_TO_LOCAL_MAP|LOCAL_TO_BACKEND_MAP" reactapp\\src -g "*.jsx" returned no JSX literal map references.
+- 
+pm run build in eactapp/ passed: Vite transformed 2940 modules and built successfully.
+
+### Files modified
+- eactapp/src/App.jsx
+- eactapp/src/RecommendationDashboard.jsx
+- eactapp/src/components/RebalancerScreen.jsx
+- eactapp/src/utils/instrumentTypeMap.js
+
+### Remaining issues
+- Item 3 still needs executable component proof when Vitest is added under item 6.
+- Items 5-11 remain in progress.
+
+### Next steps
+- Run BOM/mojibake detection across tracked files, clean affected text files, and prove both detectors return empty output.

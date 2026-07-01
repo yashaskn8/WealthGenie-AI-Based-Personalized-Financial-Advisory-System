@@ -1,4 +1,4 @@
-﻿# WealthGenieFV Audit Checklist
+# WealthGenieFV Audit Checklist
 
 Generated from `git ls-files` in `C:\Users\prana\OneDrive\Desktop\WEALTHGENIEFV`.
 
@@ -179,3 +179,11 @@ Generated from `git ls-files` in `C:\Users\prana\OneDrive\Desktop\WEALTHGENIEFV`
 ## New Verification Files
 - `server/test/*.test.js`: backend engine, middleware, and portfolio route tests added for verified coverage.
 - `ml-service/tests/test_ml_validation.py`: ML validation and feature-order tests added.
+
+| Strict item 1: LLM fallback order | Y | Inconsistent fallback order and misleading chatWithGemini name | Fixed by renaming to getGoalAdvisory and using Gemini -> Groq -> static | node --check touched files; npm test in server passed (14/14); rg shows no chatWithGemini |
+
+| Strict item 2: Dead ML endpoints | Y | Unreachable /predict and /backtest endpoints plus exclusive backtester code | Removed endpoints and backtester module; retained /predict/enriched | rg returned zero removed-pattern matches; py_compile passed; ml-service pytest passed (2/2) |
+
+| Strict item 3: Frontend fallback visibility | Y | Backend recommendation failures failed silently | Added dashboard fallback state, visible banner, and _source: local_inactive tagging | npm run build passed; component render test pending under item 6 |
+
+| Strict item 4: Instrument map drift | Y | Duplicate local/backend map literals in App and RebalancerScreen | Added shared instrumentTypeMap utility and dev-only missing-map assertion | rg over JSX map names clean; npm run build passed |

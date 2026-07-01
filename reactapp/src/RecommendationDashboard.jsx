@@ -23,6 +23,61 @@ const CATEGORY_COLORS = {
 };
 const DEFAULT_COLORS = ['#6366f1', '#06b6d4', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#a855f7'];
 
+const SOURCE_BADGES = {
+  backend: { label: 'Live backend', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.10)', border: 'rgba(56, 189, 248, 0.22)' },
+  local_inactive: { label: 'Offline estimate', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.10)', border: 'rgba(245, 158, 11, 0.24)' },
+  local_engine: { label: 'Local estimate', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.16)' },
+};
+
+const getSourceBadge = (source) => SOURCE_BADGES[source] || null;
+
+export const BackendFallbackBanner = ({ notice, onDismiss }) => {
+  if (!notice) return null;
+  return (
+    <div
+      role="status"
+      data-testid="backend-fallback-banner"
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px',
+        background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.24)',
+        borderRadius: 12, marginBottom: 14, fontSize: '0.78rem', lineHeight: 1.5, color: '#fbbf24'
+      }}
+    >
+      <AlertCircle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 800, marginBottom: 2 }}>{notice.message || 'Live recommendations unavailable - showing offline estimates'}</div>
+        {notice.detail && <div style={{ color: '#94a3b8', fontSize: '0.72rem' }}>{notice.detail}</div>}
+      </div>
+      <button
+        type="button"
+        aria-label="Dismiss fallback notice"
+        onClick={onDismiss}
+        style={{
+          background: 'rgba(10, 16, 30, 0.5)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+          color: '#f8fafc', fontSize: '0.68rem', padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit'
+        }}
+      >Dismiss</button>
+    </div>
+  );
+};
+
+const RecommendationSourceBadge = ({ source }) => {
+  const badge = getSourceBadge(source);
+  if (!badge) return null;
+  return (
+    <span
+      data-testid={'recommendation-source-' + source}
+      style={{
+        display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap',
+        background: badge.bg, color: badge.color, border: '1px solid ' + badge.border,
+        borderRadius: 8, padding: '2px 7px', fontSize: '0.62rem', fontWeight: 700, lineHeight: 1.2
+      }}
+    >
+      {badge.label}
+    </span>
+  );
+};
+
 // Map slider value (1-10) → risk appetite label
 const riskValueToLabel = (v) => {
   const n = Number(v);
@@ -31,7 +86,7 @@ const riskValueToLabel = (v) => {
   return 'High';
 };
 
-const RecommendationDashboard = ({ userProfile, recommendations: propRecommendations, onExploreAll, onRebalance, onNavigate, onLearnMore, isLoading: isLoadingProp, explanation }) => {
+const RecommendationDashboard = ({ userProfile, recommendations: propRecommendations, onExploreAll, onRebalance, onNavigate, onLearnMore, isLoading: isLoadingProp, explanation, fallbackNotice, onDismissFallbackNotice }) => {
   const defaultHorizon = userProfile?.investment_horizon || 15;
   const [horizon, setHorizon] = useState(defaultHorizon);
   const [initialCapital, setInitialCapital] = useState(Number(userProfile?.existing_savings) || 0);
@@ -193,7 +248,8 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
         proj: (futureValue / 100000).toFixed(2) + 'L',
         lockIn: rec.lock_in_years || rec.lockIn || 0,
         taxBadge: rec.taxType === "eee" || rec.taxType === "elss" || rec.taxType === "nps" || rec.tax_benefit,
-        taxLabel: rec.taxType === "eee" ? "EEE" : rec.taxType === "elss" ? "80C" : rec.taxType === "nps" ? "80CCD" : rec.tax_section || null
+        taxLabel: rec.taxType === "eee" ? "EEE" : rec.taxType === "elss" ? "80C" : rec.taxType === "nps" ? "80CCD" : rec.tax_section || null,
+        source: rec._source || null
       });
     });
 
@@ -442,7 +498,13 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
 
 
 
-        {/* ─── ELIGIBILITY NOTICE ─── */}
+        <BackendFallbackBanner notice={fallbackNotice} onDismiss={onDismissFallbackNotice} />
+
+
+
+
+
+        {/* ELIGIBILITY NOTICE */}
         {excludedCount > 0 && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
@@ -1041,6 +1103,7 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                             <td style={{ color: '#fff', fontWeight: 600, letterSpacing: '-0.2px' }}>
                               <div style={{display: 'flex', alignItems: 'center', gap: 5}}>
                                 {child.fullName || child.name}
+                                <RecommendationSourceBadge source={child.source} />
                                 {INSTRUMENT_EXPLAINERS[child.instId] && (
                                   <span
                                     onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === `tbl-${child.instId}` ? null : `tbl-${child.instId}`); }}
@@ -1395,6 +1458,8 @@ const RecommendationDashboard = ({ userProfile, recommendations: propRecommendat
                       <div style={{flex: 1}}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontWeight: 700, fontSize: '1.05rem', color: '#f1f5f9', letterSpacing: '-0.3px' }}>{rec.abbr || rec.name}</span>
+                          <RecommendationSourceBadge source={rec._source} />
+
                           {INSTRUMENT_EXPLAINERS[rec.id] && (
                             <span 
                               onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === rec.id ? null : rec.id); }}

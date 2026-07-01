@@ -1,4 +1,4 @@
-﻿# Backend Update / Git Handoff
+# Backend Update / Git Handoff
 
 ## Completed So Far
 - Full repository audit completed for 124 tracked files.
