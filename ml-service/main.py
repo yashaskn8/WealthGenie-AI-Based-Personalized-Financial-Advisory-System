@@ -49,7 +49,7 @@ explainer_instance = None
 # ── Lifespan (replaces deprecated @app.on_event) ─────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global model, label_encoder, dt_model, explainer_instance
+    global model, label_encoder, dt_model, model_accuracy, explainer_instance
     try:
         model = joblib.load(MODEL_PATH)
         label_encoder = joblib.load(LE_PATH)
@@ -64,6 +64,19 @@ async def lifespan(app: FastAPI):
         pass
     except Exception as e:
         print(f"[WARN] DecisionTree load failed: {e}")
+
+    # Load training metadata (accuracy, timestamps, etc.)
+    metadata_path = os.path.join(MODEL_DIR, 'metadata.json')
+    try:
+        import json
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+        model_accuracy = metadata.get('rf_accuracy')
+        print(f"[OK] Model metadata loaded: accuracy={model_accuracy}")
+    except FileNotFoundError:
+        print("[WARN] metadata.json not found. model_accuracy will be null.")
+    except Exception as e:
+        print(f"[WARN] Failed to load metadata.json: {e}")
 
     # Initialize SHAP explainer from preloaded model and label encoder to avoid double-loading
     if model is not None and label_encoder is not None:

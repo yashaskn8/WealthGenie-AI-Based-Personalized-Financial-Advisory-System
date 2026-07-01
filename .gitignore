@@ -62,3 +62,5 @@ asssets/
 *.fls
 *.synctex.gz
 *.pdf
+tmp_pycache/
+

@@ -333,6 +333,39 @@ const TaxScreen = ({ profile }) => {
         <div className="tax-header-divider" />
       </motion.header>
 
+      {/* UNVERIFIED TAX DATA WARNING */}
+      <AnimatePresence>
+        {serverTaxData && (serverTaxData.verified === false || serverTaxData.warning) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%)',
+              border: '2px solid rgba(245, 158, 11, 0.5)',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '24px',
+              display: 'flex',
+              gap: '14px',
+              alignItems: 'flex-start',
+              backdropFilter: 'blur(20px)',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', padding: '10px', borderRadius: '12px', flexShrink: 0 }}>
+              <Info size={22} />
+            </div>
+            <div>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 800, color: '#f59e0b' }}>⚠️ UNVERIFIED TAX DATA</h4>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#fbbf24', lineHeight: 1.5 }}>
+                {serverTaxData.warning || 'The tax slabs used for this calculation have not been confirmed against an official gazette source. Do not use this for actual tax filing.'}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Verdict Banner */}
       <motion.div 
         initial={{ opacity: 0, y: 15 }}

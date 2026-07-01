@@ -157,6 +157,7 @@ export const taxComputeSchema = Joi.object({
   homeLoanInterest: Joi.number().min(0).max(200000).optional(),
   other: Joi.number().min(0).optional(),
   age: Joi.number().integer().min(18).max(120).optional(),
+  fiscalYear: Joi.string().pattern(/^FY\d{4}-\d{2}$/).optional(),
 });
 
 export const taxCompareSchema = Joi.object({
@@ -177,6 +178,7 @@ export const taxCompareSchema = Joi.object({
   homeLoanInterest: Joi.number().min(0).max(200000).optional(),
   other: Joi.number().min(0).optional(),
   age: Joi.number().integer().min(18).max(120).optional(),
+  fiscalYear: Joi.string().pattern(/^FY\d{4}-\d{2}$/).optional(),
 });
 
 // ── Rebalance Schema ───────────────────────────────────────────────

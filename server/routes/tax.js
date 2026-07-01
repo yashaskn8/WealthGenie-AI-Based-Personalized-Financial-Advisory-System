@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler, createError } from '../middleware/errorHandler.js';
 import { validateQuery, taxComputeSchema, taxCompareSchema } from '../validation/schemas.js';
-import { computeTax, compareTaxRegimes } from '../services/taxEngine.js';
+import { computeTax, compareTaxRegimes, isFYVerified, CURRENT_FY } from '../services/taxEngine.js';
 import { CESS_RATE } from '../services/instrumentConstants.js';
 
 const router = Router();
@@ -36,8 +36,15 @@ router.get('/compute', validateQuery(taxComputeSchema), asyncHandler(async (req,
     age: req.query.age !== undefined ? Number(req.query.age) : undefined,
   };
 
-  const result = computeTax(income, regime, deductions, req.query.incomeSource);
-  res.json(result);
+  const result = computeTax(income, regime, deductions, req.query.incomeSource, req.query.fiscalYear);
+
+  const fiscalYear = result.fiscalYear || req.query.fiscalYear || CURRENT_FY;
+  const verified = isFYVerified(fiscalYear);
+  const response = { ...result, fiscal_year: fiscalYear, verified };
+  if (!verified) {
+    response.warning = `UNVERIFIED: Tax slabs for ${fiscalYear} have not been confirmed against an official source. Do not rely on this for tax filing.`;
+  }
+  res.json(response);
 }));
 
 /**
@@ -68,11 +75,16 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
     age: req.query.age !== undefined ? Number(req.query.age) : undefined,
   };
 
-  const { newRegime, oldRegime, recommended } = compareTaxRegimes(income, deductions, req.query.incomeSource);
+  const { newRegime, oldRegime, recommended } = compareTaxRegimes(income, deductions, req.query.incomeSource, req.query.fiscalYear);
   const saving = Math.abs(newRegime.taxAmount - oldRegime.taxAmount);
 
-  res.json({
+  const fiscalYear = newRegime.fiscalYear || req.query.fiscalYear || CURRENT_FY;
+  const verified = isFYVerified(fiscalYear);
+
+  const response = {
     income,
+    fiscal_year: fiscalYear,
+    verified,
     new_regime: {
       tax: newRegime.taxAmount,
       effective_rate: newRegime.effectiveRate,
@@ -101,7 +113,11 @@ router.get('/compare', validateQuery(taxCompareSchema), asyncHandler(async (req,
     saving,
     saving_pct: income > 0 ? parseFloat(((saving / income) * 100).toFixed(2)) : 0,
     saving_with: recommended,
-  });
+  };
+  if (!verified) {
+    response.warning = `UNVERIFIED: Tax slabs for ${fiscalYear} have not been confirmed against an official source. Do not rely on this for tax filing.`;
+  }
+  res.json(response);
 }));
 
 export default router;

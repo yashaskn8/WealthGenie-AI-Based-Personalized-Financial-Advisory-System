@@ -345,7 +345,9 @@ router.get('/', verifyJWT, asyncHandler(async (req, res) => {
             yearsRemaining, profile.taxRegime || 'new'
           );
           postTaxRate = ptResult.postTaxReturn;
-        } catch (_) {}
+        } catch (err) {
+          console.warn('[Goals] Failed to calculate post-tax return during Monte Carlo:', err.message);
+        }
       }
       
       const targetAmt = g.inflation_adjusted_target || g.target_amount;
@@ -463,7 +465,9 @@ router.patch('/:goalId', verifyJWT, validate(goalUpdateSchema), asyncHandler(asy
           yearsRemaining, profile.taxRegime || 'new'
         );
         postTaxRate = ptResult.postTaxReturn;
-      } catch (_) {}
+      } catch (err) {
+        console.warn('[Goals] Failed to calculate post-tax return during goal initialization:', err.message);
+      }
     }
 
     const inflationRate = 0.05;

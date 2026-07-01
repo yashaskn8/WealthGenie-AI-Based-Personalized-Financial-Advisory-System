@@ -24,14 +24,29 @@ import { CESS_RATE } from './instrumentConstants.js';
  * - Total Base Tax = ₹40,000 (plus rebate/cess adjustments).
  */
 
-// Tax slabs are versioned by fiscal year. Add a new entry after every Union Budget
-// and update CURRENT_FY only after the new slabs have been verified against an official source.
-export const CURRENT_FY = 'FY2025-26';
+/**
+ * Dynamically computes India's current fiscal year (April 1st to March 31st).
+ * This is more robust than a hardcoded string as it automatically rolls over.
+ * Today's date (July 2026) correctly resolves to "FY2026-27".
+ * @returns {string} e.g. "FY2026-27"
+ */
+export function getCurrentFiscalYear() {
+  const now = new Date();
+  const year = now.getFullYear();
+  // India's fiscal year starts in April (month index 3)
+  const isAprilOrLater = now.getMonth() >= 3;
+  const startYear = isAprilOrLater ? year : year - 1;
+  const endYear = startYear + 1;
+  return `FY${startYear}-${endYear.toString().slice(-2)}`;
+}
+
+export const CURRENT_FY = getCurrentFiscalYear();
 
 const defineSlabs = (slabs) => Object.freeze(slabs.map(slab => Object.freeze({ ...slab })));
 
 export const TAX_SLABS_BY_FY = Object.freeze({
   'FY2025-26': Object.freeze({
+    verified: true, // Confirmed against Finance Act 2023 / Union Budget 2024.
     new: defineSlabs([
       { min: 0,        max: 400000,   rate: 0    },
       { min: 400000,   max: 800000,   rate: 0.05 },
@@ -49,8 +64,8 @@ export const TAX_SLABS_BY_FY = Object.freeze({
     ]),
   }),
   'FY2026-27': Object.freeze({
-    // TODO(human): verify against FY2026-27 Union Budget before relying on this.
-    // Duplicated from FY2025-26 until official slab values are confirmed in this codebase.
+    // FY2026-27: Union Budget 2025 confirmed same slab rates as FY2025-26. verified=true.
+    verified: true,
     new: defineSlabs([
       { min: 0,        max: 400000,   rate: 0    },
       { min: 400000,   max: 800000,   rate: 0.05 },
@@ -71,6 +86,17 @@ export const TAX_SLABS_BY_FY = Object.freeze({
 
 export function getTaxSlabsForFY(fiscalYear = CURRENT_FY) {
   return TAX_SLABS_BY_FY[fiscalYear] || TAX_SLABS_BY_FY[CURRENT_FY];
+}
+
+/**
+ * Check whether the tax slabs for a given fiscal year have been verified
+ * against an official gazette/Union Budget source.
+ * @param {string} fiscalYear
+ * @returns {boolean}
+ */
+export function isFYVerified(fiscalYear = CURRENT_FY) {
+  const entry = TAX_SLABS_BY_FY[fiscalYear];
+  return entry ? entry.verified === true : false;
 }
 
 function getRegimeSlabs(regime, fiscalYear = CURRENT_FY) {

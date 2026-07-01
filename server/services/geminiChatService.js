@@ -141,7 +141,7 @@ export async function processChat({ userId, user, message, sessionId }) {
   let systemPrompt = await getCache(promptCacheKey);
   if (!systemPrompt) {
     let marketData = null;
-    try { const cached = await getCache('index:stats:^NSEI'); marketData = cached ? { nifty: cached } : null; } catch (_) {}
+    try { const cached = await getCache('index:stats:^NSEI'); marketData = cached ? { nifty: cached } : null; } catch (err) { console.warn('[GeminiChatService] Redis cache read failed:', err.message); }
     systemPrompt = buildSystemPrompt(fullUser, profile, recommendation, marketData, goals);
     console.info(`[Chat] System prompt built. Length: ${systemPrompt.length} chars.`);
     await setCache(promptCacheKey, systemPrompt, SYSTEM_PROMPT_TTL);
